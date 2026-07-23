@@ -44,8 +44,8 @@ starting Layer 3 onward.
 
 | # | Layer | Status | Notes file |
 |---|-------|--------|------------|
-| 1 | Universe & Instrument Registry | **built, awaiting verification sign-off** | `01_universe_instrument_registry.md` |
-| 2 | Market Data (real-time + historical) | not started — **decided**: multi-broker data sourcing (Kite + Upstox/Angel One/ICICI Direct/Groww), secondary NSE ingestion built now, `../PLAN.md` §8a.6/.12 | — |
+| 1 | Universe & Instrument Registry | **built & signed off** (tests re-verified 2026-07-23, 8/8 passing) | `01_universe_instrument_registry.md` |
+| 2 | Market Data (real-time + historical) | **in progress** — data model, swappable source protocols, Kite adapters, and all five NSE official-report ingests built & live-verified 2026-07-23; remaining: other-broker adapters (awaiting user's APIs), persistence/replay store | `02_market_data_sourcing.md` |
 | 3 | Indicator / Feature Engineering | not started — menu in `../research/07_strategy_indicator_option_taxonomy.md` §A | — |
 | 4 | Strategy / Signal Engine | not started — menu in `../research/07_...` §B/§C; v1 shortlist proposed in `../PLAN.md` §7 | — |
 | 5 | Risk Management | not started — must model per-combination option margin + undefined-risk-leg detection, `../PLAN.md` §4 | — |
@@ -67,7 +67,17 @@ Each layer's file (once it exists) documents, cumulatively:
 ```
 [Layer 1: Universe & Instrument Registry]
    -> produces the Instrument catalogue (cash + index-options + stock-options)
-   -> (nothing consumes it yet — Layer 2 will)
+        |
+        v
+[Layer 2: Market Data]  (in progress)
+   Broker side (swappable protocols; Kite adapter first):
+     HistoricalBarSource -> list[PriceBar]
+     LiveTickStreamSource -> MarketTick callbacks
+   NSE official-reports side:
+     NseReportDownloader + 5 parsers -> delivery %, EOD OI, ban list,
+     MWPL utilization, bulk/block deals
+   -> (nothing consumes these yet — Layer 3 Indicators and the Layer 7
+       replay store will be the first consumers)
 ```
 
-Full detail: `01_universe_instrument_registry.md`.
+Full detail: `01_universe_instrument_registry.md`, `02_market_data_sourcing.md`.
