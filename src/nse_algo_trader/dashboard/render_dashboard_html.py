@@ -13,11 +13,19 @@ import json
 from nse_algo_trader.dashboard.dashboard_read_model import DashboardSnapshot
 
 _SNAPSHOT_TOKEN = "/*__DASHBOARD_SNAPSHOT_JSON__*/"
+_API_KEY_TOKEN = "/*__LIVE_API_KEY__*/"
 
 
-def render_dashboard_html(snapshot: DashboardSnapshot) -> str:
+def render_dashboard_html(
+    snapshot: DashboardSnapshot, live_api_key: str | None = None
+) -> str:
+    """Render the dashboard. When `live_api_key` is given (server mode), the
+    control panel POSTs edits live to /api/config; otherwise (artifact mode)
+    it persists to localStorage and exports the config JSON."""
     return _DASHBOARD_HTML_TEMPLATE.replace(
         _SNAPSHOT_TOKEN, json.dumps(snapshot.to_json_dict())
+    ).replace(
+        _API_KEY_TOKEN, json.dumps(live_api_key)
     )
 
 
@@ -133,6 +141,7 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
     <div class="actions">
       <button class="act" id="copyBtn" type="button">Copy config JSON</button>
       <button class="act" id="resetBtn" type="button">Reset to saved</button>
+      <span class="note" id="savestate" style="margin:0;align-self:center"></span>
     </div>
     <pre class="cfg" id="cfgPreview"></pre>
   </div>
@@ -155,12 +164,24 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
 </div>
 <script>
 const SNAPSHOT = /*__DASHBOARD_SNAPSHOT_JSON__*/;
+const LIVE_API_KEY = /*__LIVE_API_KEY__*/;  // set in server mode, null in artifact mode
 const rupee = n => "₹" + Math.round(n).toLocaleString("en-IN");
 const CFG_KEY = "nse_algo_trader_control_config";
 let cfg = JSON.parse(JSON.stringify(SNAPSHOT.control_config));
-try { const saved = localStorage.getItem(CFG_KEY); if (saved) cfg = JSON.parse(saved); } catch(e){}
+if (!LIVE_API_KEY) { try { const s = localStorage.getItem(CFG_KEY); if (s) cfg = JSON.parse(s); } catch(e){} }
 
-function saveCfg(){ try{ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }catch(e){} renderCfg(); }
+function saveCfg(){
+  renderCfg();
+  if (LIVE_API_KEY){
+    // server mode — write straight to the VPS config the bot reads
+    fetch("/api/config?key=" + encodeURIComponent(LIVE_API_KEY), {
+      method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(cfg)
+    }).then(r=>{ const s=document.getElementById("savestate");
+      if(s) s.textContent = r.ok ? "saved to VPS ✓" : "save rejected"; }).catch(()=>{});
+  } else {
+    try{ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }catch(e){}
+  }
+}
 function renderCfg(){
   document.getElementById("cfgPreview").textContent = JSON.stringify(cfg, null, 2);
   const paper = cfg.trading_mode === "paper";

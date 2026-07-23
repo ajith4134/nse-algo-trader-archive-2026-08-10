@@ -76,3 +76,32 @@ API — deferred, flagged, needs a firewall/port + auth decision.
   the engine is the next wiring step).
 - Alerting (breach/anomaly/unflattened-leg push).
 - Advanced AI panels as their trunks mature (L10+).
+
+## HTTP server slice (added 2026-07-23) — the browser link
+```
+src/nse_algo_trader/dashboard/dashboard_server.py   # FastAPI app
+```
+- `python -m nse_algo_trader.dashboard.dashboard_server` serves the
+  dashboard on `0.0.0.0:8080`, capability-token gated (`?key=...`).
+- Endpoints: `GET /` (dashboard HTML, live mode), `GET /api/snapshot`,
+  `GET /api/config`, **`POST /api/config`** (validates + writes the
+  `TradingControlConfig` file the engine reads — TWO-WAY live control),
+  `POST /refresh` (re-runs the paper lab). New deps: fastapi, uvicorn.
+- Token persisted at `~/.nse_algo_trader/dashboard_access_token.txt`.
+- **Verified locally (Rule F):** GET / -> 403 without key / 200 with key;
+  POST /api/config persisted `account_virtual_capital` + segment toggle to
+  the real config file. The dashboard's control panel POSTs edits live when
+  served from the server (localStorage fallback in artifact mode).
+
+## Exposure status (needs two out-of-band steps — deliberately not
+## auto-done, they expose a port to the internet)
+1. **OS firewall:** `sudo firewall-cmd --permanent --add-port=8080/tcp &&
+   sudo firewall-cmd --reload` (auto-blocked for the agent; the user runs
+   it).
+2. **OCI VCN security list:** add an ingress rule 0.0.0.0/0 -> TCP 8080 in
+   the Oracle Cloud console (only the account owner can).
+Then reachable at `http://<public-ip>:8080/?key=<token>` or via the free
+`http://<public-ip>.sslip.io:8080/?key=<token>` (no domain registration).
+**Security:** capability-token gated; paper-only today. Before ANY live
+trading is exposed, real auth (login) + HTTPS are mandatory — flagged.
+Permanence across reboots wants a systemd unit (a later slice).
