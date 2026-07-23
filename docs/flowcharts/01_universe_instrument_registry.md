@@ -1,6 +1,8 @@
 # 01 — Universe & Instrument Registry
 
-**Status:** built, tested, awaiting user verification before Layer 2 starts.
+**Status:** built & signed off (8/8 tests, live-verified 2026-07-23). Layers
+2-9 build on it. (History below is kept per Rule B; do not treat older
+"awaiting sign-off" notes as current.)
 
 ## What this layer does
 Takes a raw Kite Connect instrument-master dump (one dict per tradable

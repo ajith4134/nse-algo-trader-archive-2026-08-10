@@ -7,7 +7,7 @@ segment.
 
 **Phase 1 scope (active now):** NSE cash equity intraday + NSE options
 intraday (index options: NIFTY, NIFTYNXT50, FINNIFTY, MIDCPNIFTY, BANKNIFTY;
-plus NSE single-stock options, ~185-208 names, list reviewed quarterly).
+plus NSE single-stock options, ~210 stock-option underlyings (215 total option underlyings incl. 5 indices), reviewed quarterly).
 
 **Deferred to a later phase (do not build yet):** NSE/BSE futures, commodity
 derivatives, BSE index options (SENSEX, BANKEX).

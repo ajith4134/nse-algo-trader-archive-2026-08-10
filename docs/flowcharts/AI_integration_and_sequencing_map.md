@@ -1,5 +1,7 @@
 # AI Trunk/Branch ↔ Layer Integration & Sequencing Map
 
+**As of 2026-07-23:** Layers 1-6 built, L7 in progress, L8-9 core built — this map's "before Layer 7" framing is the original context; the trunk->layer mapping below stays current.
+
 **Purpose:** answer, in one place, the questions the user asked before
 Layer 7: *how do the 16 trunks / ~200 branches (research/32-36) connect
 to each other AND to the existing layer roadmap, and at what step does
@@ -46,7 +48,7 @@ operate on (Rule F, below).
 | **XIV AXIOLOGY** | L5 (implicit) | L10 | risk/sizing encode implicit values; explicit value system at L10 |
 | **VIII SENTIENCE/WORKSPACE** | L10 | L10 | needs ≥2 modules to bind — the workspace integrator arrives with L10 |
 | **XII CURIOSITY** | L7 (seed) | L10 | UNCERTAIN-table allocation is proto-curiosity; intrinsic-motivation at L10 |
-| **V SELF** | L10 | L11 | ontogeny ladder organizes L7+ paper stages; self-mod/evolution at L10/11 |
+| **V SELF** | L7 (seed) | L11 | ontogeny ladder organizes L7+ paper stages; self-mod/evolution at L10/11 |
 | **VI SOCIETY** | L9 | L10 | human interface = dashboard (L9); council/external-agents at L10 |
 | **X AUTOPOIESIS** | L7 (ops) | L10 | self-maintenance/heartbeats at L7; metabolic accounting at L10 |
 | **XI GENERATIVITY** | L10 | L11 | strategy evolution/open-endedness — needs the lab + memory first |

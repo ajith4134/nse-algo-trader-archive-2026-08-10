@@ -1,8 +1,11 @@
 # 07 — Backtesting & Paper Trading (Layer 7)
 
-**Status:** IN PROGRESS. Foundation built — the MarketClock-gated
-DataSourceRouter (24/7 replay↔live, PLAN §1.4) — tested + Rule-F
-real-data verified. Remaining Layer 7 scope listed at the bottom.
+**Status:** IN PROGRESS. Core built (v1) — MarketClock-gated
+DataSourceRouter (24/7 replay↔live) · paper engine (loop-closing) · §9
+prediction-labeled tables lab · realistic slippage model · Deflated-Sharpe
+promotion gate — all Rule-F verified. **Remaining: CPCV gate + live-feed
+handoff (blocked on an open market session).** See the "Layer 7 status"
+footer for the full slice list.
 
 ## Why this layer is special
 Per the AI integration map, **Layer 7 is where 5 trunks first ignite**:

@@ -1,9 +1,10 @@
 # 02 — Market Data (Layer 2): Broker-Neutral Sourcing + NSE Official Reports
 
-**Status:** first feature-set built and tested (broker-neutral data model,
-swappable source protocols, Kite adapters, all five NSE official-report
-ingests). Awaiting user verification sign-off. Remaining Layer 2 work
-listed at the bottom.
+**Status:** complete for v1 (Kite-only per PLAN §8a.13), all feature-sets
+live-verified 2026-07-23 — broker-neutral data model, swappable source
+protocols, Kite adapters, all five NSE official-report parsers (over six
+report files), SQLite store, F&O history backfill, and the daily ingestion
+job. Other-broker adapters deferred post-completion.
 
 ## What this layer does
 Two halves, per `../PLAN.md` §8a.6/.12:

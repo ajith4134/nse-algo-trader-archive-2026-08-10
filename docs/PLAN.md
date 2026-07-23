@@ -1,8 +1,14 @@
 # NSE Algo Trading Bot — Master Build Plan
 
-**Status: planning/discussion document. Nothing in this file has been
-implemented. No existing code has been touched while writing this — Layer
-1 is untouched and still awaiting your sign-off separately.**
+**Status: SUPERSEDED for live status — this was the "decide everything
+first" planning document; as of 2026-07-23 Layers 1-6 are built, Layer 7
+in progress, Layers 8-9 core built. For current build status always read
+`flowcharts/00_project_overview.md`. This file is kept as the append-only
+plan/decisions record (Rule B); its original "nothing implemented" framing
+below reflects the moment it was written, not today.**
+
+_(original planning-time note, kept for history:)_ Nothing in this file
+has been implemented yet; Layer 1 untouched and awaiting sign-off.
 
 This is the "decide all the features first" document you asked for, before
 any more implementation happens. It ties together every research file

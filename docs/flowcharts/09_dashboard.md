@@ -1,8 +1,10 @@
 # 09 — Dashboard, Monitoring & Alerting (Layer 9)
 
-**Status:** foundation built (v1) — read-model + control config + HTML
-renderer + published browser-reachable dashboard. Rule-F verified from a
-real paper run. Live two-way remote control (an exposed API) not enabled.
+**Status:** core built (v1) — read-model + control config & enforcement +
+redesigned browser dashboard + **two-way live control API (server mode)** +
+monitoring alerts + auto-refresh. Rule-F verified. Deferred: push alerts,
+live WebSocket tick feed (blocked on an open session), advanced AI panels
+(Layer 10).
 
 ## Whole-pipeline data flow so far
 ```
@@ -65,7 +67,7 @@ API — deferred, flagged, needs a firewall/port + auth decision.
 - **Real-data pass:** snapshot built from a real 22-session INFY paper run
   (with slippage) -> realized P&L ₹72,274, 34 fills, flat; §9 tables
   CONFIDENT_WIN 12 @ 92% (Brier 0.087) / CONFIDENT_LOSS 4 @ 50%; 11 layers,
-  16 trunks, 120 branch-tags rendered. HTML generated, snapshot injected
+  16 trunks, 197 branch-tags rendered (16 trunks). HTML generated, snapshot injected
   (token replaced), published to the browser link.
 
 ## Remaining slices
