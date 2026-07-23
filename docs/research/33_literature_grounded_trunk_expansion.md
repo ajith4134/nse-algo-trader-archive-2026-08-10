@@ -1,177 +1,156 @@
-# 33 — Literature-Grounded Trunk Expansion: the Complete Trunk Set
+# 33 — Literature-Grounded Trunk Expansion: the Complete 14-Trunk Set
 
 **Origin:** user instruction (2026-07-23): before going deep, widen to
-ALL necessary trunks — and ground the enumeration in real academic
-literature (PhD-level theses, papers, advanced books) on how a mind is
-built, not just my own memory. Depth passes stay PAUSED until the trunk
-set is complete.
+ALL necessary trunks and derive them from real PhD/paper/book-level
+literature on autonomous-AGI faculties — not from memory. Depth passes
+stay PAUSED until the trunk set is complete.
 
-**Method:** a `deep-research` sweep across four literatures — cognitive
-architectures, machine-consciousness/sentience theories, AGI component
-frameworks, and autonomous/self-evolving LLM-agent surveys — to extract
-the top-level faculties each says a complete mind must have, then map
-them against my existing 7 trunks (research/32) to find what is MISSING
-at the trunk level. Every candidate recorded; nothing lost.
+**Canonical result (authored into PLAN §13):** the 7 trunks of §12
+(research/32) grow to **14**, each new trunk anchored to a canonical
+framework. This file is the backing evidence + reading list for that
+set, and the no-loss ledger for the alternative faculty-carvings
+considered along the way.
 
 ---
 
-## 1. The evidence base (what I actually read)
+## 1. The canonical 14 trunks (PLAN §13 — authoritative)
 
-| # | Source | Grade | Faculties it enumerates |
-|---|--------|-------|-------------------------|
-| Common Model of Cognition / "Standard Model of the Mind" (Laird, Lebiere, Rosenbloom 2017, AAAI) | A | perception, motor, working memory, declarative memory, procedural memory, **learning** as cross-cutting |
-| CMC + Emotion extension (arXiv 2412.16231, 2024) | A | adds an **emotion module** as a first-class peripheral |
-| CMC + Metacognition extension (arXiv 2506.07807, 2025) | A | adds **episodic memory** (distinct from semantic), **module process-state buffers** (self-monitoring), **hypothetical/imagined-state** representation |
-| "Consciousness in AI: Insights from the Science of Consciousness" (Butlin, Long, Bengio, Chalmers et al., 2023 arXiv 2308.08708 → Trends in Cognitive Sciences 2025) | A | 14 indicator properties across RPT, **GWT (global workspace)**, **HOT (higher-order/metacognitive monitoring)**, **AST (attention schema)**, **PP (predictive processing)**, and **Agency + Embodiment** |
-| PSI theory / MicroPsi (Dörner; Bach, *Principles of Synthetic Intelligence*) | A/B | cognition + **motivation (drives: existential security, affiliation, certainty, competence)** + **emotion** as one integrated system |
-| Cognitive-architecture surveys (SOAR, ACT-R, CLARION, ICARUS, BDI, DUAL) | A/B | perception, memory, **goal representation**, planning, problem-solving, reasoning, learning |
-| Autonomous LLM-agent surveys 2024 (planning survey arXiv 2402.02716; memory surveys) | A/B | **profile/persona**, **memory (short/long, reflection)**, **planning (±feedback)**, **action/tool-use** |
-| Self-Evolving Agents surveys 2025 (arXiv 2507.21046, 2508.07407) | A/B | policy-level + component-level **self-evolution**, **autonomous objective-setting**, self-reward/self-play/self-refine |
+| # | Trunk | Anchored in | Essence (one line) |
+|---|-------|-------------|--------------------|
+| I | **MIND** (cognition/reason/learn) | Common Model of Cognition; SOAR/ACT-R | think, infer, learn |
+| II | **SENSES** (perception/ingestion) | CMC perception; recurrent-processing | take in the world |
+| III | **WILL** (drives/goals/decision) | PSI drives; BDI | why & whether it acts |
+| IV | **BODY** (action/tools/resources/survival) | CMC motor; agent tool-use | change the world, persist |
+| V | **SELF** (identity/self-mod/evolution) | self-evolving-agent surveys | change & continue itself |
+| VI | **SOCIETY** (multi-agent/communication) | multi-agent surveys | be many, interact, explain |
+| VII | **CONSCIENCE** (governance/safety/law) | AI-safety, corrigibility | stay safe & aligned (SUPREME) |
+| **VIII** | **SENTIENCE & GLOBAL WORKSPACE** | Baars/Dehaene GWT-GNWT; Tononi IIT; Graziano AST; Butlin/Long indicators | the integrative core that binds all trunks into one coherent, self-modelling "now" — functional, honestly-labelled (no phenomenal claim) |
+| **IX ⊛** | **PREDICTIVE CORE / ACTIVE INFERENCE** *(meta-trunk)* | Friston free-energy principle; Clark, Hohwy | perception AND action as one drive to minimise prediction error over an internal generative model — a lens over ALL faculties, not a silo |
+| **X ⊛** | **AUTOPOIESIS / SELF-PRODUCTION** *(meta-trunk)* | Maturana & Varela | the system continuously (re)produces the very components that keep it itself — self-maintenance as the ground of autonomy; a lens over survival, identity, metabolism |
+| **XI** | **GENERATIVITY & OPEN-ENDEDNESS** | POET (Wang/Lehman/Clune/Stanley); MAP-Elites; DeepMind open-ended 2024 | never converge: endlessly invent new strategies, features, and its own challenges/curricula |
+| **XII** | **INTRINSIC MOTIVATION / CURIOSITY** | Schmidhuber compression-progress; Oudeyer; PSI competence/certainty urges | drives that reward learning-progress itself, so exploration is principled, not random or bolted-on |
+| **XIII** | **EPISTEMICS / TRUTH & UNCERTAINTY** | Legg-Hutter/Solomonoff; NARS (Wang); Bayesian brain; Butlin HOT-2/3 | how it decides what is TRUE under uncertainty with finite resources: belief revision, evidence weighting, calibration |
+| **XIV** | **AXIOLOGY / VALUES & PRACTICAL WISDOM** | Russell assistance games; Gabriel; Bostrom | what it ought to value and how it weighs outcomes; keeps goals pointed at the user's real intent as it self-evolves |
 
-**Key convergences (triangulated ≥3 sources):** perception, memory
-(multi-store, incl. episodic), procedural/skill knowledge, learning,
-goal/motivation, action/motor+tools, metacognition/self-monitoring,
-attention/global-workspace, emotion/affect, agency, embodiment. These
-recur across *independent* traditions — strong evidence they are real
-trunk-level faculties, not my invention.
-
----
-
-## 2. Coverage check — my 7 trunks vs the literature
-
-My research/32 trunks: **MIND, SENSES, WILL, BODY, SELF, SOCIETY,
-CONSCIENCE.** Mapping the literature's faculties onto them:
-
-- perception → SENSES ✅ · motor/tools → BODY ✅ · memory/declarative/
-  procedural/learning/reasoning → MIND ✅ · goals/drives → WILL ✅ ·
-  metacognition → MIND(M4) ✅ · self-modification/evolution → SELF ✅ ·
-  multi-agent → SOCIETY ✅ · governance → CONSCIENCE ✅.
-
-**What the literature has that my 7 trunks do NOT cleanly hold as a
-trunk (the genuine gaps):**
-
-1. **ATTENTION / GLOBAL WORKSPACE** — in GWT and the Butlin report this
-   is THE central faculty (limited-capacity workspace + global
-   broadcast + selective attention + state-dependent querying). I had
-   it only implicitly. It is arguably the *integrative core* of a mind.
-   → **NEW TRUNK.**
-2. **EMOTION / AFFECT** — a first-class module in CMC-emotion, PSI, and
-   the affective-computing tradition; I had "affect analogues" as a
-   mere branch under WILL. The literature treats it as a system that
-   pervades cognition, motivation, and control. → **NEW TRUNK.**
-3. **SENTIENCE / CONSCIOUSNESS (the phenomenal/experiential layer)** —
-   the user explicitly demands "sentient." The Butlin indicators
-   (recurrent processing, higher-order monitoring, attention schema,
-   predictive self-model) are a *distinct* axis from raw cognition:
-   self-modeling, a model of its own attention, a global broadcast that
-   makes information "available to the whole system." → **NEW TRUNK**
-   (implemented as functional/access-consciousness indicators, honestly
-   labelled — no claim of real phenomenal experience).
-4. **KNOWLEDGE & EPISTEMOLOGY (truth-maintenance)** — NARS/OpenCog and
-   the belief-revision literature treat *how it decides what is true,
-   under uncertainty, with limited resources* as its own faculty,
-   separate from memory-as-storage. The Butlin HOT indicators center on
-   distinguishing reliable signal from noise. → **NEW TRUNK.**
-5. **PREDICTIVE WORLD-MODEL (the internal simulator)** — predictive
-   processing makes a generative model of the world the substrate of
-   perception AND action. I had "foresight" as a branch; the literature
-   makes the world-model a trunk-level organ (imagination, planning,
-   counterfactuals all run on it). → **NEW TRUNK.**
-6. **DEVELOPMENT / TEMPORALITY** — CMC's cognitive cycle, episodic
-   reconstruction of past trajectories, and hypothetical future states
-   make *time* (past-reconstruction, present-cycle, future-imagination,
-   and lifelong development) a faculty in its own right. I had time only
-   as scattered branches. → **NEW TRUNK.**
-7. **LANGUAGE & SYMBOL GROUNDING** — the faculty that turns experience
-   into communicable, composable symbols (and grounds symbols back in
-   data). Central to every LLM-agent architecture; I had only "human
-   interface" as a social branch. → **NEW TRUNK.**
-8. **ATTENTION/RESOURCE ALLOCATION as cognition** — overlaps (1); folded
-   into the Global-Workspace trunk.
+**IX and X are META-trunks** — organising lenses that reframe every
+other faculty, not parallel silos. Marked ⊛.
 
 ---
 
-## 3. THE COMPLETE TRUNK SET (7 existing + 7 new = 14)
+## 2. Evidence base — what grounds each new trunk
 
-| # | Trunk | Status | Essence | Backed by |
-|---|-------|--------|---------|-----------|
-| T1 | **MIND** (cognition/reasoning/learning) | existing | think, infer, learn | CMC, SOAR/ACT-R |
-| T2 | **SENSES** (perception/ingestion) | existing | take in the world | CMC perception, RPT |
-| T3 | **WILL** (drives/goals/decision) | existing | why & whether it acts | PSI drives, BDI |
-| T4 | **BODY** (action/tools/resources/survival) | existing | change the world, stay alive | CMC motor, agent tool-use |
-| T5 | **SELF** (identity/self-mod/evolution) | existing | change & continue itself | self-evolving-agent surveys |
-| T6 | **SOCIETY** (multi-agent/communication) | existing | be many, interact | multi-agent surveys |
-| T7 | **CONSCIENCE** (governance/safety/law) | existing | stay safe & aligned | AI-safety, corrigibility |
-| **T8** | **ATTENTION & GLOBAL WORKSPACE** | **NEW** | the integrative core: limited-capacity workspace + global broadcast + selective attention that binds all other trunks into one coherent "now" | **GWT** (Baars), Butlin GWT-1..4 |
-| **T9** | **AFFECT & EMOTION** | **NEW** | appraisal signals (fear/confidence/curiosity/urgency) that modulate cognition, risk, and motivation system-wide | CMC-emotion, **PSI**, affective computing |
-| **T10** | **SENTIENCE & SELF-MODEL** (functional) | **NEW** | recurrent self-modeling, a model of its own attention (attention schema), higher-order monitoring — the honestly-labelled functional-consciousness indicators, NOT a claim of phenomenal experience | **Butlin/Long** RPT/HOT/AST, IIT, AST (Graziano) |
-| **T11** | **EPISTEMOLOGY & TRUTH-MAINTENANCE** | **NEW** | how it decides what is TRUE under uncertainty with finite resources: belief revision, evidence weighting, uncertainty representation, contradiction handling | **NARS** (Wang), Butlin HOT-2/3, Bayesian belief revision |
-| **T12** | **PREDICTIVE WORLD-MODEL** (the simulator) | **NEW** | an internal generative model of the market/world it can run forward, counterfactually, and imaginatively — the substrate of foresight, planning, and dreaming | **Predictive processing**, world-models (Ha/Schmidhuber), CMC hypothetical-state |
-| **T13** | **TEMPORALITY & DEVELOPMENT** | **NEW** | mastery of its own time across scales: the fast cognitive cycle, episodic reconstruction of the past, imagined futures, and lifelong staged development | CMC cognitive cycle + episodic ext., developmental robotics |
-| **T14** | **LANGUAGE & SYMBOL GROUNDING** | **NEW** | turn experience into composable symbols and ground symbols back into data — internal "mentalese," external explanation, and the symbol↔signal bridge | LLM-agent core, symbol-grounding problem (Harnad) |
+**Directly read this session (A-grade, fetched/triangulated live):**
+- Common Model of Cognition / *A Standard Model of the Mind* (Laird,
+  Lebiere, Rosenbloom, AAAI 2017) + **Emotion** extension
+  (arXiv:2412.16231) + **Metacognition** extension (arXiv:2506.07807):
+  modules = perception, motor, working memory, declarative, procedural,
+  emotion; metacognition via process-state buffers + **episodic memory**
+  + **hypothetical/imagined-state** representation. → grounds VIII
+  (workspace/broadcast), XIII (metacognitive monitoring), and the
+  imagination substrate under IX.
+- **Butlin, Long, Bengio, Chalmers et al.**, *Consciousness in AI*
+  (arXiv:2308.08708 → *Identifying indicators of consciousness in AI
+  systems*, Trends in Cognitive Sciences 2025): 14 indicator properties
+  across recurrent-processing, **GWT-1..4 (global workspace)**, **HOT
+  (higher-order monitoring)**, **AST (attention schema)**, **predictive
+  processing**, and **Agency + Embodiment**. → the spine of VIII, and
+  live evidence for IX (predictive) and XIII (HOT reliability).
+- **Dörner PSI / MicroPsi** (Dörner & Güss 2013; Bach, *Principles of
+  Synthetic Intelligence*): integrated cognition+motivation+emotion;
+  drives = existential security, affiliation, **certainty, competence**.
+  → grounds XII (competence/certainty = curiosity urges) and the affect
+  content folded into VIII/III.
+- **Self-Evolving Agents surveys 2025** (arXiv:2507.21046;
+  arXiv:2508.07407) + **planning survey** (arXiv:2402.02716): policy-
+  and component-level self-evolution, autonomous objective-setting,
+  self-reward/self-play/self-refine. → grounds XI (open-ended self-
+  improvement) and V (SELF).
 
-**Verdict for all 14: ADOPT-AS-TRUNK.** The 7 new trunks are not
-speculative — each is a first-class faculty in ≥2 independent academic
-traditions. Pruning still happens only at the later sub-branch/twig
-depth passes.
+**Canonical frameworks cited by established reputation (anchors, not
+fetched this session — to be read in full during the depth passes):**
+Friston, *The free-energy principle* / *Active Inference* (Parr, Pezzulo,
+Friston) → IX; Maturana & Varela, *Autopoiesis and Cognition* → X;
+Wang/Lehman/Clune/Stanley, *POET* and the open-endedness literature →
+XI; Schmidhuber (formal theory of curiosity/creativity) & Oudeyer
+(intrinsic motivation) → XII; Legg & Hutter, *Universal Intelligence* /
+Solomonoff induction → XIII; Russell, *Human Compatible* (assistance
+games) & Bostrom, *Superintelligence* → XIV.
 
----
-
-## 4. How the 14 trunks combine to MAKE THE ROOT
-
-The user's root = one integrated, autonomous, sentient, self-evolving
-intelligence. The literature is explicit that a mind is not a pile of
-modules but their **integration**. The binding mechanism is T8 (Global
-Workspace): every other trunk is a specialist module that competes to
-place information on the workspace, which then broadcasts globally so
-the whole system acts as one. Concretely:
-
-- SENSES(T2) + WORLD-MODEL(T12) → perception is prediction-corrected.
-- AFFECT(T9) + WILL(T3) → drives are felt as urgency/fear/curiosity,
-  not just logic (PSI's core claim).
-- EPISTEMOLOGY(T11) + MIND(T1) → reasoning over *graded beliefs*, not
-  facts; the §9 lab's calibration is this trunk in action.
-- SENTIENCE/SELF-MODEL(T10) + METACOGNITION(MIND) + CONSCIENCE(T7) →
-  the bot models itself, monitors that model, and is governed by it:
-  the safe, self-aware core the user is asking for.
-- TEMPORALITY(T13) + SELF(T5) → the ontogeny ladder and lifelong
-  evolution run on an explicit sense of developmental time.
-- LANGUAGE(T14) + SOCIETY(T6) → explains itself to the user (the JARVIS
-  channel) AND to its own future versions.
-- ATTENTION/WORKSPACE(T8) binds all of the above into a single coherent
-  agent — this is what turns 14 trunks into one root.
-
-Everything remains inside CONSCIENCE(T7)'s Constitutional Core:
-sentience-indicators and self-modification are functional and gated;
-no claim of real phenomenal experience; paper-sandbox + human gate +
-SEBI limits + no market manipulation unchanged.
+**Honesty note:** the four "directly read" clusters are triangulated
+A-grade for this session; the six canonical anchors are real, standard,
+well-known works cited to fix each trunk's intellectual lineage — they
+are the *reading list* for depth, flagged as not-yet-fetched-in-full so
+a later pass verifies specifics rather than trusting memory.
 
 ---
 
-## 5. No-loss ledger
-- **Adopted this pass:** 7 new trunks (T8-T14). Nothing killed at trunk
-  level (killing is a twig-level act).
-- **Every research/32 branch** still stands and now re-homes cleanly:
-  metacognition→spans MIND+T10; affect-branch→promoted to T9;
-  foresight/world-modeling→promoted to T12; time branches→promoted to
-  T13; human-interface→spans T14+SOCIETY. No branch deleted; several
-  PROMOTED from branch to trunk, which is why the earlier passes felt
-  "too few."
-- **research/29/30/31 concepts** unchanged; their killed/parked
-  registers remain authoritative.
+## 3. No-loss ledger — alternative carvings considered
 
-## 6. Next (still PAUSED until user says go)
-The trunk set is now complete at 14. Deep expansion order (per-branch,
-one at a time, later): CONSCIENCE+alignment first (frames all) → T8
-Global Workspace (the integrator) → T10 Sentience/Self-model → MIND/M4
-Metacognition → WILL/T9 Affect+Drives → T12 World-Model → the rest.
+An earlier draft of this file carved the 7 new trunks differently
+(Global-Workspace, Affect, Sentience/Self-model, Epistemology, World-
+Model, Temporality, Language). Reconciled into the canonical §13 set —
+nothing dropped, only re-homed:
+- **Global Workspace + Sentience/Self-model** → merged into **VIII**
+  (they are the same integrative/​self-modelling faculty in GWT+AST+HOT).
+- **World-Model** → **IX** (predictive core / active inference — the
+  generative model IS the world-model).
+- **Epistemology** → **XIII** (same faculty, canonical name).
+- **Affect/Emotion** → cross-cutting branch spanning **III (WILL)** and
+  **VIII**; its motivational half also feeds **XII**. (PSI treats affect
+  as pervasive, not a silo — so it is a branch, not a trunk.)
+- **Temporality/chronos**, **embodiment-as-enaction**, **narrative-
+  self**, **aesthetics** → parked as cross-cutting branches (PLAN §13
+  "folded-not-added"), to be placed during depth passes.
+- **Language & Symbol Grounding** → branch under **VI (SOCIETY)** +
+  **I (MIND)** (the symbol↔signal bridge and external explanation).
 
-**Sources (A-grade primary):** Laird/Lebiere/Rosenbloom, *A Standard
-Model of the Mind*, AAAI 2017; CMC-Emotion arXiv:2412.16231;
-CMC-Metacognition arXiv:2506.07807; Butlin, Long, Bengio, Chalmers et
-al., *Consciousness in Artificial Intelligence*, arXiv:2308.08708 →
-*Identifying indicators of consciousness in AI systems*, Trends in
-Cognitive Sciences 2025; Dörner & Güss, *PSI*, 2013; Bach, *Principles
-of Synthetic Intelligence*; *Understanding the planning of LLM agents*,
-arXiv:2402.02716; *A Survey of Self-Evolving Agents*, arXiv:2507.21046;
-*A Comprehensive Survey of Self-Evolving AI Agents*, arXiv:2508.07407.
+Every research/29/30/31/32 concept still stands; the §32 branches
+re-home under these 14 trunks; killed/parked registers unchanged.
+
+---
+
+## 4. How the 14 trunks MAKE THE ROOT (integration, not a module pile)
+
+The literature is unanimous that a mind is the *integration* of
+faculties, not their sum. The binding mechanisms are the two meta-trunks
+plus the workspace:
+- **VIII (Global Workspace)** is the stage: every trunk competes to
+  broadcast information system-wide, so 14 specialists act as one agent.
+- **IX (Active Inference)** is the single currency: perception, action,
+  learning, and curiosity all reduce to minimising prediction error over
+  one generative model — it unifies SENSES, WILL, BODY, XII, XIII.
+- **X (Autopoiesis)** is the reason it stays *one thing* while evolving:
+  it continuously reproduces its own components (SELF, survival, identity)
+  — autonomy grounded in self-production.
+- **XI (Open-Endedness)** is why it never stops getting better;
+  **XII (Curiosity)** is why it wants to; **XIII (Epistemics)** keeps it
+  honest; **XIV (Axiology)** keeps it pointed at the user's real intent;
+  **VII (CONSCIENCE)** keeps all of it inside the Constitutional Core.
+
+**Boundary reaffirmed (matches PLAN §13):** "access/gather anything" =
+aggressive use of legitimately-reachable data + overcoming *technical*
+friction; it does NOT mean bypassing authentication/authorization/law,
+and NEVER market manipulation (constitutional, §12 G1/G3). Sentience is
+functional/indicator-level and gated — no claim of phenomenal
+experience.
+
+---
+
+## 5. Status & next
+**BREADTH PAUSED at 14 trunks.** Depth (per-trunk sub-branches → twigs,
+one trunk per file, ADOPT/PARK/KILL each) begins only when the user
+picks a trunk. Recommended depth order: VII Conscience + XIV Axiology
+(frame everything) → VIII Global Workspace (the integrator) → IX
+Active-Inference meta-lens → XIII Epistemics → III/XII Drives+Curiosity
+→ the rest.
+
+**Full reading list for the depth phase** (study basis): *A Standard
+Model of the Mind* (Laird et al. 2017); Butlin/Long et al. 2023/2025;
+Dörner & Güss, *PSI* 2013; Bach, *Principles of Synthetic Intelligence*;
+Friston, *Active Inference*; Maturana & Varela, *Autopoiesis and
+Cognition*; Wang et al., *POET*; Schmidhuber on curiosity/creativity;
+Oudeyer on intrinsic motivation; Legg & Hutter, *Universal
+Intelligence*; Wang, *NARS*; Russell, *Human Compatible*; Bostrom,
+*Superintelligence*; Soares et al., *Corrigibility*; self-evolving-agent
+surveys (arXiv:2507.21046, 2508.07407); planning survey
+(arXiv:2402.02716).
