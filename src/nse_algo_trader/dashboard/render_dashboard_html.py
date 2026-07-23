@@ -352,7 +352,7 @@ document.getElementById("tree").innerHTML=SNAPSHOT.concept_tree.map(t=>
   `<span class="tn">${t.name}<span class="te">${t.essence}${t.is_gated?' · <span class="gated">gated</span>':''}</span></span>`+
   `<span class="ig ig-${t.ignition}">${t.ignition.replace(/_/g," ")}</span></summary>`+
   `<div class="branches">${t.branch_names.map(b=>`<span>${b}</span>`).join("")}`+
-  `<span style="color:var(--faint)">+${Math.max(0,t.branch_count-t.branch_names.length)} more</span></div></details>`).join("");
+  `${t.branch_count>t.branch_names.length?`<span style="color:var(--faint)">+${t.branch_count-t.branch_names.length} more</span>`:""}</div></details>`).join("");
 
 document.getElementById("foot").innerHTML=
   "intraday-only NSE cash + options · Zerodha Kite · paper sandbox, human gate before live capital<br>"+
