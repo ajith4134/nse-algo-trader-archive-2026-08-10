@@ -293,3 +293,12 @@ tests/test_broker_sessions/           # 11 tests: expiry boundaries, file perms,
 - Still pending for zero-touch daily automation: `ZERODHA_KITE_TOTP_SECRET`
   (user provided a one-time 6-digit code instead; it was used within its
   30s window for this verification).
+
+## Zero-touch daily automation live (2026-07-23)
+- `ZERODHA_KITE_TOTP_SECRET` provided; `refresh_kite_access_token --force`
+  performed a fully-automatic real login (no human input) and stored a
+  fresh token.
+- Cron installed (server tz GMT): 02:35 + 03:05 GMT daily (= 08:05/08:35
+  IST, pre-market) -> logs to `~/.nse_algo_trader/kite_token_refresh.log`;
+  the second run self-skips when the first succeeded. Package installed
+  editable so cron needs no PYTHONPATH.
