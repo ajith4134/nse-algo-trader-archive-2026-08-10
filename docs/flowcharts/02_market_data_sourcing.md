@@ -349,3 +349,8 @@ Real run for trade date 2026-07-22: cash 3,261 / F&O 38,343 / MWPL 210 /
 ban 1 (KAYNES) / bulk 128 / block 0 — all read back correctly (1,587
 NIFTY contracts via the underlying filter). 75 live INFY 5-min bars
 saved and reloaded **identical** through the store. DB size: ~6.2 MB/day.
+
+## Later-layer ingestion additions queued for this layer
+- **Participant-wise derivatives OI** (FII/DII/Pro/Client daily
+  positions, NSE report) — required by the §10 Opponent Ledger; add as
+  a sixth official-report ingest when Layer 10 reaches that feature.
