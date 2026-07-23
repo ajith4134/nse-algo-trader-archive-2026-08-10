@@ -94,3 +94,24 @@ tests/test_strategy_engine/              # 17 tests
   live wiring will use rolling intraday ADX.
 - Statistical edge validation (DSR + CPCV) gated on Layer 7 existing —
   no strategy touches live capital before passing it (PLAN §5).
+
+## Full-universe hardening (2026-07-23, user directive — PLAN §8a.14)
+
+Added `option_moneyness_classifier.py`:
+- `OptionMoneyness(str, Enum)` — ATM / ITM / OTM.
+- `infer_strike_ladder_step(sorted_unique_strikes)` — smallest adjacent
+  gap; NEVER hardcoded (real steps found in the live universe range from
+  ~0.2 to 500 rupees across 18 distinct values).
+- `classify_option_moneyness(strike, spot, right, ladder_step)` — ATM
+  within half a step of spot, else ITM/OTM by payoff side.
+
+**Breadth verification (2026-07-22 data, all option underlyings):**
+215/215 ATM IVs recovered, 215/215 PCRs computed, 215/215 valid
+credit spreads selected — spot-checked across wildly different chains
+(YESBANK spot 23/step 1, TATASTEEL 186/2.5, MIDCPNIFTY 14626/25,
+PAGEIND 39820/250). No symbol-specific code anywhere.
+
+**Cash-side breadth note for Layer 7:** the 2,000+ stock intraday scan
+will ride the live tick stream / batched quote API (Kite historical is
+rate-limited ~3 req/s — per-symbol bar polling across the full universe
+is not viable intraday; bars get built from ticks instead).

@@ -505,6 +505,17 @@ All 12 open questions below have been answered. Resolutions:
     implementation behind them), so adding the other brokers later is
     additive, not a refactor.
 
+14. **Full-universe mandate (user directive, 2026-07-23, before Layer
+    5):** every layer must be designed AND verified across the entire
+    phase-1 universe — 2,000+ NSE cash equities intraday, options on all
+    5 indices and all ~210 stock-option underlyings, with ATM/ITM/OTM
+    moneyness as a first-class concept — never validated only against
+    NIFTY/RELIANCE-style samples. Implemented immediately:
+    `option_moneyness_classifier` (ladder-step-aware ATM/ITM/OTM) and a
+    215/215-underlying breadth sweep of the IV/PCR/spread pipeline
+    (documented in `flowcharts/04`). Layer 5+ must include a breadth
+    verification pass alongside any single-symbol spot-check.
+
 ## 8. Open questions for you to decide
 
 **All 12 below are now resolved — see §8a for the decisions log. Kept

@@ -139,3 +139,34 @@ class TestCreditSpreadSignalInvariants:
                 hedge_leg=OptionLegIntent(put_hedge, OptionLegAction.BUY, 1),
                 short_leg_estimated_delta=0.25,
             )
+
+
+class TestOptionMoneynessClassifier:
+    def test_ladder_step_inferred_from_smallest_gap(self):
+        from nse_algo_trader.strategy_engine import infer_strike_ladder_step
+
+        assert infer_strike_ladder_step([24000.0, 24100.0, 24200.0]) == 100.0
+        assert infer_strike_ladder_step([500.0, 502.5, 505.0, 510.0]) == 2.5
+
+    def test_atm_itm_otm_for_both_rights(self):
+        from nse_algo_trader.strategy_engine import (
+            OptionMoneyness,
+            classify_option_moneyness,
+        )
+
+        spot, step = 25030.0, 100.0
+        assert classify_option_moneyness(25000.0, spot, OptionRight.CALL, step) is (
+            OptionMoneyness.AT_THE_MONEY  # within half a step of spot
+        )
+        assert classify_option_moneyness(24500.0, spot, OptionRight.CALL, step) is (
+            OptionMoneyness.IN_THE_MONEY
+        )
+        assert classify_option_moneyness(25500.0, spot, OptionRight.CALL, step) is (
+            OptionMoneyness.OUT_OF_THE_MONEY
+        )
+        assert classify_option_moneyness(25500.0, spot, OptionRight.PUT, step) is (
+            OptionMoneyness.IN_THE_MONEY
+        )
+        assert classify_option_moneyness(24500.0, spot, OptionRight.PUT, step) is (
+            OptionMoneyness.OUT_OF_THE_MONEY
+        )
