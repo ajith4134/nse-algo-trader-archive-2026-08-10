@@ -281,3 +281,15 @@ tests/test_broker_sessions/           # 11 tests: expiry boundaries, file perms,
   belongs with the live-streaming consumer once one exists.
 - **No live KiteTicker/auth wiring** — deliberately Layer 6, same as
   Layer 1's deferral of `kite.instruments()`.
+
+## Live verification (2026-07-23, real Kite session)
+- Kite TOTP auto-login chain ran against the real endpoints: password ->
+  TOTP -> request_token from redirect header -> generate_session ->
+  token stored (valid till 6:00 AM IST next day). Redirect URL
+  `http://127.0.0.1/kite/callback` confirmed never visited.
+- `KiteHistoricalBarSource` real fetches: INFY 5-min 2026-07-22 -> 75
+  bars (09:15-15:25, exactly one full session), cash OI=None as designed;
+  NIFTY26JUL25000CE -> 75 bars with real OI (13.3M) carried through.
+- Still pending for zero-touch daily automation: `ZERODHA_KITE_TOTP_SECRET`
+  (user provided a one-time 6-digit code instead; it was used within its
+  30s window for this verification).

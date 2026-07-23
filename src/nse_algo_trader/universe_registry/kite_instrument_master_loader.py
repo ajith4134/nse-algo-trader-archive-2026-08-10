@@ -11,7 +11,16 @@ currency, commodities, other exchanges) is out of phase-1 scope and dropped.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
+
+
+def _expiry_date_from_kite_row_value(raw_expiry_value: date | str) -> date:
+    """Kite's CSV dump carries expiry as 'YYYY-MM-DD' text, but the live
+    kiteconnect SDK pre-parses it into a datetime.date (found live
+    2026-07-23) — accept both."""
+    if isinstance(raw_expiry_value, date):
+        return raw_expiry_value
+    return datetime.strptime(raw_expiry_value, "%Y-%m-%d").date()
 
 from nse_algo_trader.universe_registry.instrument_types import (
     ExchangeSegment,
@@ -63,7 +72,7 @@ def classify_kite_instrument_row(row: dict) -> Instrument | None:
             underlying_symbol=underlying_symbol,
             strike_price=float(row["strike"]),
             option_right=_KITE_OPTION_RIGHT_BY_INSTRUMENT_TYPE[instrument_type],
-            expiry_date=datetime.strptime(row["expiry"], "%Y-%m-%d").date(),
+            expiry_date=_expiry_date_from_kite_row_value(row["expiry"]),
         )
 
     return None

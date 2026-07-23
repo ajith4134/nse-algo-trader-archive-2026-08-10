@@ -45,3 +45,19 @@ def test_classify_kite_instrument_row_drops_futures():
 def test_classify_kite_instrument_row_drops_non_nse_family_exchanges():
     mcx_row = SAMPLE_KITE_INSTRUMENT_ROWS[4]
     assert classify_kite_instrument_row(mcx_row) is None
+
+
+def test_classify_kite_instrument_row_accepts_sdk_preparsed_date_expiry():
+    """The live kiteconnect SDK sends expiry as datetime.date, not str
+    (found during live verification 2026-07-23)."""
+    from datetime import date
+
+    from tests.fixtures.sample_kite_instrument_rows import SAMPLE_KITE_INSTRUMENT_ROWS
+
+    string_expiry_option_row = next(
+        row for row in SAMPLE_KITE_INSTRUMENT_ROWS if row["expiry"]
+    )
+    sdk_style_row = {**string_expiry_option_row, "expiry": date(2026, 7, 30)}
+    classified_instrument = classify_kite_instrument_row(sdk_style_row)
+    assert classified_instrument is not None
+    assert classified_instrument.expiry_date == date(2026, 7, 30)

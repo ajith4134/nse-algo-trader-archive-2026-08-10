@@ -126,3 +126,14 @@ stock-option classification by underlying symbol name.
 - Stock-option list membership (~185-208 names) is derived live from
   whatever the dump contains — not hardcoded, since NSE reviews this list
   quarterly/semi-annually and a hardcoded list would silently go stale.
+
+## Live verification (2026-07-23, real Kite session)
+First authenticated run against `kite.instruments()` (123,443 raw rows):
+- **Bug found and fixed**: the live kiteconnect SDK pre-parses `expiry`
+  into `datetime.date`, while the documented CSV dump (and our fixtures)
+  carry `"YYYY-MM-DD"` strings. `_expiry_date_from_kite_row_value()` now
+  accepts both; regression test added.
+- Phase-1 universe from live dump: 48,387 instruments — 9,814 cash,
+  5,126 index options, 33,447 stock options across **210** stock-option
+  underlyings (the ~185-208 estimate had gone stale — exactly why the
+  list is derived live, never hardcoded).
