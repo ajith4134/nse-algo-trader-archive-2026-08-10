@@ -49,7 +49,7 @@ starting Layer 3 onward.
 | 3 | Indicator / Feature Engineering | **v1 complete, awaiting sign-off** (2026-07-23): EMA, RSI, ATR, ADX, Supertrend, VWAP + BS-IV, ATM-IV, IV Rank, PCR — all reference- and real-data-verified | `03_indicator_engineering.md` |
 | 4 | Strategy / Signal Engine | **v1 built** (2026-07-23): ORB + ADX regime gate + credit-spread leg selector, unit-tested + real-data dry-run; statistical validation gated on Layer 7 | `04_strategy_signal_engine.md` |
 | 5 | Risk Management | **v1 built** (2026-07-23): defined-risk-only gate, undefined-risk detection (incl. adversarial cases), conservative margins, fixed-fractional sizing, ban-list enforcement; 215-underlying sweep verified | `05_risk_management.md` |
-| 6 | Broker Integration & Order Execution (OMS) | not started — architecture decided: in-house `BrokerClient` protocol (paper/live parity), multi-leg orders as one atomic unit, `../PLAN.md` §1 | — |
+| 6 | Broker Integration & OMS | **v1 built** (2026-07-23): BrokerClient protocol + Simulated/Kite twins, atomic multi-leg executor (hedge-first, unwind-on-failure), SEBI rate throttle; parity + one-leg-failure tests green; live read path verified | `06_broker_oms.md` |
 | 7 | Backtesting & Paper Trading | not started — must include realistic options slippage/spread modeling, `../PLAN.md` §1.2 | — |
 | 8 | Session / Square-off Management | not started — square-off ordering must never leave a naked multi-leg position open, `../PLAN.md` §4 | — |
 | 9 | Dashboard, Monitoring, Logging & Alerting | not started — scope defined in `../PLAN.md` §2 | — |
@@ -93,9 +93,15 @@ Each layer's file (once it exists) documents, cumulatively:
 [Layer 5: Risk Management]  (v1 built)
    pre_trade_risk_gate: defined-risk-only + ban-list + fixed-fractional
    sizing -> RiskGateDecision (approved qty | machine-readable reasons)
-   -> (approved decisions await Layer 6 OMS)
+        |
+        v
+[Layer 6: Broker OMS]  (v1 built)
+   signals+approvals -> OrderIntents (hedge BUY first) ->
+   atomic multi-leg executor -> BrokerClient protocol
+     paper: SimulatedBrokerClient | live: KiteBrokerClient (MIS, throttled)
+   -> (Layer 7 paper engine + Layer 8 square-off will drive this)
 ```
 
 Full detail: `01_universe_instrument_registry.md`,
 `02_market_data_sourcing.md`, `03_indicator_engineering.md`,
-`04_strategy_signal_engine.md`, `05_risk_management.md`.
+`04_strategy_signal_engine.md`, `05_risk_management.md`, `06_broker_oms.md`.
