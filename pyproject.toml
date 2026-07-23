@@ -6,6 +6,7 @@ requires-python = ">=3.11"
 dependencies = [
     "kiteconnect>=5.0.1",
     "requests>=2.31",
+    "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]

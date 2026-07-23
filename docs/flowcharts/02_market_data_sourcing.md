@@ -187,6 +187,46 @@ tests/fixtures/
   **Cross-check:** MWPL "No Fresh Positions" set == ban-list file set
   (KAYNES) exactly.
 
+## Broker credentials store (added 2026-07-23, serves Layer 2 data adapters + Layer 6 execution)
+
+```
+src/nse_algo_trader/broker_credentials/
+├── __init__.py                        # public surface re-exports
+└── broker_api_credentials_loader.py   # the ONLY module knowing credential env-var names
+
+tests/test_broker_credentials/
+└── test_broker_api_credentials_loader.py
+
+.env  (gitignored, never committed)    # actual keys/secrets live here
+```
+
+### `broker_api_credentials_loader.py`
+- **Imports:** stdlib (`os`, `dataclasses`, `enum`, `pathlib`) + `dotenv`
+  (`python-dotenv`, new dependency).
+- **Exports:**
+  - `BrokerName(str, Enum)` — `ZERODHA_KITE`, `UPSTOX`, `ANGEL_ONE`,
+    `ICICI_BREEZE`, `GROWW`.
+  - `BrokerApiCredentials` — frozen dataclass: `broker_name`,
+    `api_key: str`, `api_secret: str | None`. **`__repr__` masks both
+    values** so secrets can never leak via logs/tracebacks.
+  - `load_env_file_into_environ(env_file_path=None)` — .env → os.environ,
+    existing env vars win.
+  - `load_broker_api_credentials(broker_name, environ=None) -> BrokerApiCredentials`
+    — raises `MissingBrokerCredentialsError` naming the missing env var.
+    Env-var convention: `<BROKER>_API_KEY` / `<BROKER>_API_SECRET`.
+- **Verified 2026-07-23:** real `.env` loads for Kite/Upstox/ICICI (key +
+  secret) and Angel One (key only); special characters (`$ # ^ ~`) intact
+  via single-quoting; `.env` confirmed absent from `git status`.
+
+### Credentials on hand vs. still missing (as of 2026-07-23)
+| Broker | Have | Still needed for a live session |
+|---|---|---|
+| Zerodha Kite | key + secret | daily `request_token` via login redirect (interactive) |
+| Upstox | key + secret | OAuth authorization code via login redirect (interactive) |
+| Angel One | key only | API secret, client code, PIN, TOTP secret |
+| ICICI Breeze | key + secret | daily session token via login redirect (interactive) |
+| Groww | nothing | API key (+ whatever its auth flow needs) |
+
 ## Known limitations / explicitly deferred (remaining Layer 2 scope)
 - **Other broker data adapters (Upstox / Angel One / ICICI Direct /
   Groww)** — blocked on the user providing those APIs (`PLAN.md` §8a.12);
