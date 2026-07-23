@@ -163,6 +163,16 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
   .branches{display:flex;flex-wrap:wrap;gap:.35rem;padding:.2rem .9rem .85rem}
   .branches span{font-family:var(--mono);font-size:.73rem;background:var(--surface);border:1px solid var(--line);padding:.2em .5em;border-radius:6px;color:var(--dim)}
   .gated{font-size:.58rem;font-weight:700;color:var(--warnc);background:var(--warnsoft);padding:.12em .4em;border-radius:5px}
+  .alerts{display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.5rem}
+  .alert{display:flex;align-items:flex-start;gap:.6rem;padding:.7rem .9rem;border-radius:11px;font-size:.85rem;border:1px solid}
+  .alert .ic{flex:none;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:.7rem;font-weight:800;color:#fff;margin-top:1px}
+  .alert.info{background:var(--brandsoft);border-color:color-mix(in srgb,var(--brand) 30%,var(--line))}
+  .alert.info .ic{background:var(--brand)}
+  .alert.warning{background:var(--warnsoft);border-color:color-mix(in srgb,var(--warnc) 40%,var(--line))}
+  .alert.warning .ic{background:var(--warnc)}
+  .alert.critical{background:var(--losssoft);border-color:color-mix(in srgb,var(--loss) 45%,var(--line))}
+  .alert.critical .ic{background:var(--loss)}
+  .alert .cat{font-family:var(--mono);font-size:.64rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700;opacity:.75}
   footer{font-size:.74rem;color:var(--faint);font-family:var(--mono);margin-top:2.5rem;text-align:center;line-height:1.7}
   @media (max-width:760px){ .kpis{grid-template-columns:repeat(2,1fr)} .grid2{grid-template-columns:1fr}
     .minikpis{grid-template-columns:repeat(2,1fr)} .ritem{grid-template-columns:1.7rem 1fr} .ritem .st{grid-column:1/-1;justify-self:start}
@@ -177,6 +187,7 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
     <span class="modebadge paper" id="modebadge"><span class="dot"></span><span id="modetext">PAPER</span></span>
   </header>
 
+  <div class="alerts" id="alerts"></div>
   <div class="kpis" id="kpis"></div>
 
   <div class="card">
@@ -277,6 +288,14 @@ document.getElementById("resetBtn").addEventListener("click",()=>{ cfg=JSON.pars
   document.getElementById("mincap").value=cfg.min_capital_per_trade; document.getElementById("maxcap").value=cfg.max_capital_per_trade;
   riskEl.value=(cfg.max_risk_per_trade_fraction*100).toFixed(1); });
 renderCfg();
+
+// alerts (critical first)
+const alertIcon={info:"i",warning:"!",critical:"!"};
+const alertOrder={critical:0,warning:1,info:2};
+document.getElementById("alerts").innerHTML=[...SNAPSHOT.alerts]
+  .sort((a,b)=>alertOrder[a.level]-alertOrder[b.level]).map(a=>
+  `<div class="alert ${a.level}"><span class="ic">${alertIcon[a.level]}</span>`+
+  `<div><span class="cat">${a.category}</span> &nbsp;${a.message}</div></div>`).join("");
 
 // header + KPIs
 document.getElementById("sub").textContent="live dashboard · snapshot "+SNAPSHOT.generated_at.slice(0,16).replace("T"," ");

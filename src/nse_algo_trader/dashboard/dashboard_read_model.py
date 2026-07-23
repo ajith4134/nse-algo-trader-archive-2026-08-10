@@ -14,6 +14,7 @@ from nse_algo_trader.dashboard.project_status_data import (
     CONCEPT_TREE,
     LAYER_ROADMAP,
 )
+from nse_algo_trader.dashboard.monitoring_alerts import generate_dashboard_alerts
 from nse_algo_trader.dashboard.trading_control_config import TradingControlConfig
 from nse_algo_trader.paper_trading import PaperTradingLedger
 from nse_algo_trader.paper_trading.prediction_lab import (
@@ -50,6 +51,7 @@ class ConceptTreeCounts:
 class DashboardSnapshot:
     generated_at: str
     control_config: dict
+    alerts: list[dict]
     layer_roadmap: list[dict]
     concept_tree: list[dict]
     concept_tree_counts: ConceptTreeCounts
@@ -61,6 +63,7 @@ class DashboardSnapshot:
         return {
             "generated_at": self.generated_at,
             "control_config": self.control_config,
+            "alerts": self.alerts,
             "layer_roadmap": self.layer_roadmap,
             "concept_tree": self.concept_tree,
             "concept_tree_counts": asdict(self.concept_tree_counts),
@@ -77,6 +80,8 @@ def build_dashboard_snapshot(
     paper_ledger: PaperTradingLedger,
     prediction_scoreboard: PredictionTableScoreboard,
     generated_at: datetime,
+    kite_access_token_valid: bool = True,
+    stored_bar_count: int = 1,
 ) -> DashboardSnapshot:
     layer_roadmap = [
         {
@@ -113,9 +118,17 @@ def build_dashboard_snapshot(
         _summarize_table(prediction_scoreboard, table)
         for table in PredictionLabeledTable
     ]
+    alerts = [
+        {"level": a.level.value, "category": a.category, "message": a.message}
+        for a in generate_dashboard_alerts(
+            control_config, paper_ledger, prediction_scoreboard,
+            kite_access_token_valid, stored_bar_count,
+        )
+    ]
     return DashboardSnapshot(
         generated_at=generated_at.isoformat(),
         control_config=control_config.to_json_dict(),
+        alerts=alerts,
         layer_roadmap=layer_roadmap,
         concept_tree=concept_tree,
         concept_tree_counts=concept_tree_counts,

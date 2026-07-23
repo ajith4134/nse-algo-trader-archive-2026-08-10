@@ -62,6 +62,12 @@ def _load_stored_intraday_bars() -> list:
     return bars
 
 
+def _is_kite_token_valid() -> bool:
+    from nse_algo_trader.broker_sessions import KiteAccessTokenFileStore
+
+    return KiteAccessTokenFileStore().load_if_still_valid() is not None
+
+
 def build_dashboard_app() -> FastAPI:
     access_token = get_or_create_access_token()
     stored_bars = _load_stored_intraday_bars()  # loaded once; the lab re-runs per request
@@ -81,7 +87,9 @@ def build_dashboard_app() -> FastAPI:
             control_config, stored_bars, _INFY, ledger, scoreboard
         )
         return build_dashboard_snapshot(
-            control_config, ledger, scoreboard, datetime.now()
+            control_config, ledger, scoreboard, datetime.now(),
+            kite_access_token_valid=_is_kite_token_valid(),
+            stored_bar_count=len(stored_bars),
         )
 
     @app.get("/", response_class=HTMLResponse)

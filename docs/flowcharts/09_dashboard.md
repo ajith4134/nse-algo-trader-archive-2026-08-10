@@ -123,3 +123,24 @@ Permanence across reboots wants a systemd unit (a later slice).
   Kill with the bracket trick `ps|grep '[d]ashboard_server'` instead.
   Server must be launched outside the agent sandbox (network bind blocked
   in-sandbox).
+
+## Monitoring & alerting (added 2026-07-23)
+- `monitoring_alerts.py`: `generate_dashboard_alerts(config, ledger,
+  scoreboard, kite_token_valid, stored_bar_count) -> list[MonitoringAlert]`
+  with `AlertLevel` INFO/WARNING/CRITICAL. Conditions: LIVE mode (warn),
+  open position / no-overnight breach (CRITICAL), CONFIDENT-WIN not
+  beating CONFIDENT-LOSS (calibration warn), expired Kite token (warn),
+  no stored bars (warn), else a single "all nominal" INFO.
+- Wired into `DashboardSnapshot.alerts`; the server passes real token
+  validity (`KiteAccessTokenFileStore.load_if_still_valid`) and bar count.
+- Rendered as a prominent alerts banner (critical first, colour-coded).
+- 6 tests (235 total green); verified live: healthy state -> "all nominal".
+
+## Layer 9 status
+**Core built (v1):** read-model · editable control config + enforcement
+(toggles gate trading) · browser-reachable dashboard (redesigned,
+theme-aware, mobile) · two-way live control API · monitoring/alerts —
+all Rule-F verified. **Remaining/deferred:** push alerting (Telegram/
+email channel) · live WebSocket tick feed (blocked on an open market
+session + KiteTicker auth) · advanced AI panels (self-explanation,
+knowledge-graph browser — arrive as Layer 10 trunks mature).
