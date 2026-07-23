@@ -47,7 +47,7 @@ starting Layer 3 onward.
 | 1 | Universe & Instrument Registry | **built & signed off** (tests re-verified 2026-07-23, 8/8 passing) | `01_universe_instrument_registry.md` |
 | 2 | Market Data (real-time + historical) | **complete for v1, Kite-only per PLAN §8a.13** (2026-07-23): auth automation, historical bars, NSE report ingestion + SQLite store all live-verified; other-broker adapters deferred post-completion; live-tick check pending an open market session | `02_market_data_sourcing.md` |
 | 3 | Indicator / Feature Engineering | **v1 complete, awaiting sign-off** (2026-07-23): EMA, RSI, ATR, ADX, Supertrend, VWAP + BS-IV, ATM-IV, IV Rank, PCR — all reference- and real-data-verified | `03_indicator_engineering.md` |
-| 4 | Strategy / Signal Engine | not started — menu in `../research/07_...` §B/§C; v1 shortlist proposed in `../PLAN.md` §7 | — |
+| 4 | Strategy / Signal Engine | **v1 built** (2026-07-23): ORB + ADX regime gate + credit-spread leg selector, unit-tested + real-data dry-run; statistical validation gated on Layer 7 | `04_strategy_signal_engine.md` |
 | 5 | Risk Management | not started — must model per-combination option margin + undefined-risk-leg detection, `../PLAN.md` §4 | — |
 | 6 | Broker Integration & Order Execution (OMS) | not started — architecture decided: in-house `BrokerClient` protocol (paper/live parity), multi-leg orders as one atomic unit, `../PLAN.md` §1 | — |
 | 7 | Backtesting & Paper Trading | not started — must include realistic options slippage/spread modeling, `../PLAN.md` §1.2 | — |
@@ -83,8 +83,14 @@ Each layer's file (once it exists) documents, cumulatively:
      (list[PriceBar] -> 1:1-aligned per-bar series)
    options-derived: BS-IV inversion -> ATM-IV snapshots -> IV Rank;
      PCR-OI (from stored F&O bhavcopy rows, 32 days backfilled)
-   -> (nothing consumes these yet — Layer 4 Strategy Engine will)
+        |
+        v
+[Layer 4: Strategy Engine]  (v1 built)
+   ADX regime gate -> ORB signal | credit-spread legs | stand aside
+   emits OpeningRangeBreakoutSignal / CreditSpreadSignal (atomic legs)
+   -> (nothing consumes signals yet — Layer 5 Risk will validate them)
 ```
 
 Full detail: `01_universe_instrument_registry.md`,
-`02_market_data_sourcing.md`, `03_indicator_engineering.md`.
+`02_market_data_sourcing.md`, `03_indicator_engineering.md`,
+`04_strategy_signal_engine.md`.

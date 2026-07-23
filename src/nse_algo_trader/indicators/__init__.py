@@ -12,6 +12,7 @@ from nse_algo_trader.indicators.average_directional_index import (
 )
 from nse_algo_trader.indicators.black_scholes_implied_volatility import (
     OptionRightForPricing,
+    compute_black_scholes_delta,
     compute_black_scholes_option_price,
     compute_implied_volatility,
 )
@@ -50,6 +51,7 @@ __all__ = [
     "OptionRightForPricing",
     "PutCallOpenInterestRatio",
     "SupertrendSeries",
+    "compute_black_scholes_delta",
     "compute_black_scholes_option_price",
     "compute_end_of_day_atm_implied_volatility",
     "compute_implied_volatility",

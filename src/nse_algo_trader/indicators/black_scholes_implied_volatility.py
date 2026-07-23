@@ -54,6 +54,29 @@ def compute_black_scholes_option_price(
     return discounted_strike * _standard_normal_cdf(-d2) - underlying_price * _standard_normal_cdf(-d1)
 
 
+def compute_black_scholes_delta(
+    underlying_price: float,
+    strike_price: float,
+    time_to_expiry_years: float,
+    volatility: float,
+    option_right: OptionRightForPricing,
+    risk_free_rate: float = DEFAULT_RISK_FREE_INTEREST_RATE,
+) -> float:
+    """BS delta: calls in (0, 1), puts in (-1, 0). At/after expiry,
+    collapses to the intrinsic indicator (0/±1)."""
+    if time_to_expiry_years <= 0.0 or volatility <= 0.0:
+        if option_right is OptionRightForPricing.CALL:
+            return 1.0 if underlying_price > strike_price else 0.0
+        return -1.0 if underlying_price < strike_price else 0.0
+    d1 = (
+        math.log(underlying_price / strike_price)
+        + (risk_free_rate + volatility**2 / 2.0) * time_to_expiry_years
+    ) / (volatility * math.sqrt(time_to_expiry_years))
+    if option_right is OptionRightForPricing.CALL:
+        return _standard_normal_cdf(d1)
+    return _standard_normal_cdf(d1) - 1.0
+
+
 def compute_implied_volatility(
     observed_option_price: float,
     underlying_price: float,
