@@ -79,3 +79,42 @@ tests/test_paper_trading/test_market_clock_and_router.py   # 13 tests
 4. **Live-feed handoff** verified during a real open session (Rule F
    blocker until market hours + KiteTicker auth).
 5. **Deflated-Sharpe / CPCV promotion gate** (PLAN §5) for strategies.
+
+## Paper engine slice (loop-closing, added 2026-07-23)
+```
+src/nse_algo_trader/paper_trading/
+├── paper_trading_ledger.py                     # PaperTradingLedger (avg-cost P&L)
+└── opening_range_breakout_paper_engine.py      # the L4->L5->L6->ledger loop
+tests/test_paper_trading/test_paper_ledger_and_engine.py   # 9 tests
+```
+- `PaperTradingLedger(starting_virtual_cash)` — `record_fill`,
+  `net_quantity`, `is_flat`, `unrealized_pnl`, `total_pnl`; average-cost
+  realized P&L; purely virtual money.
+- `run_opening_range_breakout_paper_session(session_bars, instrument,
+  simulated_broker, risk_budget, ledger)` -> `PaperSessionResult`
+  (outcome NO_SIGNAL/RISK_REJECTED/EXITED_TARGET/EXITED_STOP/
+  SQUARED_OFF_AT_CLOSE). Enters at the breakout close, manages intraday
+  stop/target, hard square-off at session end (no overnight).
+- `group_bars_into_sessions(bars)` — splits the replay stream by date.
+- **This closes the Rule-G loop**: it is the runtime consumer that wires
+  Layer 4 (signal) -> Layer 5 (risk gate) -> Layer 6
+  (SimulatedBrokerClient) -> the ledger, driven by Layer 7's replayed
+  real bars. L4/L5/L6 are no longer "awaiting consumer."
+
+### Rule F verification (real data, 2026-07-23)
+Ran the engine over the router's REPLAY of the real 1,650 INFY 5-min
+bars (22 real sessions): 17 paper trades (14 up / 3 down), 2 hit target,
+15 squared off at close, 5 no-signal; ledger flat at every session end
+(no overnight); realized P&L tracked end-to-end.
+**HONESTY CAVEAT (not a validated edge):** the raw month P&L is
+one-symbol, one-month, with NO slippage/costs modeled and NO
+walk-forward / Deflated-Sharpe / CPCV gate (PLAN §5) — those gates are
+later Layer 7 slices. What is verified here is that the PIPELINE runs
+correctly on real data, not that ORB is profitable. No strategy touches
+live capital before clearing the promotion ladder.
+
+### Cash-side ORB path scope
+This slice is the directional cash ORB path. The credit-spread paper
+path needs intraday option bars (store holds EOD bhavcopy only) — a
+later slice. The prediction-labeled tables lab (PLAN §9) attaches on top
+of this engine next.
