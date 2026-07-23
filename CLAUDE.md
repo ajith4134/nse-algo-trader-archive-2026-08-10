@@ -85,6 +85,27 @@ this project's status ever changes (offered to others, hosted, distributed
 — which already changes the regulatory category per the constraints
 below), revisit every borrowed piece's license at that point, not before.
 
+## Rule F — Real-data verification gate (every feature, every branch)
+No feature, layer, or branch — including all 16 trunks and ~200 AI
+branches (research/32-36) — is considered done until it has been
+verified against the **real data it will operate on in production**, not
+fake/synthetic data.
+- Synthetic fixtures may scaffold deterministic unit tests, but they
+  NEVER substitute for the real-data verification pass, which is the
+  actual sign-off. (Prefer fixtures that are trimmed *real* samples over
+  invented ones.)
+- "Real data" = the actual source the feature consumes in production:
+  live/replayed NSE market data, real Kite API responses, the real NSE
+  official reports, and — for AI/learning/paper features — the real
+  paper/replay/live stream they learn from. A feature is tested on the
+  same data it will run on.
+- If the real data is not reachable yet (e.g. live ticks need an open
+  market session), that is recorded as an explicit blocker against the
+  feature — never a reason to sign off on fake data instead.
+- This pairs with Rule A's "verify before advancing": Rule A requires
+  tests + a manual check; Rule F fixes that the manual check must be
+  against production-real data, for everything, including AI branches.
+
 ## Non-negotiables carried through every layer
 - Intraday only. Every position auto-squares-off before close. No exceptions
   per-segment, ever, unless a future phase explicitly revisits this.

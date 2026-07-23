@@ -764,6 +764,33 @@ CoALA agent-memory taxonomy).
 **Status: branch level widened + extended for all 16. Twig depth (one
 file per trunk) still paused until the user picks a trunk.**
 
+## 17. Rule F (real-data gate) + AI integration/sequencing map (2026-07-23)
+
+Two things fixed before resuming Layer 7, per user:
+
+**(a) Rule F — real-data verification gate (now in CLAUDE.md):** no
+feature/layer/branch — including all 16 trunks + ~200 AI branches — is
+done until verified on the REAL data it operates on in production, not
+fake data. Fixtures may scaffold unit tests but never substitute for the
+real-data sign-off; unreachable real data = an explicit blocker, not a
+fake-data pass. (Already earned its keep: the live Kite `expiry`-as-date
+bug and NIFTY lot-size-65 were only caught on real data.)
+
+**(b) AI integration & sequencing map (`flowcharts/AI_integration_and_
+sequencing_map.md`):** how the 16 trunks / ~200 branches connect to each
+other and to the layer roadmap, and at what step each starts. Key
+finding: the tree is built THROUGH the layers, not after — SENSES/BODY/
+part-of-UNIVERSAL-ACCESS are already built (L1-6); **Layer 7 is the
+ignition where 5 trunks first become real** (EPISTEMICS + PREDICTIVE
+CORE + MEMORY + CONSCIENCE, plus CURIOSITY/SELF seeds) because the paper
+lab is where the bot first forms beliefs, predicts, remembers, and is
+audited; Layer 10 blooms the mind trunks; Layer 11 = universal-access +
+self-mod. Four hubs wire the trunks together: VIII Global-Workspace
+(bus), IX Active-Inference (currency), XV Memory (substrate), VII
+Conscience (envelope). Each branch is implemented at the layer where its
+trunk gives it real data — never earlier — which is exactly what makes
+Rule F always satisfiable.
+
 ## 8a. Decisions log (resolved 2026-07-23)
 
 All 12 open questions below have been answered. Resolutions:

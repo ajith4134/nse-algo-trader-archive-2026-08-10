@@ -62,6 +62,14 @@ Each layer's file (once it exists) documents, cumulatively:
 3. The exact type/shape of every piece of data the layer exports.
 4. The full list of files belonging to that layer.
 
+**How the 16-trunk AI tree connects to this roadmap:** see
+`AI_integration_and_sequencing_map.md` — the tree is built THROUGH these
+layers (not after); Layer 7 is where 5 trunks first ignite
+(EPISTEMICS/PREDICTIVE-CORE/MEMORY/CONSCIENCE + CURIOSITY/SELF seeds).
+**Rule F (CLAUDE.md):** every feature/layer/branch — incl. all 200 AI
+branches — is signed off only after verification on the REAL data it
+operates on, never fake data.
+
 
 ## Autonomous-intelligence concept map (PLAN §12, research/32)
 
