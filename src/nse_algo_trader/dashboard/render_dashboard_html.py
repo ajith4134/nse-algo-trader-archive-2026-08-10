@@ -305,7 +305,7 @@ function renderLive(snap){
   document.getElementById("kpis").innerHTML=
     kpi(p.realized_pnl>=0?"profit":"loss","Paper P&L",rupeeShort(p.realized_pnl),p.fill_count+" fills · "+(p.is_flat?"flat":"OPEN"))+
     kpi("","Win-side accuracy",winTable&&winTable.actual_win_rate!=null?Math.round(winTable.actual_win_rate*100)+"%":"—",winTable&&winTable.trade_count?winTable.trade_count+" confident-win trades":"no trades")+
-    kpi("","Layers built",built+"/11","6→8 core done")+
+    kpi("","Layers built",built+"/11","core pipeline complete")+
     kpi("","AI trunks",snap.concept_tree_counts.trunk_count,"faculties mapped")+
     kpi("","AI branches",snap.concept_tree_counts.total_branch_count+"+","sub-features");
   document.getElementById("paperkpis").innerHTML=
