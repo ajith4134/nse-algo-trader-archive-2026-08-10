@@ -118,3 +118,49 @@ This slice is the directional cash ORB path. The credit-spread paper
 path needs intraday option bars (store holds EOD bhavcopy only) — a
 later slice. The prediction-labeled tables lab (PLAN §9) attaches on top
 of this engine next.
+
+## §9 Prediction-labeled trade-tables lab (added 2026-07-23)
+The EPISTEMICS trunk's first ignition (PLAN §9). Every paper trade
+declares an immutable prediction BEFORE it opens; reality grades it.
+```
+src/nse_algo_trader/paper_trading/prediction_lab/
+├── prediction_record.py                        # immutable TradePredictionRecord (+enums)
+├── adx_confidence_prediction.py                # ADX -> win-prob -> table + mechanism
+├── prediction_outcome_grading.py               # grade vs realized P&L; Brier
+├── prediction_table_scoreboard.py              # per-table hit-rate/win-rate/Brier
+└── opening_range_breakout_prediction_lab.py    # wires lab onto the paper engine
+tests/test_paper_trading/test_prediction_lab.py # 13 tests
+```
+- `TradePredictionRecord` (immutable): predicted_outcome, win_probability,
+  assigned_table (CONFIDENT_WIN / CONFIDENT_LOSS / UNCERTAIN),
+  expected_reward_multiple, named reasons, mechanism_name,
+  predicted_exit_cause, kill_criteria, calendar_context. Post-init
+  enforces label↔outcome consistency (CONFIDENT_LOSS must predict LOSS).
+- v1 confidence = logistic of ADX around the 20/25 regime band:
+  trending→CONFIDENT_WIN (trend-continuation), range-bound→CONFIDENT_LOSS
+  (deliberate loss, mechanism = false-breakout-into-chop), mid→UNCERTAIN.
+- `grade_prediction` — a CONFIDENT_LOSS prediction is CORRECT when the
+  trade actually loses; Brier scores calibration separately.
+- `run_orb_prediction_lab_over_replay` — the batch driver; the runtime
+  consumer wiring strategy→engine→prediction→grading→scoreboard. Named
+  future consumer of the continuous paper loop + Layer 9 dashboard.
+
+### The lab caught a real bug on its first run (Rule F working)
+First real run: ALL 17 trades landed in CONFIDENT_LOSS with mean
+predicted win-prob 0.03 yet 82% actually won (Brier 0.798). Cause:
+intraday ADX at an early breakout bar is un-warmed (needs ~2*period
+bars). **Fix:** compute ADX over the CONTINUOUS multi-session stream and
+read it at the breakout (warmed, no lookahead) — `run_orb_prediction_lab_
+over_replay`. This is the self-correcting loop working on day one.
+
+### Rule F verification (real data, after the fix)
+22 real INFY sessions: CONFIDENT_WIN 12 trades, predicted 0.91 / actual
+0.92 win (Brier 0.087 — well-calibrated); CONFIDENT_LOSS 4 trades,
+predicted 0.29 / actual 0.50 win (Brier 0.290); UNCERTAIN 1. Core check
+CONFIDENT_WIN > CONFIDENT_LOSS win-rate = True.
+**HONEST CAVEATS:** (1) tiny n (17, one symbol, one month) — a
+directional signal, NOT statistical proof; (2) the CONFIDENT_LOSS
+table's 50% actual win-rate means the "false breakout in low ADX"
+mechanism only half-held here — a real finding to investigate, not
+hidden; (3) no slippage/costs, no DSR/CPCV gate yet. The win-side
+confidence is well-calibrated; the loss-side mechanism needs work.
