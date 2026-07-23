@@ -76,8 +76,15 @@ Each layer's file (once it exists) documents, cumulatively:
    NSE official-reports side:
      NseReportDownloader + 5 parsers -> delivery %, EOD OI, ban list,
      MWPL utilization, bulk/block deals
-   -> (nothing consumes these yet — Layer 3 Indicators and the Layer 7
-       replay store will be the first consumers)
+        |
+        v
+[Layer 3: Indicators]  (v1 complete)
+   price-series: EMA / RSI / ATR / ADX / Supertrend / session VWAP
+     (list[PriceBar] -> 1:1-aligned per-bar series)
+   options-derived: BS-IV inversion -> ATM-IV snapshots -> IV Rank;
+     PCR-OI (from stored F&O bhavcopy rows, 32 days backfilled)
+   -> (nothing consumes these yet — Layer 4 Strategy Engine will)
 ```
 
-Full detail: `01_universe_instrument_registry.md`, `02_market_data_sourcing.md`.
+Full detail: `01_universe_instrument_registry.md`,
+`02_market_data_sourcing.md`, `03_indicator_engineering.md`.
