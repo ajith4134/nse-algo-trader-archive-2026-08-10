@@ -218,6 +218,47 @@ tests/test_broker_credentials/
   secret) and Angel One (key only); special characters (`$ # ^ ~`) intact
   via single-quoting; `.env` confirmed absent from `git status`.
 
+## Kite daily session automation (added 2026-07-23)
+
+User asked for OpenAlgo-style automatic request-token handling; built the
+stronger version — a fully headless TOTP login (no browser, no clicks,
+no open ports; this VPS exposes only SSH). Flow verified against current
+community implementations before building.
+
+```
+src/nse_algo_trader/broker_sessions/
+├── __init__.py
+├── kite_access_token_store.py      # persist token + 6AM-IST expiry logic
+├── kite_totp_auto_login.py         # headless login -> request_token -> access token
+└── refresh_kite_access_token.py    # CLI entry for the pre-market cron
+
+src/nse_algo_trader/broker_credentials/
+└── kite_login_credentials_loader.py  # user id / password / TOTP secret from .env
+
+tests/test_broker_sessions/           # 11 tests: expiry boundaries, file perms,
+                                      # full fake login chain, wrong-password path
+```
+
+- `fetch_kite_request_token_via_totp_login(api_key, login_credentials, http_session=None)`
+  — seeds cookies on connect/login, POSTs `api/login` (user id+password),
+  POSTs `api/twofa` (pyotp TOTP), then follows redirect **headers**
+  manually and extracts `request_token` — the registered redirect URL
+  (`http://127.0.0.1/kite/callback`) is never visited, so it needs no
+  server.
+- `generate_and_store_daily_kite_access_token(...)` — exchanges the
+  request token via `KiteConnect.generate_session` (injectable) and
+  persists a `KiteAccessTokenRecord` to
+  `~/.nse_algo_trader/kite_access_token.json` (chmod 600).
+- `KiteAccessTokenRecord.expires_at()` — 6:00 AM IST strictly after
+  generation; `is_still_valid(now)`; repr masks the token.
+- `python -m nse_algo_trader.broker_sessions.refresh_kite_access_token`
+  — skips login while the stored token is valid; `--force` overrides.
+  To be cron-scheduled pre-market once live-verified.
+- New env vars: `ZERODHA_KITE_USER_ID` / `_PASSWORD` / `_TOTP_SECRET`
+  (password + TOTP secret pending from user). New dependency: `pyotp`.
+- **Not yet live-verified** — blocked on the user adding password + TOTP
+  secret to `.env`; first real run is the verification.
+
 ### Credentials on hand vs. still missing (as of 2026-07-23)
 | Broker | Have | Still needed for a live session |
 |---|---|---|
