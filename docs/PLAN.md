@@ -736,6 +736,34 @@ branches) is one-file-per-trunk, only when the user picks a trunk.**
 Depth order: VII+XIV -> VIII -> XV -> XVI -> IX -> XIII -> III/XII ->
 rest.
 
+## 16. Depth Pass 1b — more branches + per-branch extensions (2026-07-23)
+
+Per user: think again + research for MORE branches per trunk, and for
+EACH branch generate extension ideas/features. Full map: `research/36`
+(grounded in a fresh research sweep: dual-coding/meta-reasoning; the
+AI-safety subfield taxonomy — mechanistic interpretability, scalable
+oversight, inner-alignment/mesa-optimization, wireheading, instrumental
+convergence; RL-for-trading — execution/market-making/regime-forecast;
+CoALA agent-memory taxonomy).
+
+- **~80 new branches** added (≈200 total with research/35), e.g.
+  MIND mental-imagery + meta-reasoning + System-1/2 router; BODY optimal-
+  execution + smart routing + partial-fill loop; CONSCIENCE mechanistic-
+  interpretability + scalable-oversight + deceptive-alignment monitor +
+  wireheading tripwire; IX regime-forecast + free-energy monitor +
+  ensemble world-models; XV consolidation-engine + importance-scoring +
+  in-weights/in-context tiering + forgetting-curve; XVI web-agent +
+  document-understanding + news firehose + API auto-discovery.
+- **Every branch now carries 2-4 seed EXTENSION ideas** — the raw
+  material for twig-level depth.
+- Pruning: +3 PARK (empowerment estimator — needs world-model;
+  alternative-data connectors — scope/value); 0 KILL (twig-level).
+- No loss; GATED branches + Universal-Access hard wall (technical
+  friction only, never auth/law bypass or market manipulation) unchanged.
+
+**Status: branch level widened + extended for all 16. Twig depth (one
+file per trunk) still paused until the user picks a trunk.**
+
 ## 8a. Decisions log (resolved 2026-07-23)
 
 All 12 open questions below have been answered. Resolutions:

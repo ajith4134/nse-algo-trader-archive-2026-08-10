@@ -102,11 +102,13 @@ research/32 + /33 + /34 coverage checks. Recursive self-improvement =
 the EMERGENT loop of SELF x Open-Endedness x Curiosity x Active-
 Inference (a product of trunks, not a trunk).
 
-**Depth pass 1 (branches) COMPLETE — PLAN §15, research/35:** all 16
-trunks now have 6-9 branches each (~120 total, ADOPT/PARK/KILL verdicts,
-cross-referenced to research/29-34). Twig-level depth (below branches)
-is one-file-per-trunk and PAUSED until a trunk is picked; order:
-VII+XIV -> VIII -> XV -> XVI -> IX -> XIII -> III/XII -> rest.
+**Depth pass 1 (branches) COMPLETE — PLAN §15/§16, research/35+36:** all
+16 trunks now have ~200 branches total (research/35 ~120 + research/36
+~80 new, research-grounded), and EVERY branch carries 2-4 seed extension
+ideas (research/36). Twig-level depth (below branches, expanding these
+extensions into buildable specs) is one-file-per-trunk and PAUSED until
+a trunk is picked; order: VII+XIV -> VIII -> XV -> XVI -> IX -> XIII ->
+III/XII -> rest.
 
 ## AI / dashboard feature implementation queue (from PLAN §9 + §10)
 
