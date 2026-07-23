@@ -80,9 +80,20 @@ BODY     actuation·TOOL-USE(gated)·resource-economy·survival·cost-homeostasi
 SELF     self-modification(gated)·evolution·ONTOGENY·identity·teachability
 SOCIETY  inner-society·external-agents·human-interface·influence(bounded)·teaching-legacy
 CONSCIENCE  CONSTITUTION(supreme)·security·law-ethics·off-switch·transparency·ALIGNMENT
+
+  + 7 literature-grounded trunks (PLAN §13, research/33):
+VIII  SENTIENCE & GLOBAL WORKSPACE   (Baars/Dehaene/Tononi/Graziano)
+IX ⊛  PREDICTIVE CORE / ACTIVE INFERENCE   (Friston)          [meta]
+X  ⊛  AUTOPOIESIS / SELF-PRODUCTION   (Maturana & Varela)     [meta]
+XI    GENERATIVITY & OPEN-ENDEDNESS   (POET / Clune / Stanley)
+XII   INTRINSIC MOTIVATION / CURIOSITY   (Schmidhuber / Oudeyer)
+XIII  EPISTEMICS / TRUTH & UNCERTAINTY   (Legg-Hutter / Bayesian)
+XIV   AXIOLOGY / VALUES & PRACTICAL WISDOM   (Russell / Gabriel)
 ```
-All prior lab/institution/organism concepts (research/29/30/31) map
-under these branches — see research/32 coverage check.
+14 trunks total. All prior lab/institution/organism concepts
+(research/29/30/31) map under these branches — see research/32 + /33
+coverage checks. Breadth PAUSED at 14 trunks; depth (per-trunk
+sub-branches -> twigs) begins only when a trunk is picked.
 
 ## AI / dashboard feature implementation queue (from PLAN §9 + §10)
 

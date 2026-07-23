@@ -640,6 +640,40 @@ picks it. Depth order: G1 Constitution + G6 Alignment first (they frame
 all), then M4 Metacognition, W1 Drives, S3 Ontogeny, P2 Internet-
 research, Bb2 Tool-use, then the rest.
 
+## 13. Literature-grounded additional trunks — 14 total (2026-07-23)
+
+Per user: add MORE trunks before any depth, and derive them from real
+PhD/paper/book-level literature on autonomous-AGI faculties. Full
+reading list + derivation: `research/33`. The 7 trunks of §12 grow to
+**14**, each new one anchored to a canonical framework:
+
+| # | New trunk | Anchored in |
+|---|-----------|-------------|
+| VIII | Sentience & Global Workspace | Baars/Dehaene GWT-GNWT, Tononi IIT, Graziano AST |
+| IX ⊛ | Predictive Core / Active Inference (meta) | Friston free-energy principle; Clark/Hohwy |
+| X ⊛ | Autopoiesis / self-production (meta) | Maturana & Varela |
+| XI | Generativity & Open-Endedness | POET (Wang/Lehman/Clune/Stanley), MAP-Elites, DeepMind 2024 |
+| XII | Intrinsic Motivation / Curiosity | Schmidhuber compression-progress; Oudeyer |
+| XIII | Epistemics / Truth & Uncertainty | Legg-Hutter/Solomonoff, Bayesian brain |
+| XIV | Axiology / Values & Practical Wisdom | Russell assistance games, Gabriel, Bostrom |
+
+IX and X are META-trunks (organizing lenses that reframe all faculties,
+not parallel silos). Folded-not-added (recorded, not lost): temporality/
+chronos, embodiment-as-enaction, narrative-self, aesthetics — parked as
+cross-cutting branches. The reading list (Standard Model of the Mind,
+Superintelligence, Human Compatible, Active Inference, Autopoiesis and
+Cognition, POET, Universal Intelligence, Corrigibility, etc.) is the
+study basis for the later depth passes.
+
+**Boundary reaffirmed:** "access/gather anything" = aggressive use of
+legitimately-reachable data + overcoming technical friction; NOT
+bypassing auth/authorization/law, NEVER market manipulation
+(constitutional, per §12 G1/G3).
+
+**Status: BREADTH PAUSED here at 14 trunks. Depth (sub-branches->twigs,
+one trunk per file) begins only when the user picks a trunk.** Depth
+order in research/33.
+
 ## 8a. Decisions log (resolved 2026-07-23)
 
 All 12 open questions below have been answered. Resolutions:
