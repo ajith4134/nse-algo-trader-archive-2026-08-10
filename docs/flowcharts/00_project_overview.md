@@ -52,7 +52,7 @@ starting Layer 3 onward.
 | 6 | Broker Integration & OMS | **v1 built** (2026-07-23): BrokerClient protocol + Simulated/Kite twins, atomic multi-leg executor (hedge-first, unwind-on-failure), SEBI rate throttle; parity + one-leg-failure tests green; live read path verified | `06_broker_oms.md` |
 | 7 | Backtesting & Paper Trading | not started — realistic options slippage (`../PLAN.md` §1.2), MarketClock/DataSourceRouter 24/7 replay (§1.4), **and the Prediction-Labeled Trade Tables lab (§9) + institution concepts (§10): WIN / deliberate-LOSS / UNCERTAIN tables, immutable PredictionRecords with kill-criteria + mechanism fields, calendar partition keys, Referee audits — the paper engine is an experiment allocator, not one portfolio** | — |
 | 8 | Session / Square-off Management | not started — square-off ordering must never leave a naked multi-leg position open, `../PLAN.md` §4 | — |
-| 9 | Dashboard, Monitoring, Logging & Alerting | not started — scope in `../PLAN.md` §2 **plus the lab/institution surfaces (§9/§10): live view of all prediction tables (WIN/LOSS/UNCERTAIN/control arms), calibration scoreboards + reliability curves, Skill-vs-Luck verdict feed, loss-epidemiology outbreak panel, world-model scoreboard, reason ledger, assumption-registry tripwire status, Referee audit alerts, profit-provenance breakdown** | — |
+| 9 | Dashboard, Monitoring, Logging & Alerting | not started — scope in `../PLAN.md` §2 **plus the lab/institution surfaces (§9/§10): live view of all prediction tables (WIN/LOSS/UNCERTAIN/control arms), calibration scoreboards + reliability curves, Skill-vs-Luck verdict feed, loss-epidemiology outbreak panel, world-model scoreboard, reason ledger, assumption-registry tripwire status, Referee audit alerts, profit-provenance breakdown; **plus per-branch surfaces from the §12 atlas as those faculties are built — metacognition/competence-envelope view, drive-stack state, autonomy-level indicator, alignment/goal-drift monitors, security/anomaly alerts, constitution & off-switch status** | — |
 | 10 | Memory & Reflection (Plan 2 — case-based memory, council-of-models, Deflated-Sharpe/CPCV promotion gate, adversarial-validation trip wire, explainable memory; **primary training signal = prediction-error streams from the §9 trade-tables lab: reason ledger, reflection diffs, adversarial arm, double-sided hypothesis tests; plus §10 institution features in order: assumption registry, opponent ledger (participant-wise OI), information diet, epidemiology->antibody automation**) | not started; **upgraded recommendation** — build on a temporal knowledge graph (Graphiti-style) from day one, not a plain vector store, per `../research/06_self_learning_ai_feature_taxonomy.md` | — |
 | 11 | Strategic LLM / Autonomous Research Agent layer (Plan 3 — deferred: role-divided LLM strategist, debate-as-risk-check, synthetic stress rehearsal, meta-strategy allocator, graph-grounded debate, causal analysis, federated cross-strategy learning; **+ parked §10 items re-evaluated here: prediction-market council weighting, information-diet-directed research targeting**) | deferred until Layer 10 is live and validated | — |
 
@@ -62,6 +62,27 @@ Each layer's file (once it exists) documents, cumulatively:
 3. The exact type/shape of every piece of data the layer exports.
 4. The full list of files belonging to that layer.
 
+
+## Autonomous-intelligence concept map (PLAN §12, research/32)
+
+Breadth-first atlas of ALL 32 main branches of the self-learning
+autonomous-AI stem, grouped in 7 trunks — the index that guarantees no
+faculty is forgotten when the AI/dashboard phases arrive. Deep
+per-branch expansion (sub-branches->twigs) happens later, one branch at
+a time, in this order: Constitution+Alignment -> Metacognition ->
+Drives -> Ontogeny -> Internet-research -> Tool-use -> rest.
+
+```
+MIND     reasoning·learning·memory·METACOGNITION·creativity·foresight·abstraction
+SENSES   market·INTERNET-RESEARCH(gated)·anomaly·microstructure·interoception
+WILL     DRIVES·planning·autonomy-levels·affect·utility
+BODY     actuation·TOOL-USE(gated)·resource-economy·survival·cost-homeostasis
+SELF     self-modification(gated)·evolution·ONTOGENY·identity·teachability
+SOCIETY  inner-society·external-agents·human-interface·influence(bounded)·teaching-legacy
+CONSCIENCE  CONSTITUTION(supreme)·security·law-ethics·off-switch·transparency·ALIGNMENT
+```
+All prior lab/institution/organism concepts (research/29/30/31) map
+under these branches — see research/32 coverage check.
 
 ## AI / dashboard feature implementation queue (from PLAN §9 + §10)
 

@@ -599,6 +599,47 @@ citizenship rule), synesthetic composites (H4), ghost-portfolio family
 Layer-by-layer insertion points are listed in `research/31` and merged
 into the overview implementation queue.
 
+## 12. Autonomous-Intelligence Main-Branch Atlas (breadth-first, 2026-07-23)
+
+Per user instruction, the concept work switched from depth-on-a-few to
+**breadth-first**: enumerate EVERY main branch (top-level faculty) of
+the autonomous-AI stem before deepening any. Full atlas: `research/32`.
+
+**Stem:** fully autonomous, self-learning, self-evolving, ultra-
+intelligent trading AI (JARVIS/Vision/Skynet archetype) — internet-
+connected, tool-permitted, relentlessly pursuing profitable trades —
+inside the Constitutional Core (paper sandbox, human gate, SEBI limits,
+**no market manipulation — hard legal wall**).
+
+**32 main branches across 7 trunks:**
+- **MIND:** reasoning, learning, memory, metacognition*, creativity,
+  foresight, abstraction(NEW).
+- **SENSES:** market-perception, internet-research(GATED), anomaly,
+  microstructure, interoception(NEW).
+- **WILL:** drives*, planning, autonomy-levels(NEW), affect(NEW),
+  utility(NEW).
+- **BODY:** actuation, tool-use(GATED), resource-economy(NEW),
+  survival, cost-homeostasis(NEW).
+- **SELF:** self-modification(GATED), evolution, ontogeny*,
+  identity(NEW), teachability.
+- **SOCIETY:** inner-society, external-agents(NEW), human-interface,
+  influence(BOUNDED — no market manipulation), teaching-legacy(NEW).
+- **CONSCIENCE:** constitution(SUPREME), security(NEW), law/ethics(NEW),
+  off-switch, transparency, alignment/goal-integrity(NEW).
+
+14 branches are NEW territory beyond §9/§10/§11. 3 GATED (internet-
+research, tool-use, self-modification), 1 BOUNDED (influence), 1 SUPREME
+(constitution). All ADOPT-AS-DOMAIN; killing/parking happens at the
+later per-branch depth passes. No prior concept lost — research/32 §
+carries a coverage-check mapping every research/29/30/31 concept to a
+branch, and the earlier killed/parked registers still stand.
+
+**Method going forward:** each main branch gets its own deep file
+(sub-branches → twigs → leaves, ADOPT/PARK/KILL each) WHEN the user
+picks it. Depth order: G1 Constitution + G6 Alignment first (they frame
+all), then M4 Metacognition, W1 Drives, S3 Ontogeny, P2 Internet-
+research, Bb2 Tool-use, then the rest.
+
 ## 8a. Decisions log (resolved 2026-07-23)
 
 All 12 open questions below have been answered. Resolutions:
