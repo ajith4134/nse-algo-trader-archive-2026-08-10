@@ -816,6 +816,35 @@ immediately via a static orphan audit:
 Pairs with Rule F (real-data gate) and Rule A (dependency order): a
 feature is done when wired into the loop AND verified on real data.
 
+## 19. Two puzzle-piece skills + Layer 9 dashboard plan (2026-07-23)
+
+**(a) Two new global skills** (in ~/.claude/skills, checked no similar
+skill existed first; authored to Anthropic's skill best-practices):
+- **`sourcing-oss-parts`** — before building any non-trivial component,
+  search OSS (GitHub/PyPI/npm/libraries.io/grep.app/papers-with-code),
+  read READMEs FIRST, evaluate maturity+fit (rubric), vendor-and-adapt
+  the best tested piece (or build from scratch only if none fit). The
+  puzzle-piece method: complete the puzzle with verified pieces.
+- **`building-features-from-ideas`** — turn an idea into a feature by
+  decomposing it into parts, sourcing each part (composes
+  `sourcing-oss-parts`), prototyping the COMBINATION against a real
+  success test, and building from scratch only if no combination yields
+  the feature. Pairs with `expand-idea` for fuzzy ideas.
+Both integrate the project rules: verify on real data (Rule F), wire into
+the loop (Rule G), save the research (Rule D), licence-not-a-filter
+(Rule E). **Sample-tested** on CPCV sourcing — found `purgedcv` (MIT,
+sklearn protocol, CPCV+DSR) as the best piece to vendor-and-adapt.
+
+**(b) Layer 9 dashboard implementation plan** (`research/37`): a React
+SPA + FastAPI read-model with two views — operator (positions/P&L/mode/
+risk/session) and project/AI (layer roadmap, §9 lab calibration, and the
+navigable 16-trunk/~200-branch concept tree with per-node status +
+layer-ignition). Base tier first (roadmap, live trading, lab, tree,
+risk), advanced AI panels as trunks mature. Frontend pieces sourced via
+`sourcing-oss-parts` (lightweight-charts, TanStack Table/Query,
+react-arborist/d3-hierarchy). The build-console artifact is the interim
+project view.
+
 ## 8a. Decisions log (resolved 2026-07-23)
 
 All 12 open questions below have been answered. Resolutions:
