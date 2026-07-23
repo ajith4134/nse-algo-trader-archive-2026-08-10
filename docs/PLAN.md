@@ -791,6 +791,31 @@ Conscience (envelope). Each branch is implemented at the layer where its
 trunk gives it real data — never earlier — which is exactly what makes
 Rule F always satisfiable.
 
+## 18. Rule G — no orphaned features/files (2026-07-23)
+
+New IMPORTANT rule (in CLAUDE.md): every new feature/file/module must be
+wired into the project's execution loop — directly or indirectly, or
+with a documented NAMED queued future consumer — so no dead code
+accumulates as the 16-trunk/~200-branch tree is implemented. Applied
+immediately via a static orphan audit:
+
+- **Audit result:** the only no-importer modules are the 3 CLI entry
+  points (refresh_kite_access_token, daily_nse_reports_ingestion_job,
+  fo_bhavcopy_backfill_job) — these are the TOP of a loop (2 cron-wired,
+  1 operator backfill tool), not orphans. Everything else has a non-test
+  importer chain. **No orphans.**
+- **One honest wiring pointer recorded:** strategy_engine (L4),
+  risk_management (L5), and broker_oms (L6) are built and unit/real-data
+  verified, but their end-to-end RUNTIME consumer is the **paper engine
+  (Layer 7 next slice)** — that engine is what wires L4->L5->L6 into one
+  running loop over the DataSourceRouter. Named + queued per Rule G, so
+  they are "indirectly in the loop / awaiting the paper engine," not
+  orphans. This makes building the paper engine next the loop-closing
+  step.
+
+Pairs with Rule F (real-data gate) and Rule A (dependency order): a
+feature is done when wired into the loop AND verified on real data.
+
 ## 8a. Decisions log (resolved 2026-07-23)
 
 All 12 open questions below have been answered. Resolutions:

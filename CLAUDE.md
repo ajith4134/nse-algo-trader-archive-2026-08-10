@@ -106,6 +106,29 @@ fake/synthetic data.
   tests + a manual check; Rule F fixes that the manual check must be
   against production-real data, for everything, including AI branches.
 
+## Rule G — No orphaned features/files (wired-into-the-loop verification)
+Every new feature, file, function, or module must be connected to the
+project's execution flow — directly or indirectly — so nothing is built
+that no path ever reaches. Checked on every code add, and it is
+IMPORTANT (a feature that isn't wired in is not "done").
+- On every add, trace the wiring: from the new code, follow who imports/
+  calls it, up to either (a) a runnable entry point (a CLI, cron job,
+  the paper/live loop, the dashboard) or (b) a layer that another layer
+  consumes. "Indirectly in the loop" is fine — Layer N's output feeding
+  Layer N+1 counts.
+- If nothing currently consumes it, it is allowed ONLY when a **named,
+  queued future consumer** is documented (which layer/slice will wire it
+  in, and roughly when). Record that pointer in the layer's flowchart
+  note. Tests-only-caller with no named future consumer = an orphan:
+  either wire it, or don't build it yet.
+- Deleting/replacing code: check for and remove now-orphaned callers and
+  dead files it leaves behind — no stranded fragments.
+- Research/planning docs under `docs/` are reference, not code, and are
+  exempt from this rule (they are indexed via the overview instead).
+- Pairs with Rule A (build in dependency order) and Rule F (verify on
+  real data): a feature is done when it is wired into the loop AND
+  verified on the real data it operates on.
+
 ## Non-negotiables carried through every layer
 - Intraday only. Every position auto-squares-off before close. No exceptions
   per-segment, ever, unless a future phase explicitly revisits this.
