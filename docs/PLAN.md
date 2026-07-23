@@ -674,6 +674,41 @@ bypassing auth/authorization/law, NEVER market manipulation
 one trunk per file) begins only when the user picks a trunk.** Depth
 order in research/33.
 
+## 14. Root-coverage recheck -> 16 trunks (2026-07-23)
+
+Per user challenge ("is 14 all — recheck if the trunks actually MAKE my
+root"). Audited the 14-trunk set against the user's root pillars stated
+verbatim (full matrix: `research/34`). Finding: 14 was not the ceiling —
+three of the user's OWN named root pillars (MEMORY, KNOWLEDGE, and the
+heavily-stressed ACCESS/GATHER-ANYTHING) were only branches. Promoted to
+two new trunks; every root pillar now has a trunk home. **16 trunks
+total.**
+
+- **XV — MEMORY & KNOWLEDGE BASE:** working/episodic/semantic/procedural
+  memory unified in the temporal knowledge graph — remembering + the
+  total "what it knows" store. Anchored: Common Model of Cognition
+  memory modules, Tulving taxonomy, agent-memory/RAG surveys. (Layer 10
+  graph promoted from a layer to a first-class faculty.)
+- **XVI — UNIVERSAL ACCESS & ACQUISITION:** one faculty to reach,
+  ingest, integrate ANY legitimately-reachable info/tool/API/data, and
+  self-write new acquisition tools — the JARVIS "pull any fact / operate
+  any system" organ. Unifies the former scattered internet-research +
+  tool-use + data-prospecting branches. **GATED:** "access/bypass
+  anything" = aggressive use of legitimately-reachable data + beating
+  TECHNICAL friction only; NOT bypassing auth/authorization/law, NEVER
+  market manipulation (constitutional, §12 G1/G3).
+
+**Folded, not added (no loss):** recursive self-improvement = the
+EMERGENT loop of SELF x Open-Endedness x Curiosity x Active-Inference
+(a product of trunks, not a trunk); emotion, embodiment, temporality,
+language, attention, creativity, theory-of-mind = branches (reasons in
+research/34).
+
+**Completeness:** against the stated root, 16 covers every pillar; the
+set grows further only if the ROOT gains a new pillar (e.g. physical
+embodiment beyond order execution, or multi-user deployment). Breadth
+PAUSED at 16. Depth order updated in research/34.
+
 ## 8a. Decisions log (resolved 2026-07-23)
 
 All 12 open questions below have been answered. Resolutions:

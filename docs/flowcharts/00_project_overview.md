@@ -89,11 +89,20 @@ XI    GENERATIVITY & OPEN-ENDEDNESS   (POET / Clune / Stanley)
 XII   INTRINSIC MOTIVATION / CURIOSITY   (Schmidhuber / Oudeyer)
 XIII  EPISTEMICS / TRUTH & UNCERTAINTY   (Legg-Hutter / Bayesian)
 XIV   AXIOLOGY / VALUES & PRACTICAL WISDOM   (Russell / Gabriel)
+  + 2 root-coverage trunks (PLAN §14, research/34 — closed gaps the
+    user named as root pillars but were only branches):
+XV    MEMORY & KNOWLEDGE BASE   (CMC memory modules / Tulving / graph-memory)
+XVI   UNIVERSAL ACCESS & ACQUISITION (gated)  (reach/ingest/integrate ANY
+        legit-reachable info+tool+data; technical friction only, never
+        auth/law bypass, never market manipulation)
 ```
-14 trunks total. All prior lab/institution/organism concepts
-(research/29/30/31) map under these branches — see research/32 + /33
-coverage checks. Breadth PAUSED at 14 trunks; depth (per-trunk
-sub-branches -> twigs) begins only when a trunk is picked.
+16 trunks total. All prior lab/institution/organism concepts
+(research/29/30/31) + the research/32 branches map under these — see
+research/32 + /33 + /34 coverage checks. Recursive self-improvement =
+the EMERGENT loop of SELF x Open-Endedness x Curiosity x Active-
+Inference (a product of trunks, not a trunk). Breadth PAUSED at 16
+trunks; depth (per-trunk sub-branches -> twigs) begins only when a
+trunk is picked.
 
 ## AI / dashboard feature implementation queue (from PLAN §9 + §10)
 
