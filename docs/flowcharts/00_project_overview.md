@@ -46,7 +46,7 @@ starting Layer 3 onward.
 |---|-------|--------|------------|
 | 1 | Universe & Instrument Registry | **built & signed off** (tests re-verified 2026-07-23, 8/8 passing) | `01_universe_instrument_registry.md` |
 | 2 | Market Data (real-time + historical) | **complete for v1, Kite-only per PLAN §8a.13** (2026-07-23): auth automation, historical bars, NSE report ingestion + SQLite store all live-verified; other-broker adapters deferred post-completion; live-tick check pending an open market session | `02_market_data_sourcing.md` |
-| 3 | Indicator / Feature Engineering | **in progress** — v1 set per PLAN §7 + §8a.3: EMA, RSI, Supertrend, VWAP, ATR, ADX (price-series) then IV Rank, PCR (options-derived) | `03_indicator_engineering.md` |
+| 3 | Indicator / Feature Engineering | **v1 complete, awaiting sign-off** (2026-07-23): EMA, RSI, ATR, ADX, Supertrend, VWAP + BS-IV, ATM-IV, IV Rank, PCR — all reference- and real-data-verified | `03_indicator_engineering.md` |
 | 4 | Strategy / Signal Engine | not started — menu in `../research/07_...` §B/§C; v1 shortlist proposed in `../PLAN.md` §7 | — |
 | 5 | Risk Management | not started — must model per-combination option margin + undefined-risk-leg detection, `../PLAN.md` §4 | — |
 | 6 | Broker Integration & Order Execution (OMS) | not started — architecture decided: in-house `BrokerClient` protocol (paper/live parity), multi-leg orders as one atomic unit, `../PLAN.md` §1 | — |

@@ -1,9 +1,9 @@
 # 03 — Indicator / Feature Engineering (Layer 3)
 
-**Status:** price-series v1 set (EMA, RSI, ATR, ADX, Supertrend, session
-VWAP) built, tested, reference-verified on real data. Options-derived
-pair (IV Rank, PCR) not started yet. Awaiting user sign-off on this
-feature-set.
+**Status:** v1 set COMPLETE — price-series six (EMA, RSI, ATR, ADX,
+Supertrend, session VWAP) plus options-derived (Black-Scholes IV, ATM-IV
+snapshots, IV Rank, PCR-OI), all built, tested, verified on real data.
+Awaiting user sign-off before Layer 4.
 
 ## Whole-pipeline data flow so far
 
@@ -79,3 +79,45 @@ store), comparing the last 800 points (seed decay excluded):
   updates (research/19's streaming upgrade) deferred until the live
   scanning loop actually exists to need it.
 - India VIX ingestion (would shortcut IV-regime gating) not wired.
+
+## Options-derived additions (2026-07-23, completing the v1 list)
+
+```
+src/nse_algo_trader/indicators/
+├── black_scholes_implied_volatility.py   # BS price + bisection IV inversion
+├── end_of_day_atm_implied_volatility.py  # bhavcopy rows -> ATM IV snapshot
+├── implied_volatility_rank.py            # IV history -> 0-100 rank
+└── put_call_ratio.py                     # bhavcopy rows -> PCR-OI
+
+src/nse_algo_trader/market_data/
+└── fo_bhavcopy_backfill_job.py           # historical FO bhavcopy -> store
+    (+ store methods has_fo_bhavcopy_for_date / list_stored_fo_bhavcopy_trade_dates)
+
+tests/test_indicators/test_options_derived_indicators.py  # 18 tests
+```
+
+- `compute_black_scholes_option_price(underlying, strike, tte_years,
+  vol, OptionRightForPricing, rate=0.065)` — European BS; intrinsic at
+  tte<=0. `compute_implied_volatility(...)` — bisection in [0.001, 5.0],
+  None outside no-arbitrage bounds. Stdlib math only.
+- `compute_end_of_day_atm_implied_volatility(rows, underlying, rate)` ->
+  `AtmImpliedVolatilitySnapshot` (nearest future expiry, nearest strike,
+  CE/PE IVs from settlement prices, `.atm_implied_volatility` average).
+- `compute_implied_volatility_rank(current, history)` — standard
+  100*(cur-min)/(max-min), clamped, None on thin/flat history.
+- `compute_put_call_open_interest_ratio(rows, underlying)` ->
+  `PutCallOpenInterestRatio` (all-expiry PE/CE OI sums, `.ratio` None on
+  zero call OI). Options rows only — futures never counted.
+- Backfill: 31 additional real FO bhavcopy days downloaded (store now
+  holds 2026-06-08..07-22, 32 trade dates, ~1.3M contract rows).
+
+### Verification (2026-07-23)
+- BS priced against Hull textbook values (S=42,K=40,r=10%,σ=20%,T=0.5:
+  C=4.76/P=0.81) — matches to the penny; IV round-trips recover σ to
+  1e-4 across CE/PE × {12%, 35%, 80%}.
+- Real-data sanity over all 32 stored days, 32/32 ATM IVs recovered per
+  underlying: NIFTY IV 9.0-20.2% (latest 12.6%, IV Rank 32.1) with
+  visible put skew (PE 14.1% vs CE 11.1%); BANKNIFTY 10.9-20.5%;
+  RELIANCE 15.9-27.5% — index < bank-index < single-stock ordering as
+  expected. PCR-OI: NIFTY 0.72-1.43, RELIANCE 0.52-0.71 — textbook
+  ranges. 18 new tests (88 total, green).

@@ -232,6 +232,24 @@ class MarketDataSqliteStore:
             for row in self._connection.execute(query, query_parameters)
         ]
 
+    def has_fo_bhavcopy_for_date(self, trade_date: date) -> bool:
+        return (
+            self._connection.execute(
+                "SELECT 1 FROM fo_bhavcopy_contracts WHERE trade_date=? LIMIT 1",
+                (trade_date.isoformat(),),
+            ).fetchone()
+            is not None
+        )
+
+    def list_stored_fo_bhavcopy_trade_dates(self) -> list[date]:
+        return [
+            date.fromisoformat(row[0])
+            for row in self._connection.execute(
+                "SELECT DISTINCT trade_date FROM fo_bhavcopy_contracts"
+                " ORDER BY trade_date"
+            )
+        ]
+
     # -- F&O ban list --------------------------------------------------------
 
     def save_fo_ban_list_report(self, ban_list_report: FoBanListReport) -> None:
