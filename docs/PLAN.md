@@ -545,6 +545,60 @@ prediction market (premature pre-council), immune-system framing
 detection (thin at retail scale), self-impact mirror (irrelevant at
 this size), synthetic nightmares (already Plan 3 stress rehearsal).
 
+## 11. The Autonomous Organism — concept tree from the sci-fi stem (2026-07-23)
+
+Second ideation loop, per user correction: concepts generated from MY
+OWN stem — the fully-autonomous, self-learning, self-evolving AI
+archetype — not from the user's tables idea. Full tree with every
+verdict and reason (nothing lost): `research/31`. 31 adopted, 6 parked,
+4 killed-with-reasons.
+
+**Architecture that emerged:** ORGANISM (this tree: drives, senses,
+competence self-knowledge, self-repair, maturation, lineage,
+self-change metabolism) + GOVERNMENT (§10 institution: court,
+pathology, audits) + LABORATORY (§9 prediction tables) + CONSTITUTION
+(invariants stored beyond self-modification's reach, Referee-enforced).
+
+**Crown adoptions:**
+- **Competence-Envelope Map (B2)** — the bot knows what it has/hasn't
+  been validated on; outside-envelope actions auto-route to paper or
+  refuse. + **Novelty Governor (B3)**: unseen conditions -> reflex mode.
+- **Homeostatic Drive Stack (D1)** — multiple balancing drives with
+  setpoints; structurally prevents single-runaway-objective failure.
+  + curiosity-that-pays-rent (D2), boredom signal (D3),
+  no-orphan-goals rule (D4).
+- **Self-Experiment Protocol (R2a)** — the bot's changes to ITSELF are
+  meta-trades: PredictionRecord, court verdict, evidence-based
+  promotion/revert. One mechanism governs trading AND self-improvement.
+- **Ontogeny Ladder (R2c)** — designed childhood: per-capability
+  maturation stages (replay-only -> paper -> full lab -> live-candidate)
+  with graduation exams; umbrella for all promotion ladders.
+- **Constitutional Core (I1) + Power Budgets (I2) + Transparency Organ
+  (I3) + Off-Switch Covenant (I4)** — the governance branch that makes
+  the rest safely buildable; I1 scaffold exists from Layer 7 day one.
+- Self-ablation studies (A3), genome/phenotype split (A2), shadow
+  self-rewrite pipeline (A1, genome-gated), teachability-by-apprentice
+  test (F3), patience scoreboard (G2), anniversary reviews (G4),
+  self-scheduling (G3), anomaly telescope (H2), market microscope (H3),
+  vital signs (B1), self-model node (B4), devil's-advocate daemon (F2),
+  regenerative redundancy (E1), resurrection drills (E2), sentinel
+  pair (E3), chaos drills (E4), metabolic accounting (R2b), dream
+  synthesis (R2d), tool foundry (C1), data prospecting (C2),
+  knowledge->capability compiler (C3), niched court-fitness evolution
+  with fossil record (J1+J3), red-queen sparring (J4).
+
+**Parked (recorded, with triggers):** cross-market apprenticeship (C4,
+scope), internal guilds + society constitution (F1/F4, need council),
+multi-horizon selves (G1), strategy crossover (J2, needs genome),
+prediction-market weighting (research/30 R1.9).
+**Killed (recorded, with reasons):** standalone architecture search
+(A4 -> folded into A1), sensor foundry as new item (H1 -> research/24 +
+citizenship rule), synesthetic composites (H4), ghost-portfolio family
+(research/30).
+
+Layer-by-layer insertion points are listed in `research/31` and merged
+into the overview implementation queue.
+
 ## 8a. Decisions log (resolved 2026-07-23)
 
 All 12 open questions below have been answered. Resolutions:

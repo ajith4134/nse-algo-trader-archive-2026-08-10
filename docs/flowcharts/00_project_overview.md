@@ -106,6 +106,23 @@ right before building it (per Rule D), in this order:
 24. Prediction-market council weighting; information-diet-directed
     autonomous research targeting
 
+**Organism-tree insertions (PLAN §11, research/31) — merged by layer:**
+25. L7 base: Constitutional Core scaffold (I1) · state snapshots (E2)
+26. L7.5: patience scoreboard (G2) · self-ablation (A3) · competence-
+    envelope groundwork (B2) · market-microscope hook (H3) · redundancy
+    runbooks (E1)
+27. L8: off-switch covenant (I4) · sentinel pair (E3) · chaos drills (E4)
+28. L9: vital-signs organ (B1) · transparency organ (I3)
+29. L10: homeostatic drive stack (D1-D4) · self-experiment protocol
+    (R2a) · metabolic accounting (R2b) · ontogeny ladder (R2c) ·
+    novelty governor + self-model (B3/B4) · devil's advocate (F2) ·
+    self-scheduling + anniversary reviews (G3/G4) · anomaly telescope
+    (H2) · dream synthesis (R2d) · genome split (A2) · niched evolution
+    + fossil record (J1/J3)
+30. L11: shadow self-rewrite pipeline (A1) · tool foundry / data
+    prospecting / knowledge compiler (C1-C3) · apprentice teachability
+    (F3) · red-queen sparring (J4) · parked-item re-evaluation
+
 ## Whole-system data flow (updated as layers are added)
 
 ```
