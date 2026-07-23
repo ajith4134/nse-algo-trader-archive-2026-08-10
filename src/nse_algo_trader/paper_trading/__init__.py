@@ -13,6 +13,11 @@ from nse_algo_trader.paper_trading.market_clock_gated_data_source_router import 
     DataSourceMode,
     MarketClockGatedDataSourceRouter,
 )
+from nse_algo_trader.paper_trading.fill_slippage_model import (
+    FillSlippageConfig,
+    estimate_slipped_fill_price,
+    make_slippage_fill_adjuster,
+)
 from nse_algo_trader.paper_trading.nse_market_clock import (
     INDIA_MARKET_TIMEZONE,
     NseMarketClock,
@@ -31,8 +36,11 @@ from nse_algo_trader.paper_trading.paper_trading_ledger import (
 
 __all__ = [
     "DataSourceMode",
+    "FillSlippageConfig",
     "HistoricalBarReplaySource",
     "INDIA_MARKET_TIMEZONE",
+    "estimate_slipped_fill_price",
+    "make_slippage_fill_adjuster",
     "MarketClockGatedDataSourceRouter",
     "NseMarketClock",
     "PaperPosition",

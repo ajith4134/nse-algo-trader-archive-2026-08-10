@@ -164,3 +164,23 @@ table's 50% actual win-rate means the "false breakout in low ADX"
 mechanism only half-held here — a real finding to investigate, not
 hidden; (3) no slippage/costs, no DSR/CPCV gate yet. The win-side
 confidence is well-calibrated; the loss-side mechanism needs work.
+
+## Realistic fill slippage/spread model (added 2026-07-23, PLAN §1.2)
+The gap every existing paper engine leaves unmodeled.
+```
+src/nse_algo_trader/paper_trading/fill_slippage_model.py
+tests/test_paper_trading/test_fill_slippage_model.py   # 8 tests
+```
+- `estimate_slipped_fill_price(order_intent, reference_price, config)` —
+  taker pays: buys fill above / sells below by a half-spread. Cash ~3 bps;
+  options ~50 bps near-ATM, PLUS +10% of premium for cheap (<=Rs.10)
+  far-OTM strikes (a Rs.2 option → ~10.5% half-spread), floored at half a
+  tick, never below one tick.
+- `make_slippage_fill_adjuster(config)` — wires the model into
+  `SimulatedBrokerClient.fill_price_adjuster` (the reserved hook). This is
+  the concrete consumer that makes paper fills stop being frictionless.
+- **Rule F (real data):** ran the §9 lab over 22 real INFY sessions with
+  vs without slippage — frictionless Rs.79,111 → with 3bps/side slippage
+  Rs.72,274 (cost Rs.6,837 over 17 cash trades); CONFIDENT_WIN calibration
+  unchanged (Brier 0.087). Honest cost of trading now modeled; option
+  slippage will bite far harder once the credit-spread paper path exists.
