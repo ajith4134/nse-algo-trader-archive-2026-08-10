@@ -105,3 +105,21 @@ Then reachable at `http://<public-ip>:8080/?key=<token>` or via the free
 **Security:** capability-token gated; paper-only today. Before ANY live
 trading is exposed, real auth (login) + HTTPS are mandatory — flagged.
 Permanence across reboots wants a systemd unit (a later slice).
+
+## Config enforcement + visual redesign (added 2026-07-23)
+- `config_enforced_paper_run.py`: `map_control_config_to_risk_budget`
+  (paper capital + risk% + max-capital-per-trade cap -> RiskBudgetConfig),
+  `is_orb_cash_trading_enabled` (segment+strategy gate),
+  `clamp_quantity_to_capital_limits` (min/max capital per trade),
+  `run_config_enforced_orb_paper_lab`. The server re-runs the enforced lab
+  per request, so toggling a segment/strategy off empties the results.
+  9 tests; verified: cash-segment OFF -> 0 fills, ON -> fills return.
+- `render_dashboard_html.py` redesigned: KPI tiles, card layout with depth,
+  toggle switches, colour-coded P&L, calibration bars, collapsed JSON,
+  indigo accent + semantic green/red, theme-aware, mobile-first (was
+  all-mono/plain).
+- **Ops lesson:** `pkill -f dashboard_server` self-matches the launching
+  shell (its cmdline contains the pattern) and SIGKILLs it — silent exit 1.
+  Kill with the bracket trick `ps|grep '[d]ashboard_server'` instead.
+  Server must be launched outside the agent sandbox (network bind blocked
+  in-sandbox).

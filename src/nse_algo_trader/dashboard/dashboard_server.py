@@ -18,7 +18,9 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from nse_algo_trader.broker_oms import SimulatedBrokerClient
+from nse_algo_trader.dashboard.config_enforced_paper_run import (
+    run_config_enforced_orb_paper_lab,
+)
 from nse_algo_trader.dashboard.dashboard_read_model import build_dashboard_snapshot
 from nse_algo_trader.dashboard.render_dashboard_html import render_dashboard_html
 from nse_algo_trader.dashboard.trading_control_config import (
@@ -27,16 +29,8 @@ from nse_algo_trader.dashboard.trading_control_config import (
     save_trading_control_config,
 )
 from nse_algo_trader.market_data import BarInterval, MarketDataSqliteStore
-from nse_algo_trader.paper_trading import (
-    HistoricalBarReplaySource,
-    PaperTradingLedger,
-    make_slippage_fill_adjuster,
-)
-from nse_algo_trader.paper_trading.prediction_lab import (
-    PredictionTableScoreboard,
-    run_orb_prediction_lab_over_replay,
-)
-from nse_algo_trader.risk_management import RiskBudgetConfig
+from nse_algo_trader.paper_trading import HistoricalBarReplaySource, PaperTradingLedger
+from nse_algo_trader.paper_trading.prediction_lab import PredictionTableScoreboard
 from nse_algo_trader.universe_registry import (
     ExchangeSegment,
     Instrument,
@@ -59,26 +53,18 @@ def get_or_create_access_token() -> str:
     return token
 
 
-def _run_paper_lab_from_store():
-    """Compute a real paper snapshot's live half from the stored bars."""
+def _load_stored_intraday_bars() -> list:
     store = MarketDataSqliteStore()
-    replay = HistoricalBarReplaySource(store, [408065], BarInterval.MINUTE_5)
-    bars = replay.load_chronological_bars()
+    bars = HistoricalBarReplaySource(
+        store, [408065], BarInterval.MINUTE_5
+    ).load_chronological_bars()
     store.close()
-    ledger = PaperTradingLedger(1_000_000.0)
-    scoreboard = PredictionTableScoreboard()
-    if bars:
-        run_orb_prediction_lab_over_replay(
-            bars, _INFY,
-            SimulatedBrokerClient(fill_price_adjuster=make_slippage_fill_adjuster()),
-            RiskBudgetConfig(1_000_000.0), ledger, scoreboard,
-        )
-    return ledger, scoreboard
+    return bars
 
 
 def build_dashboard_app() -> FastAPI:
     access_token = get_or_create_access_token()
-    cached_ledger, cached_scoreboard = _run_paper_lab_from_store()
+    stored_bars = _load_stored_intraday_bars()  # loaded once; the lab re-runs per request
     app = FastAPI(title="NSE Algo Trader Dashboard")
 
     def _require_key(request: Request) -> None:
@@ -86,9 +72,16 @@ def build_dashboard_app() -> FastAPI:
             raise HTTPException(status_code=403, detail="invalid or missing access key")
 
     def _current_snapshot():
+        # Re-run the config-enforced paper lab so toggles reflect immediately:
+        # disable a segment/strategy on the dashboard -> the results empty out.
+        control_config = load_trading_control_config()
+        ledger = PaperTradingLedger(control_config.account_virtual_capital)
+        scoreboard = PredictionTableScoreboard()
+        run_config_enforced_orb_paper_lab(
+            control_config, stored_bars, _INFY, ledger, scoreboard
+        )
         return build_dashboard_snapshot(
-            load_trading_control_config(), cached_ledger, cached_scoreboard,
-            datetime.now(),
+            control_config, ledger, scoreboard, datetime.now()
         )
 
     @app.get("/", response_class=HTMLResponse)
@@ -119,9 +112,9 @@ def build_dashboard_app() -> FastAPI:
     @app.post("/refresh")
     def refresh(request: Request):
         _require_key(request)
-        nonlocal cached_ledger, cached_scoreboard
-        cached_ledger, cached_scoreboard = _run_paper_lab_from_store()
-        return {"status": "refreshed"}
+        nonlocal stored_bars
+        stored_bars = _load_stored_intraday_bars()  # pick up newly ingested bars
+        return {"status": "refreshed", "bar_count": len(stored_bars)}
 
     return app
 
