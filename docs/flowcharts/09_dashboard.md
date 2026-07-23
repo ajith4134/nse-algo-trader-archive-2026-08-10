@@ -144,3 +144,12 @@ all Rule-F verified. **Remaining/deferred:** push alerting (Telegram/
 email channel) · live WebSocket tick feed (blocked on an open market
 session + KiteTicker auth) · advanced AI panels (self-explanation,
 knowledge-graph browser — arrive as Layer 10 trunks mature).
+
+## Auto-refresh (added 2026-07-23)
+The dashboard's live sections (alerts, KPIs, paper results, §9 lab) now
+re-render from a 20s poll of `/api/snapshot` in server mode (guarded by
+`LIVE_API_KEY`; artifact mode stays static). Render logic refactored into
+`renderLive(snap)`, called on load and each poll. Verified: page + snapshot
+API both 200. This is the last non-blocked Layer 9 slice; remaining
+(push alerts, live tick feed, advanced AI panels) are channel/market/L10
+gated.

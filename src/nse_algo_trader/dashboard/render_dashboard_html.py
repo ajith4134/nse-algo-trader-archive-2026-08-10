@@ -289,49 +289,52 @@ document.getElementById("resetBtn").addEventListener("click",()=>{ cfg=JSON.pars
   riskEl.value=(cfg.max_risk_per_trade_fraction*100).toFixed(1); });
 renderCfg();
 
-// alerts (critical first)
+// --- live data rendering (called on load + on each auto-refresh poll) ---
 const alertIcon={info:"i",warning:"!",critical:"!"};
 const alertOrder={critical:0,warning:1,info:2};
-document.getElementById("alerts").innerHTML=[...SNAPSHOT.alerts]
-  .sort((a,b)=>alertOrder[a.level]-alertOrder[b.level]).map(a=>
-  `<div class="alert ${a.level}"><span class="ic">${alertIcon[a.level]}</span>`+
-  `<div><span class="cat">${a.category}</span> &nbsp;${a.message}</div></div>`).join("");
-
-// header + KPIs
-document.getElementById("sub").textContent="live dashboard · snapshot "+SNAPSHOT.generated_at.slice(0,16).replace("T"," ");
-const p=SNAPSHOT.paper_trading;
-const winTable=SNAPSHOT.prediction_tables.find(t=>t.table==="confident_win");
-const built=SNAPSHOT.layer_roadmap.filter(l=>l.status==="built").length;
-const kpi=(cls,lab,val,sub)=>`<div class="kpi ${cls}"><div class="lab">${lab}</div><div class="val mono">${val}</div><div class="sub">${sub}</div></div>`;
-document.getElementById("kpis").innerHTML=
-  kpi(p.realized_pnl>=0?"profit":"loss","Paper P&L",rupeeShort(p.realized_pnl),p.fill_count+" fills · "+(p.is_flat?"flat":"OPEN"))+
-  kpi("","Win-side accuracy",winTable&&winTable.actual_win_rate!=null?Math.round(winTable.actual_win_rate*100)+"%":"—",winTable&&winTable.trade_count?winTable.trade_count+" confident-win trades":"no trades")+
-  kpi("","Layers built",built+"/11","6→8 core done")+
-  kpi("","AI trunks",SNAPSHOT.concept_tree_counts.trunk_count,"faculties mapped")+
-  kpi("","AI branches",SNAPSHOT.concept_tree_counts.total_branch_count+"+","sub-features");
-
-// paper mini KPIs
-document.getElementById("paperkpis").innerHTML=
-  `<div class="minikpi"><div class="lab">Starting capital</div><div class="v">${rupeeShort(p.starting_virtual_cash)}</div></div>`+
-  `<div class="minikpi"><div class="lab">Realized P&L</div><div class="v" style="color:${p.realized_pnl>=0?'var(--profit)':'var(--loss)'}">${rupee(p.realized_pnl)}</div></div>`+
-  `<div class="minikpi"><div class="lab">Fills</div><div class="v">${p.fill_count}</div></div>`+
-  `<div class="minikpi"><div class="lab">Overnight</div><div class="v" style="color:${p.is_flat?'var(--profit)':'var(--loss)'}">${p.is_flat?"none":"OPEN"}</div></div>`;
-
-// lab table
 const tagcls={confident_win:"win",confident_loss:"loss",uncertain:"unc"};
-let rows="<tr><th>Table</th><th>Trades</th><th>Predicted</th><th>Actual win</th><th></th><th>Brier</th></tr>";
-SNAPSHOT.prediction_tables.forEach(t=>{
-  const tg=`<span class="tag ${tagcls[t.table]||''}">${t.table.replace(/_/g," ")}</span>`;
-  if(!t.trade_count){ rows+=`<tr><td class="tablename">${tg}</td><td>0</td><td>—</td><td>—</td><td></td><td>—</td></tr>`; return; }
-  const wr=Math.round(t.actual_win_rate*100);
-  rows+=`<tr><td class="tablename">${tg}</td><td>${t.trade_count}</td><td>${t.mean_win_probability.toFixed(2)}</td>`+
-    `<td>${wr}%</td><td><div class="wbar"><i style="width:${wr}%"></i></div></td><td>${t.brier_score.toFixed(3)}</td></tr>`;
-});
-document.getElementById("labTbl").innerHTML=rows;
-const won=SNAPSHOT.confident_win_beats_confident_loss;
-document.getElementById("labnote").innerHTML=
-  (won===null?'':`<span class="verdict">✓ confident-win beats confident-loss</span> `)+
-  "Directional signal on a small sample — <b>not a validated edge</b>. No strategy reaches live capital before the Deflated-Sharpe / CPCV gate + human sign-off.";
+function renderLive(snap){
+  document.getElementById("alerts").innerHTML=[...snap.alerts]
+    .sort((a,b)=>alertOrder[a.level]-alertOrder[b.level]).map(a=>
+    `<div class="alert ${a.level}"><span class="ic">${alertIcon[a.level]}</span>`+
+    `<div><span class="cat">${a.category}</span> &nbsp;${a.message}</div></div>`).join("");
+  const p=snap.paper_trading;
+  const winTable=snap.prediction_tables.find(t=>t.table==="confident_win");
+  const built=snap.layer_roadmap.filter(l=>l.status==="built").length;
+  const kpi=(cls,lab,val,sub)=>`<div class="kpi ${cls}"><div class="lab">${lab}</div><div class="val mono">${val}</div><div class="sub">${sub}</div></div>`;
+  document.getElementById("kpis").innerHTML=
+    kpi(p.realized_pnl>=0?"profit":"loss","Paper P&L",rupeeShort(p.realized_pnl),p.fill_count+" fills · "+(p.is_flat?"flat":"OPEN"))+
+    kpi("","Win-side accuracy",winTable&&winTable.actual_win_rate!=null?Math.round(winTable.actual_win_rate*100)+"%":"—",winTable&&winTable.trade_count?winTable.trade_count+" confident-win trades":"no trades")+
+    kpi("","Layers built",built+"/11","6→8 core done")+
+    kpi("","AI trunks",snap.concept_tree_counts.trunk_count,"faculties mapped")+
+    kpi("","AI branches",snap.concept_tree_counts.total_branch_count+"+","sub-features");
+  document.getElementById("paperkpis").innerHTML=
+    `<div class="minikpi"><div class="lab">Starting capital</div><div class="v">${rupeeShort(p.starting_virtual_cash)}</div></div>`+
+    `<div class="minikpi"><div class="lab">Realized P&L</div><div class="v" style="color:${p.realized_pnl>=0?'var(--profit)':'var(--loss)'}">${rupee(p.realized_pnl)}</div></div>`+
+    `<div class="minikpi"><div class="lab">Fills</div><div class="v">${p.fill_count}</div></div>`+
+    `<div class="minikpi"><div class="lab">Overnight</div><div class="v" style="color:${p.is_flat?'var(--profit)':'var(--loss)'}">${p.is_flat?"none":"OPEN"}</div></div>`;
+  let rows="<tr><th>Table</th><th>Trades</th><th>Predicted</th><th>Actual win</th><th></th><th>Brier</th></tr>";
+  snap.prediction_tables.forEach(t=>{
+    const tg=`<span class="tag ${tagcls[t.table]||''}">${t.table.replace(/_/g," ")}</span>`;
+    if(!t.trade_count){ rows+=`<tr><td class="tablename">${tg}</td><td>0</td><td>—</td><td>—</td><td></td><td>—</td></tr>`; return; }
+    const wr=Math.round(t.actual_win_rate*100);
+    rows+=`<tr><td class="tablename">${tg}</td><td>${t.trade_count}</td><td>${t.mean_win_probability.toFixed(2)}</td>`+
+      `<td>${wr}%</td><td><div class="wbar"><i style="width:${wr}%"></i></div></td><td>${t.brier_score.toFixed(3)}</td></tr>`;
+  });
+  document.getElementById("labTbl").innerHTML=rows;
+  const won=snap.confident_win_beats_confident_loss;
+  document.getElementById("labnote").innerHTML=
+    (won===null?'':`<span class="verdict">✓ confident-win beats confident-loss</span> `)+
+    "Directional signal on a small sample — <b>not a validated edge</b>. No strategy reaches live capital before the Deflated-Sharpe / CPCV gate + human sign-off.";
+  document.getElementById("sub").textContent="live dashboard · updated "+snap.generated_at.slice(11,16)+(LIVE_API_KEY?" · auto-refresh 20s":"");
+}
+renderLive(SNAPSHOT);
+
+// auto-refresh in server mode: poll the snapshot and re-render live sections
+if(LIVE_API_KEY){
+  setInterval(()=>{ fetch("/api/snapshot?key="+encodeURIComponent(LIVE_API_KEY))
+    .then(r=>r.ok?r.json():null).then(s=>{ if(s) renderLive(s); }).catch(()=>{}); }, 20000);
+}
 
 // roadmap
 const stcls={built:"built",in_progress:"prog",not_started:"none",deferred:"defer"};
