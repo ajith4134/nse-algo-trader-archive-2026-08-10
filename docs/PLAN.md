@@ -498,6 +498,13 @@ All 12 open questions below have been answered. Resolutions:
     design should treat Kite as one of several interchangeable sources,
     not the only one, for anything feeding the replay store specifically.
 
+13. **Broker scope for the build-out (decided 2026-07-23):** Kite-only
+    until all layers are complete — Upstox/Angel One/ICICI/Groww adapters
+    and their session automation are deferred to a post-completion pass,
+    not built per-layer. The swappable protocols stay (Kite remains one
+    implementation behind them), so adding the other brokers later is
+    additive, not a refactor.
+
 ## 8. Open questions for you to decide
 
 **All 12 below are now resolved — see §8a for the decisions log. Kept

@@ -45,8 +45,8 @@ starting Layer 3 onward.
 | # | Layer | Status | Notes file |
 |---|-------|--------|------------|
 | 1 | Universe & Instrument Registry | **built & signed off** (tests re-verified 2026-07-23, 8/8 passing) | `01_universe_instrument_registry.md` |
-| 2 | Market Data (real-time + historical) | **in progress** — data model, swappable source protocols, Kite adapters, and all five NSE official-report ingests built & live-verified 2026-07-23; remaining: other-broker adapters (awaiting user's APIs), persistence/replay store | `02_market_data_sourcing.md` |
-| 3 | Indicator / Feature Engineering | not started — menu in `../research/07_strategy_indicator_option_taxonomy.md` §A | — |
+| 2 | Market Data (real-time + historical) | **complete for v1, Kite-only per PLAN §8a.13** (2026-07-23): auth automation, historical bars, NSE report ingestion + SQLite store all live-verified; other-broker adapters deferred post-completion; live-tick check pending an open market session | `02_market_data_sourcing.md` |
+| 3 | Indicator / Feature Engineering | **in progress** — v1 set per PLAN §7 + §8a.3: EMA, RSI, Supertrend, VWAP, ATR, ADX (price-series) then IV Rank, PCR (options-derived) | `03_indicator_engineering.md` |
 | 4 | Strategy / Signal Engine | not started — menu in `../research/07_...` §B/§C; v1 shortlist proposed in `../PLAN.md` §7 | — |
 | 5 | Risk Management | not started — must model per-combination option margin + undefined-risk-leg detection, `../PLAN.md` §4 | — |
 | 6 | Broker Integration & Order Execution (OMS) | not started — architecture decided: in-house `BrokerClient` protocol (paper/live parity), multi-leg orders as one atomic unit, `../PLAN.md` §1 | — |
@@ -69,7 +69,7 @@ Each layer's file (once it exists) documents, cumulatively:
    -> produces the Instrument catalogue (cash + index-options + stock-options)
         |
         v
-[Layer 2: Market Data]  (in progress)
+[Layer 2: Market Data]  (complete for v1, Kite-only)
    Broker side (swappable protocols; Kite adapter first):
      HistoricalBarSource -> list[PriceBar]
      LiveTickStreamSource -> MarketTick callbacks
