@@ -709,6 +709,33 @@ set grows further only if the ROOT gains a new pillar (e.g. physical
 embodiment beyond order execution, or multi-user deployment). Breadth
 PAUSED at 16. Depth order updated in research/34.
 
+## 15. Depth Pass 1 — branches for all 16 trunks (2026-07-23)
+
+Per user: go deep into each trunk to create its branches. First depth
+level done for ALL 16 trunks — ~120 branches enumerated with essence +
+ADOPT/PARK/KILL verdict + cross-refs to the adopted concepts of
+research/29-34, so branches integrate prior work rather than duplicate
+it. Full map: `research/35`.
+
+- Every trunk now has 6-9 branches (MIND, SENSES, WILL, BODY, SELF,
+  SOCIETY, CONSCIENCE, Sentience/Global-Workspace, Active-Inference,
+  Autopoiesis, Open-Endedness, Intrinsic-Motivation, Epistemics,
+  Axiology, Memory/Knowledge, Universal-Access).
+- Pruning at branch level: 4 PARK (cross-market context — scope;
+  prediction-market council — needs council; empowerment drive — needs
+  world-model; inner-society guilds — needs council); 0 KILL (killing
+  concentrates at the twig pass). No prior concept lost — each now has a
+  branch home.
+- GATED branches (self-rewrite, tool-foundry, internet-research,
+  component self-production, data-prospecting) allowed only behind VII;
+  Universal-Access carries the hard wall: technical friction only, never
+  auth/law bypass, never market manipulation.
+
+**Status: BRANCH LEVEL COMPLETE for all 16. Twig-level depth (below
+branches) is one-file-per-trunk, only when the user picks a trunk.**
+Depth order: VII+XIV -> VIII -> XV -> XVI -> IX -> XIII -> III/XII ->
+rest.
+
 ## 8a. Decisions log (resolved 2026-07-23)
 
 All 12 open questions below have been answered. Resolutions:

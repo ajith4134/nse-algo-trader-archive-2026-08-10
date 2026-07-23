@@ -100,9 +100,13 @@ XVI   UNIVERSAL ACCESS & ACQUISITION (gated)  (reach/ingest/integrate ANY
 (research/29/30/31) + the research/32 branches map under these — see
 research/32 + /33 + /34 coverage checks. Recursive self-improvement =
 the EMERGENT loop of SELF x Open-Endedness x Curiosity x Active-
-Inference (a product of trunks, not a trunk). Breadth PAUSED at 16
-trunks; depth (per-trunk sub-branches -> twigs) begins only when a
-trunk is picked.
+Inference (a product of trunks, not a trunk).
+
+**Depth pass 1 (branches) COMPLETE — PLAN §15, research/35:** all 16
+trunks now have 6-9 branches each (~120 total, ADOPT/PARK/KILL verdicts,
+cross-referenced to research/29-34). Twig-level depth (below branches)
+is one-file-per-trunk and PAUSED until a trunk is picked; order:
+VII+XIV -> VIII -> XV -> XVI -> IX -> XIII -> III/XII -> rest.
 
 ## AI / dashboard feature implementation queue (from PLAN §9 + §10)
 
