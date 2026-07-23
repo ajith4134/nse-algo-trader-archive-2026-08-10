@@ -184,3 +184,32 @@ tests/test_paper_trading/test_fill_slippage_model.py   # 8 tests
   Rs.72,274 (cost Rs.6,837 over 17 cash trades); CONFIDENT_WIN calibration
   unchanged (Brier 0.087). Honest cost of trading now modeled; option
   slippage will bite far harder once the credit-spread paper path exists.
+
+## Deflated-Sharpe promotion gate (added 2026-07-23, PLAN §5)
+The statistical guardrail: no strategy is a live-capital candidate on a
+good backtest alone.
+```
+src/nse_algo_trader/paper_trading/strategy_promotion_gate.py
+tests/test_paper_trading/test_strategy_promotion_gate.py   # 10 tests
+```
+- `compute_sharpe_ratio`, `compute_probabilistic_sharpe_ratio` (PSR vs a
+  benchmark, skew/kurtosis-corrected), `estimate_deflated_sharpe_benchmark`
+  (expected max Sharpe under N trials), `compute_deflated_sharpe_ratio`
+  (Bailey & López de Prado), and `evaluate_strategy_for_promotion` ->
+  StrategyPromotionDecision (PROMOTE / REJECT_INSUFFICIENT_TRADES /
+  REJECT_DEFLATED_SHARPE_TOO_LOW).
+- **Rule F (real data):** the real INFY ORB per-trade returns (w/ slippage,
+  n=17) — per-trade Sharpe 0.641, naive PSR **1.000** (looks flawless), but
+  Deflated SR after 20 trials **0.042** — and the gate REJECTS (17 < 30
+  min trades). The gap between PSR 1.000 and DSR 0.042 is the whole point:
+  deflation separates "looks great" from "is real". Correct guardrail.
+- CPCV (Combinatorial Purged Cross-Validation) is the companion gate — a
+  later slice needing the backtest-fold harness; this is where it plugs in.
+
+## Layer 7 status
+**Core built (v1):** MarketClock-gated 24/7 DataSourceRouter · paper
+engine (loop-closing) · §9 prediction-labeled tables lab · realistic
+slippage model · Deflated-Sharpe promotion gate. All Rule-F verified on
+real INFY data. **Remaining slices:** live-feed handoff (blocked — needs a
+real open market session + KiteTicker auth); credit-spread paper path
+(needs intraday option bars); CPCV; the continuous always-on paper loop.

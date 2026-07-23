@@ -28,6 +28,15 @@ from nse_algo_trader.paper_trading.opening_range_breakout_paper_engine import (
     group_bars_into_sessions,
     run_opening_range_breakout_paper_session,
 )
+from nse_algo_trader.paper_trading.strategy_promotion_gate import (
+    StrategyPromotionConfig,
+    StrategyPromotionDecision,
+    StrategyPromotionOutcome,
+    compute_deflated_sharpe_ratio,
+    compute_probabilistic_sharpe_ratio,
+    compute_sharpe_ratio,
+    evaluate_strategy_for_promotion,
+)
 from nse_algo_trader.paper_trading.paper_trading_ledger import (
     PaperPosition,
     PaperTradingLedger,
