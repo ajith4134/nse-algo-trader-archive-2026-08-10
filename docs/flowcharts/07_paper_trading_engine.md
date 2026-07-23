@@ -216,3 +216,29 @@ slippage model · Deflated-Sharpe promotion gate. All Rule-F verified on
 real INFY data. **Remaining slices:** live-feed handoff (blocked — needs a
 real open market session + KiteTicker auth); credit-spread paper path
 (needs intraday option bars); CPCV; the continuous always-on paper loop.
+
+## CPCV gate — companion to the Deflated-Sharpe gate (added 2026-07-23, PLAN §5)
+```
+src/nse_algo_trader/paper_trading/combinatorial_purged_cross_validation.py
+tests/test_paper_trading/test_cpcv.py   # 9 tests
+```
+- Combinatorial Purged Cross-Validation (Bailey & López de Prado): split
+  the return series into N groups, form every C(N,k) combination of test
+  groups as out-of-sample backtest PATHS, Sharpe each, embargo adjacent
+  groups. The spread of path Sharpes is the empirical trial-variance the
+  Deflated-Sharpe needs — so `evaluate_strategy_with_cpcv_gate` deflates
+  against REAL resampled paths, not an assumed variance.
+- Sourced `purgedcv` (MIT) as the reference; it is an sklearn splitter
+  (model CV over features/labels), a different shape from our returns-series
+  need, so this is a compact adaptation of the algorithm, not a vendoring.
+- Rule F: on the real ORB returns (n=17, w/ slippage) the gate still
+  REJECTS (17 < 30 min trades) — the min-trades guardrail holds; CPCV needs
+  more data to be meaningful, which is the honest, correct behaviour.
+
+## Layer 7 status — COMPLETE for v1
+Built & Rule-F verified: 24/7 MarketClock-gated DataSourceRouter · paper
+engine (loop-closing) · §9 prediction-labeled tables lab · realistic
+slippage model · Deflated-Sharpe gate · **CPCV gate**. **Only remaining
+item — the live-feed handoff (drain replay → live KiteTicker at the open) —
+is BLOCKED pending an open market session + live auth, exactly like Layer
+2's live-tick check.** Nothing else is outstanding.

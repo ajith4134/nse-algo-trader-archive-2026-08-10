@@ -61,8 +61,8 @@ LAYER_ROADMAP: tuple[LayerStatus, ...] = (
     LayerStatus(6, "Broker Integration & OMS", LayerBuildStatus.BUILT,
                 "BrokerClient protocol, atomic multi-leg, SEBI throttle"),
     LayerStatus(7, "Backtesting & Paper Trading", LayerBuildStatus.IN_PROGRESS,
-                "24/7 router + paper engine + §9 lab + slippage + DSR gate; "
-                "remaining: CPCV, live-feed handoff"),
+                "24/7 router + paper engine + §9 lab + slippage + DSR + CPCV gates; "
+                "only live-feed handoff remains (blocked on open market)"),
     LayerStatus(8, "Session / Square-off Management", LayerBuildStatus.BUILT,
                 "never-a-naked-leg square-off, survives broker outage"),
     LayerStatus(9, "Dashboard, Monitoring & Alerting", LayerBuildStatus.BUILT,

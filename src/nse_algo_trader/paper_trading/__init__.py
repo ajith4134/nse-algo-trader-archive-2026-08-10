@@ -28,6 +28,12 @@ from nse_algo_trader.paper_trading.opening_range_breakout_paper_engine import (
     group_bars_into_sessions,
     run_opening_range_breakout_paper_session,
 )
+from nse_algo_trader.paper_trading.combinatorial_purged_cross_validation import (
+    CpcvConfig,
+    compute_cpcv_backtest_path_sharpes,
+    evaluate_strategy_with_cpcv_gate,
+    partition_returns_into_groups,
+)
 from nse_algo_trader.paper_trading.strategy_promotion_gate import (
     StrategyPromotionConfig,
     StrategyPromotionDecision,
