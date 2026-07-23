@@ -461,6 +461,49 @@ trend/range regime gate deciding which of the two v1 strategies runs on a
 given session. Iron Condor is flagged as the natural v1.1 (not v1) once
 Bull Put and Bear Call are each independently validated.
 
+## 9. Prediction-Labeled Trade Tables — the Falsification-Driven Paper Lab (adopted 2026-07-23)
+
+User's core concept, expanded and adopted (full design + taxonomy:
+`research/29`). The Layer 7 paper engine is not one portfolio: it is an
+**experiment allocator** across prediction-labeled open-trades tables,
+and every trade carries an immutable PredictionRecord written BEFORE
+entry.
+
+**The tables:**
+| Table | Role |
+|---|---|
+| CONFIDENT-WIN | trades predicted profitable, with reasons — the deployable-edge candidate pool |
+| CONFIDENT-LOSS | trades deliberately opened to LOSE, each targeting a named failure mechanism — proves causal understanding of losing (its predictions "win" when its trades lose) |
+| UNCERTAIN | near-50% / novel-reason trades — active learning; graduation source for both tables |
+| RANDOM-CONTROL 🚀 | coin-flip null baseline; also feeds the DSR gate's null distribution |
+| SHADOW-REJECTED 🚀 | virtual tracking of risk-gate rejections — evidence-tunes Layer 5 config |
+| ADVERSARIAL 🌌 | self-play policy hunting the WIN-model's blind spots |
+| INVERSE-HARVEST 🌌 | auto-mirrors of well-calibrated LOSS trades (where inversion is valid) |
+
+**PredictionRecord (per trade, immutable at open):** predicted outcome,
+calibrated win-probability, expected R if right / loss if wrong, named
+machine-readable reasons, predicted exit cause; (ultra: path bounds,
+P&L distribution).
+
+**Scoring:** per-table hit rates; Brier score/log-loss calibration;
+reliability curves per regime/strategy; a per-reason evidence ledger;
+(ultra: single-reason interventional trades, CRPS).
+
+**Learning integration:** every closed experiment becomes a Layer 10
+memory node; nightly reflection diffs the reason ledger; the
+promotion/demotion ladder (UNCERTAIN -> WIN/LOSS -> DSR/CPCV -> human
+sign-off) is the ONLY path to live-capital candidacy; research/12's
+hypothesis pipeline runs double-sided (trade the claim AND its negation).
+
+**Guardrails:** all tables paper-only; LOSS/RANDOM/ADVERSARIAL arms
+permanently barred from live; every table's trades still pass the Layer
+5 risk gate with paper budgets; predictions append-only.
+
+**Build order:** base tier (WIN/LOSS/UNCERTAIN + PredictionRecord +
+scoreboard) lands WITH Layer 7; advanced arms in 7.5; ultra tier fuses
+with Layer 10. Trade-log schema (research/14) gains the
+PredictionRecord fields from day one.
+
 ## 8a. Decisions log (resolved 2026-07-23)
 
 All 12 open questions below have been answered. Resolutions:
