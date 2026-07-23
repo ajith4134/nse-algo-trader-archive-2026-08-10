@@ -13,9 +13,13 @@ plus NSE single-stock options, ~185-208 names, list reviewed quarterly).
 derivatives, BSE index options (SENSEX, BANKEX).
 
 **Stack decisions already made:** Python (broker SDK + ML ecosystem fit).
-Broker: Zerodha Kite Connect (chosen for phase 1; broker-integration layer
-must stay swappable — do not hardcode Kite specifics outside the broker
-integration layer).
+Broker (execution): Zerodha Kite Connect (chosen for phase 1; broker-
+integration layer must stay swappable — do not hardcode Kite specifics
+outside the broker integration layer). Data sourcing (Layer 2): **not
+Kite-only** — Upstox, Angel One, ICICI Direct, and Groww APIs are also
+planned as interchangeable data sources (decided `docs/PLAN.md` §8a.12);
+the data-ingestion layer must treat every broker's data API as swappable
+the same way the execution layer treats brokers as swappable.
 
 ## Regulatory constraints (binding, not optional)
 - Runs under SEBI's Feb 2025 "Safer Participation of Retail Investors in

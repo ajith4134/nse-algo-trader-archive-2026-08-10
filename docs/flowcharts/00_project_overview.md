@@ -22,8 +22,9 @@ a closing synthesis, continuous/24-7 market-replay-with-seamless-
 live-handoff architecture, and the remaining self-learning categories
 (meta-/active-/federated-learning, synthetic data, explainability,
 cognitive architectures, curriculum learning, novelty detection,
-quality-diversity) live in `../research/00` through `../research/27`.
-**18 research passes, 110+ projects README/paper-verified in total.**
+quality-diversity, and a v1-shortlist deep evidence re-check) live in
+`../research/00` through `../research/28`.
+**19 research passes, 110+ projects README/paper-verified in total.**
 The synthesis of all of it — the full feature
 menu, the broker-abstraction architecture decision, the dashboard plan,
 and the per-layer testing method — lives in `../PLAN.md`. Read that
@@ -44,7 +45,7 @@ starting Layer 3 onward.
 | # | Layer | Status | Notes file |
 |---|-------|--------|------------|
 | 1 | Universe & Instrument Registry | **built, awaiting verification sign-off** | `01_universe_instrument_registry.md` |
-| 2 | Market Data (real-time + historical) | not started | — |
+| 2 | Market Data (real-time + historical) | not started — **decided**: multi-broker data sourcing (Kite + Upstox/Angel One/ICICI Direct/Groww), secondary NSE ingestion built now, `../PLAN.md` §8a.6/.12 | — |
 | 3 | Indicator / Feature Engineering | not started — menu in `../research/07_strategy_indicator_option_taxonomy.md` §A | — |
 | 4 | Strategy / Signal Engine | not started — menu in `../research/07_...` §B/§C; v1 shortlist proposed in `../PLAN.md` §7 | — |
 | 5 | Risk Management | not started — must model per-combination option margin + undefined-risk-leg detection, `../PLAN.md` §4 | — |

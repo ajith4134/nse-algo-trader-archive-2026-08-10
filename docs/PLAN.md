@@ -163,7 +163,7 @@ and 12 options-analytics tools (Greeks, IV Smile, Max Pain, GEX) —
 `research/03`. Worth matching that options-analytics feature list even
 though we're not adopting the underlying app.
 
-Tech stack: open question, see §8 — not decided yet.
+**Tech stack: decided — full React SPA** (§8a.2), not server-rendered.
 
 **Sequencing, confirmed by you this pass**: for now, the build console
 artifact (already published) grows a "Live Output" panel that runs real,
@@ -209,6 +209,7 @@ one item at a time, per Rule A.
 | **Final sweep synthesis — ~90 projects across 16 research passes** | `research/25` | **Read this one for the closing picture**: overall top-5 ranked, why the Darwin Gödel Machine reinforces the human-gate requirement |
 | Remaining self-learning categories (meta-learning, active learning, federated learning, synthetic data, explainability, cognitive architectures, curriculum learning, novelty detection, quality-diversity) | `research/27` | learn2learn, modAL/baal, Flower/PySyft, ydata-synthetic (TimeGAN), Captum/InterpretML, Soar/ACE, PyOD, pyribs — closes every "described but never matched to a project" gap in `research/06`'s 28-feature taxonomy |
 | **24/7 continuous market replay + seamless live handoff** | `research/26` | **No existing project does this — a genuine architecture gap this project builds itself.** Full recommended design: `MarketClock`-gated `DataSourceRouter`, paper trading as an always-on independent consumer that never stops, even during live trading |
+| **v1 shortlist deep evidence re-check** | `research/28` | Re-verified PKScreener/NSE-Stock-Scanner/AI-trader for concrete backtest numbers (only AI-trader has any, ~50-trade self-reported sample); confirms §7's shortlist as-is **plus adds ADX** as a regime-gate indicator; flags Iron Condor as a v1.1 (not v1) once both credit-spread directions are validated |
 
 ### 3a. The AI layer, by function (not just "Layer 10/11")
 
@@ -377,7 +378,7 @@ just in this plan.
 | # | Layer | What's new/confirmed this pass |
 |---|---|---|
 | 1 | Universe & Instrument Registry | Unchanged — built, awaiting your sign-off |
-| 2 | Market Data | Unchanged, not started |
+| 2 | Market Data | **Decided (§8a.6, §8a.12)**: build secondary NSE ingestion now (historical OI, delivery %, bulk/block deals, MWPL ban list), and design it multi-broker from the start — Kite plus Upstox/Angel One/ICICI Direct/Groww APIs (user providing access next session), not Kite-only |
 | 3 | Indicator / Feature Engineering | Build from `research/07` §A menu, one indicator family at a time |
 | 4 | Strategy / Signal Engine | Build from `research/07` §B/§C menu; §7 below proposes a v1 shortlist |
 | 5 | Risk Management | Must explicitly model per-combination margin (naked vs. recognized spread) and undefined-risk-leg detection, per `research/07` §D |
@@ -454,7 +455,54 @@ edits:
 - **AI layer:** none in v1 — Layers 3-9 should exist and be validated
   before Layer 10 starts, per the existing roadmap ordering.
 
+**Re-checked and confirmed** in `research/28` (deeper evidence pass on
+request), with one addition: add **ADX** to the indicator list as a
+trend/range regime gate deciding which of the two v1 strategies runs on a
+given session. Iron Condor is flagged as the natural v1.1 (not v1) once
+Bull Put and Bear Call are each independently validated.
+
+## 8a. Decisions log (resolved 2026-07-23)
+
+All 12 open questions below have been answered. Resolutions:
+
+1. **Architecture**: confirmed — in-house `BrokerClient` (§1), not LEAN.
+2. **Dashboard stack**: **full React SPA** (not server-rendered HTMX) for
+   the eventual Layer 9 trading dashboard.
+3. **v1 shortlist**: confirmed in principle, **plus a deeper research
+   pass requested** on stronger/additional candidates — see §7 update
+   below.
+4. **Layer 10 memory substrate**: deferred — decide right before Layer 10
+   starts, per the original recommendation.
+5. **Layer 1 sign-off**: **implementation resumes next session with the
+   Fable 5 model** — sign-off itself to be finalized then.
+6. **Layer 2 data sourcing**: confirmed — build secondary NSE ingestion
+   (historical OI, delivery %, bulk/block deals, MWPL ban list) now, as
+   part of Layer 2, not deferred.
+7. **Hypothesis-validation pipeline**: confirmed — build as part of Layer
+   10 as originally planned, not pulled earlier.
+8. **Puzzle pieces (`research/20`)**: confirmed — decide per-layer as
+   each layer's turn comes up, not committed to en masse now.
+9. **Found-not-asked ideas**: confirmed — decide later, per-idea, as each
+   becomes relevant, not scoped in or declined wholesale now.
+10. **Darwin Gödel Machine / OpenEvolve-style logic evolution**: deferred
+    entirely to Layer 10/11, per the existing roadmap ordering.
+11. **24/7 continuous-replay architecture (§1.4)**: **confirmed** — the
+    `MarketClock`-gated `DataSourceRouter` design is locked in.
+12. **Replay-store data sourcing**: confirmed — reuses Layer 2's planned
+    NSE data ingestion, **and is now multi-broker, not Kite-only**: the
+    user will provide additional data-source APIs (Upstox, Angel One,
+    ICICI Direct, Groww) alongside Kite Connect for sourcing historical/
+    replay data, expected next session. This extends `CLAUDE.md`'s
+    existing "broker-integration layer must stay swappable" constraint
+    from execution to data sourcing as well — Layer 2's data-ingestion
+    design should treat Kite as one of several interchangeable sources,
+    not the only one, for anything feeding the replay store specifically.
+
 ## 8. Open questions for you to decide
+
+**All 12 below are now resolved — see §8a for the decisions log. Kept
+here, unedited, as the historical record of what was asked, per Rule B
+(never delete, only append).**
 
 1. **Architecture:** confirm the in-house `BrokerClient` decision (§1), or
    do you want a hands-on evaluation of QuantConnect LEAN +
