@@ -504,6 +504,47 @@ scoreboard) lands WITH Layer 7; advanced arms in 7.5; ultra tier fuses
 with Layer 10. Trade-log schema (research/14) gains the
 PredictionRecord fields from day one.
 
+## 10. Self-Generated Core Concepts — the adopted institution (2026-07-23)
+
+Product of the generate->critique->generate ideation loop the user
+requested (full loop, including killed ideas and reasons: `research/30`).
+Unifying frame: the bot as a **self-auditing scientific institution** —
+adversarial departments that keep each other honest, so the system
+cannot easily fool itself (the root failure mode of self-learning
+traders).
+
+**Adopted, with build order:**
+- **With Layer 7 base:** per-trade pre-committed KILL CRITERIA
+  (thesis-falsification exits beyond stops; new PredictionRecord field);
+  CALENDAR-CONDITION partition key on every table/ledger (expiry days,
+  event days, ban-heavy days are different games); REFEREE v0
+  (decision-reproduction audits — re-derive yesterday's decisions from
+  logs, flag divergence); mechanism-name field groundwork.
+- **Layer 7.5:** SKILL-vs-LUCK COURT (verdicts SKILL-WIN / LUCKY-WIN /
+  UNLUCKY-LOSS / DESERVED-LOSS from outcome x mechanism-manifestation x
+  provenance; learning trains ONLY on the diagonal — lucky wins are
+  never reinforced); LOSS EPIDEMIOLOGY (structured death certificates
+  -> outbreak detection -> auto-distilled veto antibodies);
+  WORLD-MODEL SCOREBOARD (trade-independent market forecasts scored
+  like a weather station — splits perception error from action error);
+  PER-TRADE PRE-MORTEM (entry-time Monte Carlo of THIS setup through
+  regime-matched replay paths); PROFIT PROVENANCE (P&L decomposed
+  against §9 control arms: edge/luck/costs/regime/timing).
+- **Layer 10:** ASSUMPTION REGISTRY (every strategy declares its silent
+  assumptions; each gets a statistical tripwire; broken assumption ->
+  downstream flagged/paused before P&L shows it); OPPONENT LEDGER
+  (every trade names the counterparty thesis, checked against NSE's
+  daily participant-wise OI — requires adding that report to Layer 2's
+  ingestion set); INFORMATION DIET accounting; prediction-market
+  council weighting (parked until the council exists).
+
+**Killed/parked register** (kept deliberately): ghost-portfolio family
+(combinatorial cost; shadow arm + provenance cover 80%), internal
+prediction market (premature pre-council), immune-system framing
+(folded into epidemiology), attention economics (vague), deception
+detection (thin at retail scale), self-impact mirror (irrelevant at
+this size), synthetic nightmares (already Plan 3 stress rehearsal).
+
 ## 8a. Decisions log (resolved 2026-07-23)
 
 All 12 open questions below have been answered. Resolutions:
