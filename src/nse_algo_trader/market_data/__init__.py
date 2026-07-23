@@ -16,6 +16,10 @@ from nse_algo_trader.market_data.kite_live_tick_stream_source import (
     KiteLiveTickStreamSource,
     parse_kite_ticker_payload,
 )
+from nse_algo_trader.market_data.market_data_sqlite_store import (
+    DealDisclosureKind,
+    MarketDataSqliteStore,
+)
 from nse_algo_trader.market_data.market_data_types import (
     BarInterval,
     MarketTick,
@@ -24,10 +28,12 @@ from nse_algo_trader.market_data.market_data_types import (
 
 __all__ = [
     "BarInterval",
+    "DealDisclosureKind",
     "HistoricalBarSource",
     "KiteHistoricalBarSource",
     "KiteLiveTickStreamSource",
     "LiveTickStreamSource",
+    "MarketDataSqliteStore",
     "MarketTick",
     "PriceBar",
     "parse_kite_ticker_payload",

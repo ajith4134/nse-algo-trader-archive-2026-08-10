@@ -302,3 +302,50 @@ tests/test_broker_sessions/           # 11 tests: expiry boundaries, file perms,
   IST, pre-market) -> logs to `~/.nse_algo_trader/kite_token_refresh.log`;
   the second run self-skips when the first succeeded. Package installed
   editable so cron needs no PYTHONPATH.
+
+## Persistence store + daily ingestion job (added 2026-07-23)
+
+```
+src/nse_algo_trader/market_data/
+├── market_data_sqlite_store.py        # bars + all 5 NSE report types, idempotent
+└── daily_nse_reports_ingestion_job.py # evening cron: download all -> store
+
+tests/test_market_data/test_market_data_sqlite_store.py  # 8 round-trip tests
+```
+
+### `market_data_sqlite_store.py`
+- **Imports:** stdlib `sqlite3`/`datetime`/`enum`/`pathlib` + the Layer 2
+  types and report-row dataclasses.
+- **Exports:** `DealDisclosureKind(str, Enum)` (`BULK_DEAL`/`BLOCK_DEAL`);
+  `MarketDataSqliteStore(db_file_path=~/.nse_algo_trader/market_data.sqlite3)`
+  with save/load pairs:
+  - `save_price_bars` / `load_price_bars(instrument_token, bar_interval,
+    from_timestamp=None, to_timestamp=None)` — PK
+    (token, interval, timestamp); INSERT OR REPLACE; inclusive range,
+    timestamp-ordered; tz-aware ISO strings round-trip exactly.
+  - `save/load_cash_bhavcopy_delivery_rows(trade_date)` — PK
+    (date, symbol, series).
+  - `save/load_fo_bhavcopy_contract_rows(trade_date, underlying_symbol=None)`
+    — PK (date, nse_instrument_id) + index on (underlying, date).
+  - `save/load_fo_ban_list_report` — delete+insert per date; a
+    never-ingested date loads as None.
+  - `save/load_mwpl_position_limit_rows(trade_date)` — PK (date, symbol).
+  - `save/load_bulk_or_block_deal_rows(trade_date, deal_kind)` — no natural
+    PK, so save replaces the whole (date, kind) slice; re-ingest safe.
+  - WAL mode; `close()`.
+
+### `daily_nse_reports_ingestion_job.py`
+- `ingest_nse_reports_for_trade_date(trade_date, report_downloader,
+  market_data_store) -> dict[report_name, outcome]` — six ingests
+  (cash bhavcopy, F&O bhavcopy, MWPL for the given date; ban list +
+  bulk + block as current-day files), each failure isolated so one
+  missing report never blocks the rest.
+- `__main__`: `--trade-date YYYY-MM-DD` (default: today IST).
+- **Cron (weekdays)**: 14:30 + 16:30 GMT (20:00/22:00 IST) ->
+  `~/.nse_algo_trader/nse_reports_ingestion.log`; idempotent re-runs.
+
+### Live verification (2026-07-23)
+Real run for trade date 2026-07-22: cash 3,261 / F&O 38,343 / MWPL 210 /
+ban 1 (KAYNES) / bulk 128 / block 0 — all read back correctly (1,587
+NIFTY contracts via the underlying filter). 75 live INFY 5-min bars
+saved and reloaded **identical** through the store. DB size: ~6.2 MB/day.
