@@ -158,16 +158,29 @@ def build_dashboard_snapshot(
         trunk_count=len(CONCEPT_TREE),
         total_branch_count=sum(trunk.branch_count for trunk in CONCEPT_TREE),
     )
-    paper_trading = precomputed_paper_trading or PaperTradingSummary(
-        starting_virtual_cash=paper_ledger.starting_virtual_cash,
-        realized_pnl=paper_ledger.realized_pnl,
-        fill_count=len(paper_ledger.recorded_fills),
-        is_flat=paper_ledger.is_flat(),
-    )
-    prediction_tables = precomputed_prediction_tables or [
-        _summarize_table(prediction_scoreboard, table)
-        for table in PredictionLabeledTable
-    ]
+    if precomputed_paper_trading is not None:
+        paper_trading = precomputed_paper_trading
+    elif paper_ledger is not None:
+        paper_trading = PaperTradingSummary(
+            starting_virtual_cash=paper_ledger.starting_virtual_cash,
+            realized_pnl=paper_ledger.realized_pnl,
+            fill_count=len(paper_ledger.recorded_fills),
+            is_flat=paper_ledger.is_flat(),
+        )
+    else:  # service present but first pass not yet published
+        paper_trading = PaperTradingSummary(0.0, 0.0, 0, is_flat=True)
+    if precomputed_prediction_tables is not None:
+        prediction_tables = precomputed_prediction_tables
+    elif prediction_scoreboard is not None:
+        prediction_tables = [
+            _summarize_table(prediction_scoreboard, table)
+            for table in PredictionLabeledTable
+        ]
+    else:
+        prediction_tables = [
+            PredictionTableSummary(t.value, 0, None, None, None, None)
+            for t in PredictionLabeledTable
+        ]
     confident_win_beats_confident_loss = (
         precomputed_confident_win_beats_confident_loss
         if precomputed_prediction_tables is not None

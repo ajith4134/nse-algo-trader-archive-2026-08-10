@@ -112,8 +112,8 @@ class LivePaperTradingService:
         authenticated_kite_client,
         account_virtual_capital: float,
         scan_interval_seconds: float = 5.0,
-        max_new_cash_seeds_per_pass: int = 40,
-        max_new_option_seeds_per_pass: int = 12,
+        max_new_cash_seeds_per_pass: int = 30,
+        max_new_option_seeds_per_pass: int = 25,
     ) -> None:
         self._kite_client = authenticated_kite_client
         self._feed = KiteLiveUniverseFeed(authenticated_kite_client)
@@ -231,8 +231,8 @@ class LivePaperTradingService:
         if self._tradable_universe is None:
             return
         options_enabled = control_config.is_segment_enabled(
-            TradableSegment.NSE_INDEX_OPTION
-        ) or control_config.is_segment_enabled(TradableSegment.NSE_STOCK_OPTION)
+            TradableSegment.NSE_INDEX_OPTIONS
+        ) or control_config.is_segment_enabled(TradableSegment.NSE_STOCK_OPTIONS)
         is_square_off = self._square_off_schedule.should_force_square_off_now(
             now, self._clock
         )
