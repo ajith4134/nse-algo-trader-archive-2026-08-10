@@ -264,10 +264,23 @@ class MarketDataSqliteStore:
         )
         self._connection.commit()
 
+    def has_fo_ban_list_for_date(self, ban_trade_date: date) -> bool:
+        """Whether any F&O ban row exists for this date. NOTE: a genuinely
+        zero-ban trading day also stores no rows, so this returns False for
+        both "never ingested" and "ingested, zero bans" — the two are
+        indistinguishable in this table. That is acceptable for the risk
+        gate (both mean "no underlying is banned"); a stale-ingestion guard
+        belongs in the ingestion job's own log, not here."""
+        row = self._connection.execute(
+            "SELECT 1 FROM fo_ban_list_symbols WHERE ban_trade_date=? LIMIT 1",
+            (ban_trade_date.isoformat(),),
+        ).fetchone()
+        return row is not None
+
     def load_fo_ban_list_report(self, ban_trade_date: date) -> FoBanListReport | None:
-        """None means "this date was never ingested" — an ingested day with
-        zero bans can't be represented (the delete+insert leaves no rows),
-        so callers distinguish via has_fo_ban_list_for_date()."""
+        """Returns the banned underlyings for the date, or None when no ban
+        rows exist (see `has_fo_ban_list_for_date` for the zero-ban vs
+        never-ingested caveat)."""
         banned_symbols = [
             row[0]
             for row in self._connection.execute(

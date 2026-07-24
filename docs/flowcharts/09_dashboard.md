@@ -113,8 +113,15 @@ Permanence across reboots wants a systemd unit (a later slice).
   (paper capital + risk% + max-capital-per-trade cap -> RiskBudgetConfig),
   `is_orb_cash_trading_enabled` (segment+strategy gate),
   `clamp_quantity_to_capital_limits` (min/max capital per trade),
-  `run_config_enforced_orb_paper_lab`. The server re-runs the enforced lab
-  per request, so toggling a segment/strategy off empties the results.
+  `run_config_enforced_orb_paper_lab`. **Superseded 2026-07-24:** the
+  server no longer re-runs this per request — the always-on
+  `LivePaperTradingService` owns enforcement, re-reading the config each
+  pass and applying `map_control_config_to_risk_budget` +
+  `is_orb_cash_trading_enabled` (turning a segment/strategy off stops
+  opening NEW positions; open risk is still managed + squared off).
+  `run_config_enforced_orb_paper_lab` / `clamp_quantity_to_capital_limits`
+  are now tests-only; the `min_capital_per_trade` clamp is not yet applied
+  on the live path (a queued refinement).
   9 tests; verified: cash-segment OFF -> 0 fills, ON -> fills return.
 - `render_dashboard_html.py` redesigned: KPI tiles, card layout with depth,
   toggle switches, colour-coded P&L, calibration bars, collapsed JSON,

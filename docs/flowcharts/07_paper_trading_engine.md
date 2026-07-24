@@ -282,7 +282,21 @@ position labels spread **confident_win 26 / confident_loss 2 / uncertain 1**
 7-day 5-min window instead of today's ~20 bars). 4 deterministic unit tests
 (`test_live_universe_paper_loop.py`), 257 suite total green.
 
-**Still to do (slice 4):** surface these OPEN positions + the live §9 tables
-on the dashboard (currently the server still runs the old INFY replay);
-options/credit-spread entry path (cash ORB is wired; option ladders are
-priced but the credit-spread open path is the next entry rule).
+**Update 2026-07-24 (slices 4 + options DONE):** the dashboard server now
+runs `LivePaperTradingService` (the live universe loop) — the single-symbol
+INFY replay is gone. The credit-spread open path is wired
+(`option_credit_spread_live_path.py`, research/39): regime-gated defined-risk
+spreads on the 215 underlyings, un-orphaning the L3 IV pipeline + L4
+selector/gate + L6 atomic executor. Both cash + option spreads show live on
+the dashboard, grouped into the 3 §9 tables with per-segment boards.
+`run_config_enforced_orb_paper_lab` / `clamp_quantity_to_capital_limits` are
+now the only remaining tests-only functions here (the service owns config
+enforcement via `map_control_config_to_risk_budget` + `is_orb_cash_trading_enabled`).
+
+**Deferred/still-orphaned (named consumers, not yet wired):** the
+`MarketClockGatedDataSourceRouter` (24/7 replay-when-closed — service idles
+when shut for now); the DSR/CPCV promotion gates (`strategy_promotion_gate`,
+`combinatorial_purged_cross_validation`) — consumed by a future promotion
+step, not the live open loop; `KiteLiveTickStreamSource` (superseded by the
+LTP-polling feed). The `min_capital_per_trade` clamp is not yet enforced on
+the live path (max-capital is, as a margin fraction).

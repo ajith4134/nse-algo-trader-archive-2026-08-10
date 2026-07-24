@@ -32,6 +32,10 @@ class MwplPositionLimitRow:
 
     @property
     def mwpl_utilization_percent(self) -> float:
+        # A zero MWPL (e.g. a newly-added or delisted scrip row) has no
+        # meaningful utilization — report 0 rather than dividing by zero.
+        if not self.market_wide_position_limit:
+            return 0.0
         return 100.0 * self.aggregate_open_interest / self.market_wide_position_limit
 
 

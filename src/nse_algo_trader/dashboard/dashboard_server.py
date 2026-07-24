@@ -99,7 +99,10 @@ def build_dashboard_app() -> FastAPI:
     app = FastAPI(title="NSE Algo Trader Dashboard")
 
     def _require_key(request: Request) -> None:
-        if request.query_params.get("key") != access_token:
+        # Constant-time compare so the capability token can't be recovered by
+        # timing the 403 response.
+        provided = request.query_params.get("key") or ""
+        if not secrets.compare_digest(provided, access_token):
             raise HTTPException(status_code=403, detail="invalid or missing access key")
 
     def _current_snapshot():
