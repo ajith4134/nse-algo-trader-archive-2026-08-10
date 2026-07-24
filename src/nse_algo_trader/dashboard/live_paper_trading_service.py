@@ -212,6 +212,10 @@ class LivePaperTradingService:
         # abandoned). Config is re-read live so a phone toggle takes effect.
         control_config = load_trading_control_config()
         risk_budget = map_control_config_to_risk_budget(control_config)
+        # Enforce the min/max capital-per-trade knobs on the live path
+        # (research/41 L9): the loop clamps risk-sized qty to these each pass.
+        self._state.max_capital_per_trade = control_config.max_capital_per_trade
+        self._state.min_capital_per_trade = control_config.min_capital_per_trade
         seeds_this_pass = (
             self._max_new_cash_seeds_per_pass
             if is_orb_cash_trading_enabled(control_config)

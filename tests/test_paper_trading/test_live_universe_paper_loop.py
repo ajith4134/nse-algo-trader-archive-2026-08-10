@@ -195,3 +195,17 @@ class TestForcedSquareOff:
         run_live_universe_scan_pass(state, [STOCK], feed, RISK, at_close, market_clock=NseMarketClock())
         assert len(state.unflattened_square_off_positions) == 1  # surfaced
         assert not state.closed_trades  # NOT silently booked closed
+
+
+class TestCapitalPerTradeClamp:
+    def test_clamps_to_max_and_skips_below_min(self):
+        state = _fresh_state()
+        state.max_capital_per_trade = 100_000.0
+        state.min_capital_per_trade = 20_000.0
+        assert state.capital_clamped_quantity(100.0, 500) == 500       # 50k, within
+        assert state.capital_clamped_quantity(100.0, 2000) == 1000     # 200k -> cap 100k
+        assert state.capital_clamped_quantity(100.0, 100) == 0         # 10k < 20k -> skip
+
+    def test_no_limits_is_a_noop(self):
+        state = _fresh_state()  # limits default None
+        assert state.capital_clamped_quantity(100.0, 500) == 500

@@ -140,6 +140,29 @@ class LiveUniversePaperState:
     open_directional_options: dict = field(default_factory=dict)
     closed_directional_options: list = field(default_factory=list)
     realized_directional_option_pnl: float = 0.0
+    # Dashboard capital-per-trade limits (research/41 L9): the risk gate sizes
+    # by risk; these clamp the notional down to max_capital_per_trade and skip
+    # a trade whose notional is below min_capital_per_trade. Updated each pass
+    # by the service from the live TradingControlConfig.
+    max_capital_per_trade: float | None = None
+    min_capital_per_trade: float | None = None
+
+    def capital_clamped_quantity(self, entry_price: float, quantity: int) -> int:
+        """Apply the min/max capital-per-trade limits to a risk-sized qty;
+        returns the clamped qty, or 0 to skip (notional below the min)."""
+        if entry_price <= 0 or quantity <= 0:
+            return 0
+        clamped = quantity
+        if self.max_capital_per_trade is not None:
+            clamped = min(clamped, int(self.max_capital_per_trade / entry_price))
+        if clamped <= 0:
+            return 0
+        if (
+            self.min_capital_per_trade is not None
+            and entry_price * clamped < self.min_capital_per_trade
+        ):
+            return 0
+        return clamped
 
     def open_position_count(self) -> int:
         return len(self.open_positions)
@@ -372,12 +395,17 @@ def _open_watched_breakout(state, watch, direction, ltp, risk_budget, now) -> bo
     risk_decision = evaluate_opening_range_breakout_signal(signal, risk_budget)
     if not risk_decision.approved or risk_decision.approved_quantity <= 0:
         return False
+    clamped_quantity = state.capital_clamped_quantity(
+        signal.breakout_close_price, risk_decision.approved_quantity
+    )
+    if clamped_quantity <= 0:
+        return False  # notional below the min-capital-per-trade floor
     prediction_record = build_orb_prediction_record(
         signal=signal, adx_value=watch.regime_adx, session_date=now.date(),
         target_reward_multiple=watch.target_risk_reward_ratio,
     )
     _open_position_from_signal(
-        state, signal, risk_decision.approved_quantity, prediction_record, now
+        state, signal, clamped_quantity, prediction_record, now
     )
     return True
 
@@ -411,6 +439,11 @@ def _seed_cash_instrument_from_orb(
     risk_decision = evaluate_opening_range_breakout_signal(signal, risk_budget)
     if not risk_decision.approved or risk_decision.approved_quantity <= 0:
         return False
+    clamped_quantity = state.capital_clamped_quantity(
+        signal.breakout_close_price, risk_decision.approved_quantity
+    )
+    if clamped_quantity <= 0:
+        return False  # notional below the min-capital-per-trade floor
 
     prediction_record = build_orb_prediction_record(
         signal=signal,
@@ -419,7 +452,7 @@ def _seed_cash_instrument_from_orb(
         target_reward_multiple=strategy_config.target_risk_reward_ratio,
     )
     _open_position_from_signal(
-        state, signal, risk_decision.approved_quantity, prediction_record, signal.triggered_at
+        state, signal, clamped_quantity, prediction_record, signal.triggered_at
     )
     position = state.open_positions[instrument.instrument_token]
 
