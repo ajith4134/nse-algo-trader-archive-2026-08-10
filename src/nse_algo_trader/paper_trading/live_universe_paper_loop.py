@@ -123,6 +123,9 @@ class LiveUniversePaperState:
     fill_slippage_config: FillSlippageConfig = field(default_factory=FillSlippageConfig)
     open_positions: dict[int, OpenPaperPosition] = field(default_factory=dict)
     closed_trades: list[ClosedPaperTrade] = field(default_factory=list)
+    # Closed §9 experiments awaiting Layer-10 recording: (graded, trade, kind)
+    # tuples the dashboard service drains into ExperienceMemory (Rule G).
+    closed_experiment_events: list = field(default_factory=list)
     seeded_cash_tokens: set[int] = field(default_factory=set)
     # Positions Layer 8 could NOT flatten (surfaced CRITICAL, never dropped).
     unflattened_square_off_positions: list[OpenPaperPosition] = field(
@@ -253,21 +256,27 @@ def _close_position(
     recorded = state.ledger.record_fill(
         position.instrument.instrument_token, exit_side, position.quantity, exit_price
     )
-    state.closed_trades.append(
-        ClosedPaperTrade(
-            instrument=position.instrument,
-            direction=position.direction,
-            quantity=position.quantity,
-            entry_price=position.entry_price,
-            exit_price=exit_price,
-            realized_pnl=recorded.realized_pnl_from_this_fill,
-            outcome=outcome,
-            opened_at=position.opened_at,
-            closed_at=closed_at,
-        )
+    closed_trade = ClosedPaperTrade(
+        instrument=position.instrument,
+        direction=position.direction,
+        quantity=position.quantity,
+        entry_price=position.entry_price,
+        exit_price=exit_price,
+        realized_pnl=recorded.realized_pnl_from_this_fill,
+        outcome=outcome,
+        opened_at=position.opened_at,
+        closed_at=closed_at,
     )
-    state.scoreboard.add_graded_prediction(
-        grade_prediction(position.prediction_record, recorded.realized_pnl_from_this_fill)
+    state.closed_trades.append(closed_trade)
+    graded = grade_prediction(
+        position.prediction_record, recorded.realized_pnl_from_this_fill
+    )
+    state.scoreboard.add_graded_prediction(graded)
+    # Emit the closed §9 experiment for Layer 10 to record (a plain (graded,
+    # trade, kind) tuple — the loop never imports Layer 10; the service drains
+    # these into ExperienceMemory each pass, Rule G).
+    state.closed_experiment_events.append(
+        (graded, closed_trade, position.instrument.kind.value.lower())
     )
     del state.open_positions[position.instrument.instrument_token]
 

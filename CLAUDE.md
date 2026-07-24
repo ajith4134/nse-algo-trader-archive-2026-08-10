@@ -152,6 +152,28 @@ data-flow edges (generated from the code's AST import graph, not memory).
 - This complements Rule B (per-layer flowchart notes): Rule B is the deep
   per-feature narrative; Rule H is the one consolidated cross-feature map.
 
+## Rule I — Never compromise a feature down to what's on hand; go acquire what it needs
+If a feature needs data — or ANYTHING (a dataset, a live/historical source, a
+tool, a library, an API, a capability, a reference) — that the project does
+not yet have, **do NOT scope the feature down, stub it, or settle for only
+what is already present.** Instead:
+1. Name exactly what the feature needs (the missing data/tool/source and why).
+2. **Search online** for where to legitimately obtain it (official APIs, data
+   providers, OSS projects/datasets, docs) — use the `deep-research` /
+   `sourcing-oss-parts` skills.
+3. **Acquire and integrate it** if legitimately available (respecting Rule E —
+   license is not a filter for personal use — and the regulatory/no-secrets
+   constraints; never bypass auth/law/market-manipulation lines).
+4. If it genuinely cannot be obtained yet, record that as an explicit blocker
+   against the feature (like Rule F's real-data blocker) — never silently
+   deliver a degraded version as if it were complete.
+- Applies to EVERYTHING, not just data. "The project only has X" is never a
+  reason to build a lesser feature — find and bring in what the full feature
+  requires.
+- Pairs with Rule F (verify on the REAL data it needs — so first go get that
+  data), Rule E (license-blind sourcing), the full-universe rule (never a
+  sample), and the sourcing/building-from-ideas skills.
+
 ## Non-negotiables carried through every layer
 - Intraday only. Every position auto-squares-off before close. No exceptions
   per-segment, ever, unless a future phase explicitly revisits this.

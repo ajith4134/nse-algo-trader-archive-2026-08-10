@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-24**.
-- **89 Python modules across 12 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-24c**.
+- **93 Python modules across 13 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -100,6 +100,7 @@ flowchart TD
     PT(["paper_trading<br/>L7 · live universe loop + §9 lab + gates"])
     SQOFF(["session_management<br/>L8 · 15:15 safe square-off"])
     DASH(["dashboard<br/>L9 · read-model · service · server · HTML"])
+    MEM(["memory_reflection<br/>L10 · experience memory (closed §9 experiments)"])
 
     CRED -->|"api key/secret · TOTP"| SESS
     SESS -->|"access token"| TOK
@@ -125,7 +126,9 @@ flowchart TD
     PT -->|"open position legs"| SQOFF
     SQOFF -->|"square-off orders"| OMS
     CFG -->|"knobs"| DASH
-    PT -->|"positions · P&L · §9 tables"| DASH
+    PT -->|"positions · P&L · §9 tables · closed experiments"| DASH
+    DASH -->|"record ClosedExperiment"| MEM
+    MEM -->|"calibration · prior-outcomes · reflection diff"| DASH
     DASH -->|"DashboardSnapshot (HTML/JSON)"| OP
     OP -->|"POST /api/config"| CFG
 ```
@@ -257,6 +260,12 @@ flowchart LR
     rm --> status["project_status_data"]
 ```
 
+### L10 · memory_reflection  (3 files)  — episodic experience memory
+- `experience_memory.py` — `ExperienceMemory` protocol (swappable substrate boundary), `ClosedExperiment` node, `build_closed_experiment` (from a graded §9 prediction + closed trade), summary types.
+- `sqlite_experience_memory.py` — `SqliteExperienceMemory`: typed experiment nodes in one `.db`; serves calibration-by-regime, prior-outcomes (entry-time pre-mortem), and reflection-diff by indexed group-by. (Graphiti/Neo4j temporal-KG = documented swap-up for the semantic/multi-hop tier — research/43.)
+- IN: closed §9 experiments (graded prediction + closed trade) emitted by the L7 loop, drained by the dashboard service. OUT: calibration / prior-outcome / reflection-diff summaries → dashboard.
+- **Wiring:** the L7 loop emits `(graded, trade, kind)` events on close (no L10 import); `dashboard/live_paper_trading_service._drain_closed_experiments_into_memory` records them into `ExperienceMemory` in the writer thread. Rule-F verified on 48 real closed experiments (2026-07-24) — surfaced that the confident-win "trend-continuation" mechanism ran at 0.05 hit rate while the confident-loss "false-breakout" thesis held at 0.75.
+
 ---
 
 ## §3 · RUNTIME FLOWS (the dynamic view a static graph can't show)
@@ -285,6 +294,13 @@ login → `kite_access_token.json` → consumed by the feed + broker clients.
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-24c** — Added **`memory_reflection` (L10, 3 files)** — Layer 10
+  slice 1 (research/43): `ExperienceMemory` swappable substrate + SQLite
+  backend; a closed §9 experiment → a memory node. Wired: the L7 loop emits
+  closed-experiment events, the dashboard service drains them into memory
+  (writer thread). New edges: paper_trading→dashboard (closed experiments) →
+  memory_reflection; memory_reflection→dashboard (calibration/reflection).
+  93 modules / 13 features.
 - **2026-07-24b** — Added `dashboard/render_system_map_html.py`: this map is
   now browsable IN the dashboard at `/map` (linked from the main page header),
   rendering these Mermaid diagrams client-side.

@@ -30,6 +30,10 @@ from nse_algo_trader.dashboard.dashboard_read_model import (
     PredictionTableSummary,
     StrategyReadinessSummary,
 )
+from nse_algo_trader.memory_reflection import (
+    SqliteExperienceMemory,
+    build_closed_experiment,
+)
 from nse_algo_trader.paper_trading.combinatorial_purged_cross_validation import (
     CpcvConfig,
     evaluate_strategy_with_cpcv_gate,
@@ -220,6 +224,9 @@ class LivePaperTradingService:
         )
         self._writer_thread: threading.Thread | None = None
         self._running = False
+        # Layer 10 experience memory — opened lazily in the writer thread
+        # (per-thread SQLite), fed the closed §9 experiments the loop emits.
+        self._experience_memory = None
 
     @property
     def scoreboard(self) -> PredictionTableScoreboard:
@@ -316,6 +323,7 @@ class LivePaperTradingService:
                     # CLOSED -> REPLAY half (PLAN §1.4): step the replay clock
                     # through stored history so paper never idles.
                     self._advance_replay_pass()
+                self._drain_closed_experiments_into_memory()  # Layer 10
                 self._publish(real_now)
             except Exception as loop_error:
                 import traceback
@@ -345,6 +353,25 @@ class LivePaperTradingService:
         self._replay_feed.set_replay_as_of(replay_now)
         self._feed = self._replay_feed
         self._advance_one_pass(replay_now, replay_mode=True)
+
+    def _drain_closed_experiments_into_memory(self) -> None:
+        """Record each closed §9 experiment the loop emitted into Layer-10
+        ExperienceMemory (Rule G wiring). Runs in the writer thread; the store
+        is opened lazily here so its SQLite connection lives in this thread.
+        Best-effort — a memory hiccup must never stall the trading loop."""
+        events = self._state.closed_experiment_events
+        if not events:
+            return
+        try:
+            if self._experience_memory is None:
+                self._experience_memory = SqliteExperienceMemory()
+            while events:
+                graded, closed_trade, instrument_kind = events.pop(0)
+                self._experience_memory.record_closed_experiment(
+                    build_closed_experiment(graded, closed_trade, instrument_kind)
+                )
+        except Exception:
+            pass
 
     def _advance_one_pass(self, now: datetime, replay_mode: bool = False) -> None:
         # Honor the dashboard control plane each pass: risk budget follows the
