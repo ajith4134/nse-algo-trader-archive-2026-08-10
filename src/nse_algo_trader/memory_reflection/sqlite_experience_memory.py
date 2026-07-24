@@ -24,6 +24,7 @@ from nse_algo_trader.memory_reflection.experience_memory import (
     CalibrationSummary,
     ClosedExperiment,
     MechanismReliability,
+    OutcomeSequenceDependence,
     PriorOutcomeSummary,
     ReflectionDiffRow,
 )
@@ -315,6 +316,58 @@ class SqliteExperienceMemory:
                 )
             )
         results.sort(key=lambda r: r.reliability, reverse=True)
+        return results
+
+    _OUTCOME_CLUSTERING_GAP = 0.15  # |post-win − post-loss| win-rate to call it clustered
+
+    def outcome_sequence_dependence(
+        self, minimum_experiments: int = 12
+    ) -> list[OutcomeSequenceDependence]:
+        """A temporal MULTI-HOP read (research/50): per mechanism, hop to each
+        trade's PRIOR outcome via `LAG` over the occurred_at sequence and compare
+        the win rate after a win vs after a loss. A large gap = outcomes cluster
+        (non-iid) → the calibration/veto stats are optimistic. This is the
+        graph/temporal-tier capability served natively in SQLite (no Neo4j)."""
+        cursor = self._connection.execute(
+            "WITH seq AS ("
+            "  SELECT strategy_tag, mechanism_name, "
+            "    CASE WHEN actual_outcome='win' THEN 1.0 ELSE 0.0 END AS won, "
+            "    LAG(CASE WHEN actual_outcome='win' THEN 1.0 ELSE 0.0 END) "
+            "      OVER (PARTITION BY mechanism_name ORDER BY occurred_at) AS prior_won "
+            "  FROM experience_nodes"
+            ") "
+            "SELECT strategy_tag, mechanism_name, COUNT(*) AS n, "
+            "  AVG(won) AS overall, "
+            "  AVG(CASE WHEN prior_won=1.0 THEN won END) AS post_win, "
+            "  AVG(CASE WHEN prior_won=0.0 THEN won END) AS post_loss "
+            "FROM seq GROUP BY strategy_tag, mechanism_name HAVING n >= ?",
+            (minimum_experiments,),
+        )
+        results: list[OutcomeSequenceDependence] = []
+        for row in cursor.fetchall():
+            post_win = row["post_win"]
+            post_loss = row["post_loss"]
+            gap = (
+                post_win - post_loss
+                if post_win is not None and post_loss is not None
+                else None
+            )
+            results.append(
+                OutcomeSequenceDependence(
+                    strategy_tag=row["strategy_tag"],
+                    mechanism_name=row["mechanism_name"],
+                    experiment_count=row["n"],
+                    overall_win_rate=row["overall"],
+                    post_win_win_rate=post_win,
+                    post_loss_win_rate=post_loss,
+                    dependence_gap=gap,
+                    clusters=(gap is not None and abs(gap) >= self._OUTCOME_CLUSTERING_GAP),
+                )
+            )
+        results.sort(
+            key=lambda r: abs(r.dependence_gap) if r.dependence_gap is not None else -1,
+            reverse=True,
+        )
         return results
 
     def _aggregate_cohorts(self, where_clause: str, params: tuple) -> dict:

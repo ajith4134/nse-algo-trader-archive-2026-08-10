@@ -126,10 +126,30 @@ class MechanismReliability:
     diagnosis: str
 
 
+@dataclass(frozen=True)
+class OutcomeSequenceDependence:
+    """A temporal multi-hop read of one mechanism's trade SEQUENCE (research/50):
+    does it win less after a loss than after a win? A large `dependence_gap`
+    (post-win minus post-loss win rate) means outcomes cluster (are not iid) — so
+    the calibration z-test and veto, which assume independent trials, are
+    optimistic (effective sample size is smaller than n)."""
+
+    strategy_tag: str
+    mechanism_name: str
+    experiment_count: int
+    overall_win_rate: float
+    post_win_win_rate: float | None
+    post_loss_win_rate: float | None
+    dependence_gap: float | None  # post_win − post_loss; None if too few transitions
+    clusters: bool
+
+
 class ExperienceMemory(Protocol):
-    """The swappable substrate boundary (research/43). A SQLite backend today;
-    a Graphiti/Neo4j temporal KG is the named future consumer for the
-    semantic/multi-hop tier."""
+    """The swappable substrate boundary (research/43). A SQLite backend today.
+    Graphiti/Neo4j was REJECTED (research/50): it is an LLM-text-extraction KG
+    needing a server + LLM key — an impedance mismatch for structured records;
+    multi-hop/temporal queries are served natively in SQLite (LAG / recursive
+    CTE)."""
 
     def record_closed_experiment(self, experiment: ClosedExperiment) -> None: ...
 
@@ -163,6 +183,11 @@ class ExperienceMemory(Protocol):
         minimum_experiments: int = 12,
         recency_window: int | None = None,
     ) -> list[MechanismReliability]: ...
+
+    def outcome_sequence_dependence(
+        self,
+        minimum_experiments: int = 12,
+    ) -> list[OutcomeSequenceDependence]: ...
 
 
 def build_closed_experiment(

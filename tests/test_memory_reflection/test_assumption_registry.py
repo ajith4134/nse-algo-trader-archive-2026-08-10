@@ -153,3 +153,48 @@ class TestLogScoreAntibodyTrip:
         board = {r.mechanism_name: r for r in mem.calibration_board(minimum_experiments=1)}
         assert board["cal"].mean_log_score < 1.05
         mem.close()
+
+
+class TestOutcomeSequenceDependence:
+    def test_streaky_sequence_clusters(self, tmp_path):
+        mem = _memory(tmp_path)
+        # a streaky sequence: 6 wins then 6 losses -> after a win you usually win,
+        # after a loss you usually lose -> big post-win vs post-loss gap
+        for i in range(12):
+            mem.record_closed_experiment(
+                _exp(i, mechanism="streak", predicted_win_prob=0.5,
+                     won=(i < 6), ret=0.01 if i < 6 else -0.01)
+            )
+        dep = {d.mechanism_name: d for d in mem.outcome_sequence_dependence(minimum_experiments=6)}
+        assert dep["streak"].clusters is True
+        assert dep["streak"].post_win_win_rate > dep["streak"].post_loss_win_rate
+        mem.close()
+
+    def test_alternating_sequence_does_not_cluster_positively(self, tmp_path):
+        mem = _memory(tmp_path)
+        # alternating W,L,W,L... -> after a win you lose, after a loss you win
+        # -> strong NEGATIVE dependence (also clusters, opposite sign)
+        for i in range(12):
+            mem.record_closed_experiment(
+                _exp(i, mechanism="alt", predicted_win_prob=0.5,
+                     won=(i % 2 == 0), ret=0.01 if i % 2 == 0 else -0.01)
+            )
+        dep = {d.mechanism_name: d for d in mem.outcome_sequence_dependence(minimum_experiments=6)}
+        # post-win win-rate ~0, post-loss ~1 -> gap strongly negative
+        assert dep["alt"].dependence_gap < -0.15
+        mem.close()
+
+    def test_clustering_note_reaches_the_calibration_verdict(self, tmp_path):
+        from nse_algo_trader.memory_reflection import evaluate_trading_assumptions
+        mem = _memory(tmp_path)
+        for i in range(12):
+            mem.record_closed_experiment(
+                _exp(i, mechanism="streak2", predicted_win_prob=0.5,
+                     won=(i < 6), ret=0.01 if i < 6 else -0.01)
+            )
+        details = " ".join(
+            v.detail for v in evaluate_trading_assumptions(mem)
+            if v.assumption_name == "calibration"
+        )
+        assert "errors cluster" in details
+        mem.close()

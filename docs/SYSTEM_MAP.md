@@ -11,7 +11,7 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-24n**.
+  true to what is actually on the server. Last regenerated: **2026-07-24o**.
 - **102 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
@@ -302,6 +302,24 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-24o** — **Graph substrate decision + SQLite multi-hop** (research/50; no
+  new files, 102 modules). **Graphiti/Neo4j REJECTED** (verified live): it is an
+  LLM-text-extraction temporal-KG needing a graph-DB server + mandatory LLM key
+  (Kùzu embedded option deprecated) — an impedance mismatch for our structured
+  records, no consumer categorical/temporal SQLite can't serve. Instead delivered
+  the multi-hop capability IN SQLite: new `ExperienceMemory.outcome_sequence_dependence`
+  (protocol + sqlite) — a temporal MULTI-HOP query using `LAG(outcome) OVER
+  (PARTITION BY mechanism ORDER BY occurred_at)` to compare post-win vs post-loss
+  win-rate (outcome clustering / non-iid detection). `OutcomeSequenceDependence`
+  record. **Consumer (Rule K):** `evaluate_trading_assumptions` appends an "errors
+  cluster — iid calibration stats optimistic" note to a clustered mechanism's
+  calibration verdict → the Assumption-tripwires panel. **Verified on REAL data
+  (Rule F):** over the real 213 experiences several mechanisms show real clustering
+  (indeterminate-regime post-win 55% vs post-loss 28%; post-breakout-trend 29% vs
+  7%; long-ATM-option mean-reverts 30% vs 49%; false-breakout ~iid). 348 suite green
+  (+3). No graph edge change. **Queued (Rule K, BACKLOG):** regime-transition
+  fragility + cross-regime co-failure clusters (need multi-regime data — the real
+  data is single-regime today; same LAG/recursive-CTE substrate is the vehicle).
 - **2026-07-24n** — **Brier decomposition** (reliability vs resolution;
   explainable memory; research/49). Sourcing verdict: **vendored** the Murphy 1973
   formula (briertools doesn't expose it, drags 6 deps, no license). New file

@@ -370,3 +370,32 @@ reconstruction REL−RES+UNC matches the direct Brier per cohort (post-breakout-
 **Queued (Rule K, docs/BACKLOG.md):** auto-recalibrate win_prob for a
 high-reliability/good-resolution mechanism (recalibratable) vs hard-veto RES≈0 (no
 edge) — a later slice.
+
+### Graph substrate decision + SQLite multi-hop (2026-07-24)
+The research/43 "Graphiti/Neo4j swap-up" backlog item — resolved. **Graphiti REJECTED**
+(verified live): it builds a temporal KG by LLM-extracting entities from UNSTRUCTURED
+TEXT, requiring a graph-DB server + a mandatory LLM key (Kùzu embedded option
+deprecated). Our records are already structured — an impedance mismatch, and heavy
+infra for no query SQLite can't serve. Decision: deliver the multi-hop CAPABILITY in
+SQLite (window functions / recursive CTE), no server, no LLM (research/50).
+
+**Flagship multi-hop query — outcome-sequence dependence.**
+`ExperienceMemory.outcome_sequence_dependence(min_experiments)` (protocol + sqlite)
+uses `LAG(outcome) OVER (PARTITION BY mechanism_name ORDER BY occurred_at)` to hop to
+each trade's PRIOR outcome and compare **post-win vs post-loss win-rate**. A large
+`dependence_gap` = outcomes cluster (non-iid) → the calibration z-test / veto (which
+assume independent trials) are optimistic. `OutcomeSequenceDependence` record.
+
+**Data flow (Rule G):** `evaluate_trading_assumptions` looks up clustered mechanisms
+and appends "errors cluster — iid calibration stats optimistic" to the calibration
+verdict detail → the existing Assumption-tripwires panel. Decision-adjacent (enriches
+the antibody's explanation), same wiring pattern as the Brier diagnosis.
+
+**Verified — REAL DATA (Rule F):** over the real 213 experiences — indeterminate-regime
+post-win 55% vs post-loss 28% (+0.27), post-breakout-trend 29% vs 7% (+0.21),
+long-ATM-option mean-reverts 30% vs 49% (−0.19), false-breakout ~iid (−0.04). Real
+non-iid signal. 3 tests (streaky clusters, alternating negative-cluster, note reaches
+the verdict). 348 suite green.
+**Queued (Rule K, docs/BACKLOG.md):** regime-transition fragility + cross-regime
+co-failure clusters — need multi-regime data (real data is single-regime "normal"
+today); the LAG / recursive-CTE substrate built here is the vehicle.

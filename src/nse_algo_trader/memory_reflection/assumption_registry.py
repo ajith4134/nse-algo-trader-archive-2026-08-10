@@ -94,6 +94,15 @@ def evaluate_trading_assumptions(
             minimum_experiments=config.minimum_samples
         )
     }
+    # Temporal multi-hop (research/50): mechanisms whose wins/losses cluster
+    # (non-iid) — the calibration z-test and veto are optimistic for these.
+    clustering_by_mechanism = {
+        r.mechanism_name: r.dependence_gap
+        for r in experience_memory.outcome_sequence_dependence(
+            minimum_experiments=config.minimum_samples
+        )
+        if r.clusters
+    }
     for row in experience_memory.calibration_board(minimum_experiments=1):
         scope = f"{row.strategy_tag} · {row.mechanism_name}"
         if row.experiment_count < config.minimum_samples:
@@ -105,11 +114,17 @@ def evaluate_trading_assumptions(
                 )
             )
             continue
-        verdicts.append(
-            _calibration_verdict(
-                row, config, scope, diagnosis_by_mechanism.get(row.mechanism_name)
+        diagnosis = diagnosis_by_mechanism.get(row.mechanism_name)
+        gap = clustering_by_mechanism.get(row.mechanism_name)
+        if gap is not None:
+            clustering_note = (
+                f"errors cluster (post-win {gap:+.0%} vs post-loss win-rate) — "
+                "iid calibration stats optimistic"
             )
-        )
+            diagnosis = (
+                f"{diagnosis}; {clustering_note}" if diagnosis else clustering_note
+            )
+        verdicts.append(_calibration_verdict(row, config, scope, diagnosis))
         verdicts.append(_edge_verdict(row, config, scope))
 
     _tripped_first = {AssumptionStatus.VIOLATED: 0,

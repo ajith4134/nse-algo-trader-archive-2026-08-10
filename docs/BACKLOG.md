@@ -29,9 +29,16 @@ Status key: 🔴 not started · 🟡 in progress · 🟢 done (moved to Done) ·
   verified over 213 SQLite experiences. *(task #25)*
 
 ## Layer 10 memory substrate
-- 🔴 **Graphiti/Neo4j temporal-KG swap-up.** Named swap-up for the semantic /
-  multi-hop tier when categorical SQLite queries no longer suffice (research/43).
-  Deferred by design until multi-hop queries are actually needed.
+- 🟢 **Graph substrate decision + SQLite multi-hop.** DONE (2026-07-24):
+  Graphiti/Neo4j REJECTED (LLM-text-extraction KG, server+LLM required, Kùzu
+  deprecated — impedance mismatch for structured records; research/50). Delivered
+  the multi-hop capability in SQLite: outcome_sequence_dependence (LAG) → non-iid
+  clustering feeds the antibody verdict. Real-data verified over 213 experiences.
+  *(task #28)*
+- 🔴 **Regime-transition fragility + cross-regime co-failure clusters (queued).**
+  The LAG/recursive-CTE substrate is built; these need MULTI-REGIME data (real
+  data is single-regime "normal" today). Done = fragility/co-failure derived +
+  consumed, verified once regimes vary.
 - 🟢 **Brier decomposition** (Murphy reliability/resolution/uncertainty). DONE
   (2026-07-24): vendored (briertools rejected — no Murphy fn, 6 deps, no license);
   reliability_decomposition() + diagnosis fed into the antibody's tripwire detail;
