@@ -98,3 +98,19 @@ continuation predictions were miscalibrated. Unit: 6 tests; suite green.
   dashboard "Reflection — mechanism calibration" panel. The EPISTEMICS
   transparency surface — it shows, live, which theses the bot's predictions
   are miscalibrated on (large predicted−actual gap).
+
+## Slice 2 (2026-07-24) — Assumption registry + statistical tripwires
+`assumption_registry.py`: `evaluate_trading_assumptions(memory)` gives every
+live mechanism two significance-tested assumptions:
+- **calibration** — actual win-rate not *significantly* below predicted
+  (one-sided normal-approx binomial z; trips on over-confidence), and
+- **edge** — mean per-trade return not below a small negative floor.
+Only trips with ≥12 trades (never on noise). Wired: the service publishes the
+verdicts; the dashboard shows an "Assumption tripwires" panel (VIOLATED first)
+and `monitoring_alerts` raises a WARNING per tripped assumption — the bot's own
+antibody signal. **Verified:** the trend-continuation mechanism (predicted 85%,
+actual 0%, n=18) trips the calibration wire (z≈-9) and raises the alert. 4 unit
+tests (`test_assumption_registry.py`).
+Next: slice 3 — feed a tripped assumption back to VETO that mechanism's new
+entries (epidemiology→antibody automation, PLAN §10); opponent ledger (needs
+participant-wise OI — acquire per Rule I).

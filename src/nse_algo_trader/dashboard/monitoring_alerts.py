@@ -43,8 +43,28 @@ def generate_dashboard_alerts(
     stored_bar_count: int,
     generated_at: datetime | None = None,
     open_position_count: int = 0,
+    assumption_tripwires: list | None = None,
 ) -> list[MonitoringAlert]:
     alerts: list[MonitoringAlert] = []
+
+    # Layer-10 assumption tripwires (slice 2): a mechanism whose thesis the
+    # memory has significantly refuted — the bot flagging its own bad edge.
+    # Verdicts arrive as dicts (server) or dataclasses (tests) — handle both.
+    def _field(verdict, name):
+        return verdict[name] if isinstance(verdict, dict) else getattr(verdict, name)
+
+    def _is_violated(verdict) -> bool:
+        status = _field(verdict, "status")
+        return str(getattr(status, "value", status)) == "violated"
+
+    for verdict in [v for v in (assumption_tripwires or []) if _is_violated(v)][:3]:
+        alerts.append(
+            MonitoringAlert(
+                AlertLevel.WARNING, "assumption",
+                f"Tripwire — {_field(verdict, 'assumption_name')} on "
+                f"{_field(verdict, 'scope')}: {_field(verdict, 'detail')}",
+            )
+        )
 
     if control_config.trading_mode is TradingMode.LIVE:
         alerts.append(

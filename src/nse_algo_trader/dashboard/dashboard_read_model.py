@@ -104,6 +104,7 @@ class DashboardSnapshot:
     strategy_readiness: list[StrategyReadinessSummary] = field(default_factory=list)
     memory_experiment_count: int = 0
     reflection_board: list[dict] = field(default_factory=list)
+    assumption_tripwires: list[dict] = field(default_factory=list)
 
     def to_json_dict(self) -> dict:
         return {
@@ -130,6 +131,7 @@ class DashboardSnapshot:
             "strategy_readiness": [asdict(r) for r in self.strategy_readiness],
             "memory_experiment_count": self.memory_experiment_count,
             "reflection_board": self.reflection_board,
+            "assumption_tripwires": self.assumption_tripwires,
         }
 
 
@@ -151,6 +153,7 @@ def build_dashboard_snapshot(
     strategy_readiness: list[StrategyReadinessSummary] | None = None,
     memory_experiment_count: int = 0,
     reflection_board: list[dict] | None = None,
+    assumption_tripwires: list[dict] | None = None,
 ) -> DashboardSnapshot:
     """When `precomputed_*` summaries are supplied (by the live service's
     writer thread, which is the sole mutator of the ledger/scoreboard),
@@ -220,6 +223,7 @@ def build_dashboard_snapshot(
                 if live_universe_status is not None
                 else 0
             ),
+            assumption_tripwires=assumption_tripwires or [],
         )
     ]
     return DashboardSnapshot(
@@ -240,6 +244,7 @@ def build_dashboard_snapshot(
         strategy_readiness=list(strategy_readiness or []),
         memory_experiment_count=memory_experiment_count,
         reflection_board=list(reflection_board or []),
+        assumption_tripwires=list(assumption_tripwires or []),
     )
 
 

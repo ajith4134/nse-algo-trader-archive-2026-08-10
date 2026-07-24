@@ -169,6 +169,7 @@ def build_dashboard_app() -> FastAPI:
             strategy_readiness=list(published.strategy_readiness),
             memory_experiment_count=published.memory_experiment_count,
             reflection_board=[asdict(r) for r in published.calibration_board],
+            assumption_tripwires=[asdict(v) for v in published.assumption_verdicts],
         )
 
     @app.get("/", response_class=HTMLResponse)

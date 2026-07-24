@@ -115,6 +115,7 @@ class LivePaperPublishedSnapshot:
     strategy_readiness: tuple[StrategyReadinessSummary, ...] = ()
     memory_experiment_count: int = 0
     calibration_board: tuple = ()  # tuple[CalibrationBoardRow, ...]
+    assumption_verdicts: tuple = ()  # tuple[AssumptionVerdict, ...]
 
     @property
     def open_position_count(self) -> int:
@@ -498,6 +499,7 @@ class LivePaperTradingService:
             strategy_readiness=_strategy_readiness_summaries(self._state),
             memory_experiment_count=self._memory_experiment_count(),
             calibration_board=self._memory_calibration_board(),
+            assumption_verdicts=self._memory_assumption_verdicts(),
         )
         with self._publish_lock:
             self._published = snapshot
@@ -651,6 +653,18 @@ class LivePaperTradingService:
             return ()
         try:
             return tuple(self._experience_memory.calibration_board(minimum_experiments=3))
+        except Exception:
+            return ()
+
+    def _memory_assumption_verdicts(self) -> tuple:
+        """Layer-10 slice 2: significance-tested assumption tripwires over the
+        experience memory (writer thread — owns the SQLite connection)."""
+        if self._experience_memory is None:
+            return ()
+        try:
+            from nse_algo_trader.memory_reflection import evaluate_trading_assumptions
+
+            return tuple(evaluate_trading_assumptions(self._experience_memory))
         except Exception:
             return ()
 

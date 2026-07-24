@@ -15,12 +15,22 @@ from nse_algo_trader.memory_reflection.experience_memory import (
     ReflectionDiffRow,
     build_closed_experiment,
 )
+from nse_algo_trader.memory_reflection.assumption_registry import (
+    AssumptionConfig,
+    AssumptionStatus,
+    AssumptionVerdict,
+    evaluate_trading_assumptions,
+)
 from nse_algo_trader.memory_reflection.sqlite_experience_memory import (
     DEFAULT_EXPERIENCE_MEMORY_DB_PATH,
     SqliteExperienceMemory,
 )
 
 __all__ = [
+    "AssumptionConfig",
+    "AssumptionStatus",
+    "AssumptionVerdict",
+    "evaluate_trading_assumptions",
     "CalibrationBoardRow",
     "CalibrationSummary",
     "ClosedExperiment",

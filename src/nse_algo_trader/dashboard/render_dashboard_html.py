@@ -271,6 +271,14 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
   </div>
 
   <div class="card">
+    <div class="head"><span class="bar"></span><h2>Assumption tripwires (Layer 10)</h2><span class="aside" id="tripaside"></span></div>
+    <div class="body">
+      <table class="labtbl" id="tripTbl"></table>
+      <p class="note" id="tripnote"></p>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="head"><span class="bar"></span><h2>Layer roadmap</h2><span class="aside" id="roadaside"></span></div>
     <div class="body"><div class="rlist" id="roadmap"></div></div>
   </div>
@@ -479,6 +487,23 @@ function renderLive(snap){
   });
   document.getElementById("reflectTbl").innerHTML=rbrows;
   document.getElementById("reflectnote").innerHTML="Each closed §9 experiment (cash + options) becomes a memory node. <b>Gap</b> = predicted − actual win-rate; a large gap is a miscalibrated thesis the bot is learning to distrust.";
+  // --- Assumption tripwires (L10 slice 2) ---
+  const tw=snap.assumption_tripwires||[];
+  const statusOrder={violated:0,holding:1,insufficient_data:2};
+  const tripped=tw.filter(v=>v.status==="violated");
+  document.getElementById("tripaside").textContent=tripped.length?(tripped.length+" tripped"):"all holding";
+  let twrows="<tr><th>Assumption</th><th>Scope</th><th>n</th><th>Status</th><th>Detail</th></tr>";
+  if(!tw.length){ twrows+=`<tr><td colspan="5" style="color:var(--faint)">gathering evidence…</td></tr>`; }
+  [...tw].sort((a,b)=>statusOrder[a.status]-statusOrder[b.status]).slice(0,14).forEach(v=>{
+    const sc=v.status==="violated"?'var(--loss)':(v.status==="holding"?'var(--profit)':'var(--faint)');
+    const label=v.status==="violated"?"✗ TRIPPED":(v.status==="holding"?"✓ holding":"gathering");
+    twrows+=`<tr><td class="tablename">${v.assumption_name}</td>`+
+      `<td style="max-width:24ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${v.scope}">${v.scope}</td>`+
+      `<td>${v.sample_count}</td><td style="color:${sc};font-weight:600">${label}</td>`+
+      `<td style="color:var(--dim);font-size:.8rem">${v.detail}</td></tr>`;
+  });
+  document.getElementById("tripTbl").innerHTML=twrows;
+  document.getElementById("tripnote").innerHTML="Significance-tested (min 12 trades). A tripped calibration/edge assumption means the memory has statistically refuted that thesis — the bot's own antibody signal.";
   document.getElementById("sub").textContent="live dashboard · updated "+snap.generated_at.slice(11,16)+(LIVE_API_KEY?" · auto-refresh 20s":"");
 }
 renderLive(SNAPSHOT);

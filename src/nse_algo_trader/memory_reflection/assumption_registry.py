@@ -1,0 +1,111 @@
+"""Layer 10 slice 2 — Assumption Registry + statistical tripwires.
+
+The Reflection board (slice 1b) *shows* miscalibration; this turns it into
+named, checkable assumptions that TRIP when the experience memory shows them
+violated with statistical significance — the bot learning to distrust its own
+theses (the CONSCIENCE/EPISTEMICS "assumption tripwire" from PLAN §10).
+
+Each live mechanism carries two assumptions, evaluated over its recorded
+experiments:
+1. **Calibration** — "this mechanism's predictions are not over-confident":
+   the actual win-rate is not *significantly* below the predicted win-rate
+   (one-sided normal-approx binomial test). A mechanism that predicted 85%
+   but delivered 0% over 18 trades trips this hard.
+2. **Edge** — "this mechanism has a non-negative expected return": mean
+   realized return per trade is not below a small negative floor.
+
+A tripwire only fires with `minimum_samples` evidence — never on noise.
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+from enum import Enum
+
+
+class AssumptionStatus(str, Enum):
+    HOLDING = "holding"
+    VIOLATED = "violated"  # tripped — significant evidence against the assumption
+    INSUFFICIENT_DATA = "insufficient_data"
+
+
+@dataclass(frozen=True)
+class AssumptionVerdict:
+    assumption_name: str
+    scope: str  # the mechanism / strategy the assumption is about
+    status: AssumptionStatus
+    sample_count: int
+    detail: str
+
+
+@dataclass(frozen=True)
+class AssumptionConfig:
+    minimum_samples: int = 12
+    # one-sided z threshold (~1.64 = 95%) for "actual significantly below predicted"
+    significance_z: float = 1.64
+    # mean per-trade return below this (with enough samples) trips the edge wire
+    negative_edge_return_floor: float = -0.02
+
+
+def _overconfidence_z(actual_rate: float, predicted_rate: float, n: int) -> float:
+    """z for actual being BELOW predicted (negative = over-confident). Normal
+    approx to the binomial, guarded against a degenerate predicted 0/1."""
+    p0 = min(max(predicted_rate, 1e-6), 1 - 1e-6)
+    standard_error = math.sqrt(p0 * (1 - p0) / n)
+    return (actual_rate - p0) / standard_error if standard_error > 0 else 0.0
+
+
+def evaluate_trading_assumptions(
+    experience_memory, config: AssumptionConfig = AssumptionConfig()
+) -> list[AssumptionVerdict]:
+    """Evaluate every live mechanism's calibration + edge assumptions over the
+    experience memory. Returns all verdicts, tripped (VIOLATED) first."""
+    verdicts: list[AssumptionVerdict] = []
+    for row in experience_memory.calibration_board(minimum_experiments=1):
+        scope = f"{row.strategy_tag} · {row.mechanism_name}"
+        if row.experiment_count < config.minimum_samples:
+            verdicts.append(
+                AssumptionVerdict(
+                    "calibration", scope, AssumptionStatus.INSUFFICIENT_DATA,
+                    row.experiment_count,
+                    f"{row.experiment_count}/{config.minimum_samples} trades — gathering",
+                )
+            )
+            continue
+        verdicts.append(_calibration_verdict(row, config, scope))
+        verdicts.append(_edge_verdict(row, config, scope))
+
+    _tripped_first = {AssumptionStatus.VIOLATED: 0,
+                      AssumptionStatus.INSUFFICIENT_DATA: 2,
+                      AssumptionStatus.HOLDING: 1}
+    verdicts.sort(key=lambda v: _tripped_first[v.status])
+    return verdicts
+
+
+def _calibration_verdict(row, config, scope) -> AssumptionVerdict:
+    z = _overconfidence_z(row.actual_win_rate, row.predicted_win_rate, row.experiment_count)
+    gap = row.predicted_win_rate - row.actual_win_rate
+    if z <= -config.significance_z:
+        return AssumptionVerdict(
+            "calibration", scope, AssumptionStatus.VIOLATED, row.experiment_count,
+            f"predicted {row.predicted_win_rate:.0%} vs actual {row.actual_win_rate:.0%} "
+            f"(gap {gap:+.0%}, z={z:.1f}) — over-confident thesis, distrust it",
+        )
+    return AssumptionVerdict(
+        "calibration", scope, AssumptionStatus.HOLDING, row.experiment_count,
+        f"predicted {row.predicted_win_rate:.0%} ≈ actual {row.actual_win_rate:.0%}",
+    )
+
+
+def _edge_verdict(row, config, scope) -> AssumptionVerdict:
+    if row.mean_return_fraction < config.negative_edge_return_floor:
+        return AssumptionVerdict(
+            "edge", scope, AssumptionStatus.VIOLATED, row.experiment_count,
+            f"mean return {row.mean_return_fraction:+.1%}/trade over "
+            f"{row.experiment_count} — negative edge",
+        )
+    return AssumptionVerdict(
+        "edge", scope, AssumptionStatus.HOLDING, row.experiment_count,
+        f"mean return {row.mean_return_fraction:+.1%}/trade",
+    )
