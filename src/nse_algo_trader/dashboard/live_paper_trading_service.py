@@ -191,7 +191,15 @@ class LivePaperTradingService:
         max_new_option_seeds_per_pass: int = 25,
     ) -> None:
         self._kite_client = authenticated_kite_client
-        self._feed = KiteLiveUniverseFeed(authenticated_kite_client)
+        # persist_todays_bars=True so the replay-when-closed store grows with
+        # each live session the loop trades (research/41).
+        self._live_feed = KiteLiveUniverseFeed(
+            authenticated_kite_client, persist_todays_bars=True
+        )
+        self._feed = self._live_feed  # active feed pointer (live or replay)
+        self._replay_feed = None  # market-CLOSED replay half (built in start())
+        self._replay_timestamps: list = []
+        self._replay_cursor = 0
         self._clock = NseMarketClock()
         self._square_off_schedule = IntradaySquareOffSchedule()
         self._max_new_option_seeds_per_pass = max_new_option_seeds_per_pass
@@ -235,11 +243,48 @@ class LivePaperTradingService:
             ),
         )
         self._banned_underlying_symbols = self._load_fo_ban_list()
+        self._build_replay_feed_from_store()  # market-CLOSED replay data
         self._running = True
         self._writer_thread = threading.Thread(
             target=self._run_forever, name="live-paper-loop", daemon=True
         )
         self._writer_thread.start()
+
+    def _build_replay_feed_from_store(self) -> None:
+        """Pre-load stored intraday bars (main thread — no cross-thread SQLite)
+        into a ReplayUniverseFeed so the loop can run on replay when the market
+        is closed. Only cash instruments in the tradable universe are replayed;
+        the feed is empty (and replay simply idles) until bars accumulate."""
+        from nse_algo_trader.market_data import BarInterval
+        from nse_algo_trader.paper_trading.replay_universe_feed import (
+            ReplayUniverseFeed,
+        )
+
+        instrument_by_token = {
+            inst.instrument_token: inst for inst in self._cash_universe
+        }
+        bars_by_token: dict = {}
+        store = MarketDataSqliteStore()
+        try:
+            for token in self._stored_bar_tokens(store):
+                if token not in instrument_by_token:
+                    continue
+                bars = store.load_price_bars(token, BarInterval.MINUTE_5)
+                if bars:
+                    bars_by_token[token] = bars
+        finally:
+            store.close()
+        self._replay_feed = ReplayUniverseFeed(bars_by_token)
+        self._replay_timestamps = self._replay_feed.stored_session_timestamps()
+        self._replay_cursor = 0
+
+    @staticmethod
+    def _stored_bar_tokens(store) -> list:
+        """Distinct instrument tokens that have stored intraday bars."""
+        cursor = store._connection.execute(
+            "SELECT DISTINCT instrument_token FROM price_bars"
+        )
+        return [row[0] for row in cursor.fetchall()]
 
     def stop(self) -> None:
         self._running = False
@@ -261,11 +306,17 @@ class LivePaperTradingService:
 
     def _run_forever(self) -> None:
         while self._running:
-            now = datetime.now(_INDIA_MARKET_TIMEZONE)
+            real_now = datetime.now(_INDIA_MARKET_TIMEZONE)
             try:  # never let one bad pass or publish kill the loop
-                if self._clock.is_market_open(now):
-                    self._advance_one_pass(now)
-                self._publish(now)
+                if self._clock.is_market_open(real_now):
+                    # LIVE half: real Kite feed, wall-clock now.
+                    self._feed = self._live_feed
+                    self._advance_one_pass(real_now)
+                elif self._replay_feed is not None and self._replay_feed.has_data():
+                    # CLOSED -> REPLAY half (PLAN §1.4): step the replay clock
+                    # through stored history so paper never idles.
+                    self._advance_replay_pass()
+                self._publish(real_now)
             except Exception as loop_error:
                 import traceback
 
@@ -273,14 +324,29 @@ class LivePaperTradingService:
                     f"[live-paper-loop] pass error: {loop_error!r}", flush=True
                 )
                 traceback.print_exc()
-                # still publish status so the dashboard reflects liveness
                 try:
-                    self._publish(now, price_open_positions=False)
+                    self._publish(real_now, price_open_positions=False)
                 except Exception:
                     pass
             time_module.sleep(self._scan_interval_seconds)
 
-    def _advance_one_pass(self, now: datetime) -> None:
+    def _advance_replay_pass(self) -> None:
+        """One replay step: advance the replay clock to the next stored bar
+        timestamp (looping) and run the loop against the replay feed with that
+        timestamp as 'now'. A new replay day resets the per-session seeded
+        state so each replayed day is a fresh session."""
+        replay_now = self._replay_timestamps[self._replay_cursor]
+        previous_index = (self._replay_cursor - 1) % len(self._replay_timestamps)
+        previous_now = self._replay_timestamps[previous_index]
+        if replay_now.date() != previous_now.date():
+            self._state.seeded_cash_tokens.clear()
+            self._state.watched_opening_ranges.clear()
+        self._replay_cursor = (self._replay_cursor + 1) % len(self._replay_timestamps)
+        self._replay_feed.set_replay_as_of(replay_now)
+        self._feed = self._replay_feed
+        self._advance_one_pass(replay_now, replay_mode=True)
+
+    def _advance_one_pass(self, now: datetime, replay_mode: bool = False) -> None:
         # Honor the dashboard control plane each pass: risk budget follows the
         # configured capital/risk, and turning cash ORB off stops opening NEW
         # positions (existing open risk is still managed + squared off — never
@@ -306,8 +372,9 @@ class LivePaperTradingService:
             market_clock=self._clock,
         )
         # Options credit-spread half (index + stock options): regime-gated,
-        # defined-risk, atomic, squared off at 15:15 by Layer 8.
-        if self._tradable_universe is None:
+        # defined-risk, atomic, squared off at 15:15 by Layer 8. Skipped in
+        # replay mode — the replay store holds cash bars only (no option chain).
+        if replay_mode or self._tradable_universe is None:
             return
         options_enabled = control_config.is_segment_enabled(
             TradableSegment.NSE_INDEX_OPTIONS

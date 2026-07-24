@@ -49,11 +49,18 @@ class KiteLiveUniverseFeed:
         self,
         authenticated_kite_client,
         ltp_batch_size: int = 400,
+        persist_todays_bars: bool = False,
     ) -> None:
         self._kite_client = authenticated_kite_client
         self._historical_bar_source = KiteHistoricalBarSource(authenticated_kite_client)
         self._ltp_batch_size = ltp_batch_size
         self._last_historical_call_monotonic = 0.0
+        # When set, today's fetched session bars are persisted to the market-
+        # data store so the replay-when-closed feed accumulates the days the
+        # loop trades (research/41). The store is opened lazily in whatever
+        # thread first fetches (the writer thread) — SQLite is per-thread.
+        self._persist_todays_bars = persist_todays_bars
+        self._persist_store = None
 
     def _kite_ltp_symbol(self, instrument: Instrument) -> str:
         exchange = "NFO" if instrument.exchange_segment.value == "NSE_FO" else "NSE"
@@ -108,9 +115,31 @@ class KiteLiveUniverseFeed:
         (which needs ~2×period) before today's opening range — today's
         session is a slice of the tail (`bar.timestamp.date() == today`)."""
         window_start = as_of_moment - timedelta(days=lookback_calendar_days)
-        return self._paced_fetch_historical_bars(
+        bars = self._paced_fetch_historical_bars(
             instrument, bar_interval, window_start, as_of_moment
         )
+        if self._persist_todays_bars and bars:
+            self._persist_todays_session_bars(bars, as_of_moment.date())
+        return bars
+
+    def _persist_todays_session_bars(self, bars: list[PriceBar], today) -> None:
+        """Save today's slice of a fetched window to the replay store
+        (idempotent INSERT-OR-REPLACE). Prior days are already stored; only
+        today's bars are new. Best-effort — never let persistence break a
+        scan pass."""
+        todays = [bar for bar in bars if bar.timestamp.date() == today]
+        if not todays:
+            return
+        try:
+            if self._persist_store is None:
+                from nse_algo_trader.market_data.market_data_sqlite_store import (
+                    MarketDataSqliteStore,
+                )
+
+                self._persist_store = MarketDataSqliteStore()
+            self._persist_store.save_price_bars(todays)
+        except Exception:
+            pass  # persistence is best-effort; a scan pass must not fail on it
 
     def _paced_fetch_historical_bars(self, instrument, bar_interval, frm, to):
         """Fetch with ≤3 req/s pacing and exponential backoff on Kite's
