@@ -42,9 +42,67 @@ NSE_INDEX_SPOT_QUOTE_SYMBOL_BY_OPTION_UNDERLYING: dict[str, str] = {
     "NIFTYNXT50": "NSE:NIFTY NEXT 50",
 }
 
+# Option-underlying name -> the NSE INDICES-segment trading symbol whose
+# candles are the underlying's spot price series (for regime/ADX). Indices
+# have no tradable EQ row, so their spot is fetched via the index token.
+NSE_INDEX_SPOT_MASTER_SYMBOL_BY_OPTION_UNDERLYING: dict[str, str] = {
+    "NIFTY": "NIFTY 50",
+    "BANKNIFTY": "NIFTY BANK",
+    "FINNIFTY": "NIFTY FIN SERVICE",
+    "MIDCPNIFTY": "NIFTY MID SELECT",
+    "NIFTYNXT50": "NIFTY NEXT 50",
+}
+
 # SME-platform trading-symbol suffixes — not part of the mainboard intraday
 # universe (kept out of the loop, not out of the registry).
 _SME_PLATFORM_TRADING_SYMBOL_SUFFIXES: tuple[str, ...] = ("-SM", "-ST")
+
+
+def _index_spot_carrier_instrument(index_master_row: dict) -> Instrument:
+    """A minimal Instrument carrying an INDEX's token so its spot candles can
+    be fetched for regime/ADX. An index is not tradable itself; this carrier
+    is used ONLY for historical bars/LTP, never for orders (marked CASH_EQUITY
+    so the bar source requests no option OI)."""
+    from nse_algo_trader.universe_registry.instrument_types import ExchangeSegment
+
+    return Instrument(
+        instrument_token=int(index_master_row["instrument_token"]),
+        trading_symbol=index_master_row["tradingsymbol"],
+        exchange_segment=ExchangeSegment.NSE_CASH,
+        kind=InstrumentKind.CASH_EQUITY,
+        lot_size=1,
+        tick_size=0.05,
+    )
+
+
+def resolve_spot_instrument_by_option_underlying(
+    raw_nse_instrument_rows: list[dict],
+    cash_equities: list[Instrument],
+    option_underlying_symbols: set[str],
+) -> dict[str, Instrument]:
+    """Map each option underlying to the instrument whose candles are its
+    spot: a stock underlying → its cash equity; an index underlying → an
+    INDICES-token carrier."""
+    cash_by_symbol = {eq.trading_symbol: eq for eq in cash_equities}
+    index_rows_by_symbol = {
+        row["tradingsymbol"]: row
+        for row in raw_nse_instrument_rows
+        if row.get("segment") == "INDICES"
+    }
+    spot_by_underlying: dict[str, Instrument] = {}
+    for underlying_symbol in option_underlying_symbols:
+        if underlying_symbol in NSE_INDEX_SPOT_MASTER_SYMBOL_BY_OPTION_UNDERLYING:
+            master_symbol = NSE_INDEX_SPOT_MASTER_SYMBOL_BY_OPTION_UNDERLYING[
+                underlying_symbol
+            ]
+            row = index_rows_by_symbol.get(master_symbol)
+            if row is not None:
+                spot_by_underlying[underlying_symbol] = (
+                    _index_spot_carrier_instrument(row)
+                )
+        elif underlying_symbol in cash_by_symbol:
+            spot_by_underlying[underlying_symbol] = cash_by_symbol[underlying_symbol]
+    return spot_by_underlying
 
 
 @dataclass(frozen=True)
@@ -54,6 +112,9 @@ class TradableUniverse:
     cash_equity_instruments: tuple[Instrument, ...]
     option_ladder_instruments: tuple[Instrument, ...]
     near_expiry_date: date
+    # underlying symbol -> the instrument whose candles are its spot (stock
+    # cash equity or index carrier); used by the credit-spread regime gate.
+    spot_instrument_by_option_underlying: dict[str, Instrument] = None
 
     def total_instrument_count(self) -> int:
         return len(self.cash_equity_instruments) + len(self.option_ladder_instruments)
@@ -156,10 +217,16 @@ def assemble_tradable_universe(
             strikes_each_side_of_atm,
             expiry_date,
         )
+    spot_by_underlying = resolve_spot_instrument_by_option_underlying(
+        raw_nse_instrument_rows,
+        cash_equities,
+        {opt.underlying_symbol for opt in option_ladder},
+    )
     return TradableUniverse(
         cash_equity_instruments=tuple(cash_equities),
         option_ladder_instruments=tuple(option_ladder),
         near_expiry_date=expiry_date,
+        spot_instrument_by_option_underlying=spot_by_underlying,
     )
 
 

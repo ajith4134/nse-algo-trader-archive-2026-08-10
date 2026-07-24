@@ -117,6 +117,11 @@ class LiveUniversePaperState:
     unflattened_square_off_positions: list[OpenPaperPosition] = field(
         default_factory=list
     )
+    # Options credit-spread path (one spread per underlying at a time).
+    open_option_spreads: dict = field(default_factory=dict)
+    seeded_option_underlyings: set = field(default_factory=set)
+    closed_option_spreads: list = field(default_factory=list)
+    realized_option_spread_pnl: float = 0.0
 
     def open_position_count(self) -> int:
         return len(self.open_positions)
