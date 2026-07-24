@@ -179,3 +179,53 @@ open market (Rule F); sim verifies function only, not the real-data sign-off.
 **Queued next:** opponent ledger (needs participant-wise OI — acquire per
 Rule I); Graphiti/Neo4j substrate swap-up; borrow python-prediction-scorer
 proper scoring rules (research/44).
+
+## §10 institution feature — Opponent ledger (2026-07-24, participant-wise OI)
+The first §10 "institution feature": read NSE's daily participant-wise open
+interest (Client/DII/FII/Pro) as an **opponent ledger** — "who is on the other
+side?" A multi-day *confirmation* input, never an intraday trigger.
+
+**Data acquired (Rule I, research/47):** NSE archives
+`https://nsearchives.nseindia.com/content/nsccl/fao_participant_oi_DDMMYYYY.csv`
+— a browser `User-Agent` header is the entire anti-bot handshake for the
+archives host (no cookie/OTP dance); HTTP 404 = holiday/not-yet-published; EOD
+~19:00 IST; it is an **archived file fetchable market-closed**, so a real Rule-F
+pass is achievable now. File = 1 preamble line, 15 trailing-space-padded header
+columns, 5 rows (Client/DII/FII/Pro/TOTAL); TOTAL long==short is a parse
+checksum, not a signal.
+
+**Package `participant_positioning/` (new feature, Rule C names):**
+- `participant_positioning_source.py` — the **DI seam** (Rule J):
+  `ParticipantPositioningSource` Protocol `positioning_on(date) -> Snapshot|None`;
+  typed `ParticipantOpenInterestRow` (14 named OI columns + `future_index_net_long`
+  / `index_options_net_call_bias` props) and `ParticipantPositioningSnapshot`. No
+  network — importable by tests and read models.
+- `nse_participant_positioning_source.py` — the **real adapter**: `urllib` GET with
+  a browser UA, `parse_participant_oi_csv` (skip 1 preamble, trim headers, map by
+  name, checksum), 404→None. Provenance: URL pattern from nsepython (MIT); UA
+  fixed (nsepython's bare `pd.read_csv` is Akamai-blocked), `vol` file + typed rows
+  added. Only module that touches the network for this feature.
+- `opponent_ledger.py` — `read_opponent_ledger(snapshot) -> OpponentLedgerReading`:
+  FII index-fut net (Long−Short) & L/S ratio, Client net (contrarian leg),
+  FII-vs-Client divergence in index futures & options, coarse `directional_lean`,
+  `retail_on_other_side` (the reversal-trap tell), and a human `headline`.
+
+**Data flow (Rule G wiring):** NSE archives → `NseParticipantPositioningSource`
+→ `read_opponent_ledger` → `LivePaperTradingService._refresh_opponent_ledger`
+(once per trade date, walks back ≤5 days over 404s, best-effort) →
+`opponent_ledger` dict on the published snapshot → `dashboard_read_model` →
+`dashboard_server` → the **"Opponent ledger — who's on the other side"** panel
+(FII vs Client net + divergence, semantic bullish/bearish/⚠-divergence colors
+matching the existing tripwire panel). **Named future consumer:** a later slice
+feeds the divergence flag into strategy bias / the assumption registry as an
+information-diet input.
+
+**Verified — REAL DATA (Rule F pass):** the real adapter fetched live NSE
+(walked back over today's 404), parsed the real 23-Jul-2026 EOD file, derived FII
+index-fut net −263,082 (bearish, L/S 0.08) vs Client +167,487 → retail on the
+other side. Plus 8 tests: a real-sample parse+derive test (Rule F on trimmed real
+bytes) and hermetic ledger derivations through an in-memory fake (Rule J, fake
+lives only under tests/). 313 suite green. Unlike live ticks, this EOD source has
+NO open-blocker — the real-data gate is fully met now.
+**Queued next:** participant-VOLUME file; multi-day FII-net trend (history walk);
+wire the divergence into strategy bias / assumption registry.

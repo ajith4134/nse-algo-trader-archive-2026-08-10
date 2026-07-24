@@ -119,6 +119,7 @@ class LivePaperPublishedSnapshot:
     vetoed_mechanism_count: int = 0
     vetoed_entry_count: int = 0
     shadow_entry_count: int = 0
+    opponent_ledger: dict | None = None  # OpponentLedgerReading as a dict
 
     @property
     def open_position_count(self) -> int:
@@ -199,8 +200,21 @@ class LivePaperTradingService:
         scan_interval_seconds: float = 5.0,
         max_new_cash_seeds_per_pass: int = 30,
         max_new_option_seeds_per_pass: int = 25,
+        participant_positioning_source=None,
     ) -> None:
         self._kite_client = authenticated_kite_client
+        # Layer 10 §10 opponent ledger — real NSE archive fetcher by default;
+        # injectable (DI seam) so tests pass an in-memory fake. Fetched once per
+        # trade date in the writer thread and cached.
+        if participant_positioning_source is None:
+            from nse_algo_trader.participant_positioning.nse_participant_positioning_source import (  # noqa: E501
+                NseParticipantPositioningSource,
+            )
+
+            participant_positioning_source = NseParticipantPositioningSource()
+        self._participant_positioning_source = participant_positioning_source
+        self._opponent_ledger_reading = None
+        self._opponent_ledger_fetched_for = None  # the date last attempted
         # persist_todays_bars=True so the replay-when-closed store grows with
         # each live session the loop trades (research/41).
         self._live_feed = KiteLiveUniverseFeed(
@@ -330,6 +344,7 @@ class LivePaperTradingService:
                     # through stored history so paper never idles.
                     self._advance_replay_pass()
                 self._drain_closed_experiments_into_memory()  # Layer 10
+                self._refresh_opponent_ledger(real_now)  # Layer 10 §10
                 self._publish(real_now)
             except Exception as loop_error:
                 import traceback
@@ -380,6 +395,38 @@ class LivePaperTradingService:
 
             self._state.vetoed_mechanisms = vetoed_mechanisms(self._experience_memory)
         except Exception:
+            pass
+
+    def _refresh_opponent_ledger(self, now: datetime) -> None:
+        """Fetch NSE participant-wise OI at most once per calendar date and
+        cache the opponent-ledger reading (Layer 10 §10, Rule G wiring). The
+        EOD report publishes ~19:00 IST and 404s on holidays / before publish,
+        so we walk back up to 5 days to the most recent available report.
+        Best-effort — a fetch hiccup must never stall the trading loop."""
+        today = now.date()
+        if self._opponent_ledger_fetched_for == today:
+            return
+        self._opponent_ledger_fetched_for = today
+        try:
+            from datetime import timedelta
+
+            from nse_algo_trader.participant_positioning import read_opponent_ledger
+
+            probe_date = today
+            for _ in range(5):
+                snapshot = self._participant_positioning_source.positioning_on(
+                    probe_date
+                )
+                if snapshot is not None:
+                    reading = read_opponent_ledger(snapshot)
+                    if reading is not None:
+                        from dataclasses import asdict
+
+                        self._opponent_ledger_reading = asdict(reading)
+                    return
+                probe_date -= timedelta(days=1)
+        except Exception:
+            # Retry on the next calendar date, not this pass.
             pass
 
     def _advance_one_pass(self, now: datetime, replay_mode: bool = False) -> None:
@@ -509,6 +556,7 @@ class LivePaperTradingService:
             vetoed_mechanism_count=len(self._state.vetoed_mechanisms),
             vetoed_entry_count=self._state.vetoed_entry_count,
             shadow_entry_count=self._state.shadow_entry_count,
+            opponent_ledger=self._opponent_ledger_reading,
         )
         with self._publish_lock:
             self._published = snapshot

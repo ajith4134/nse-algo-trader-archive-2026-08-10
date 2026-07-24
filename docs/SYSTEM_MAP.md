@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-24h**.
-- **95 Python modules across 13 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-24i**.
+- **99 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -302,6 +302,26 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-24i** — Layer 10 §10: **opponent ledger** (participant-wise OI). New
+  feature-package `participant_positioning/` (4 files → 99 modules / 14 features):
+  `participant_positioning_source.py` (the DI seam — `ParticipantPositioningSource`
+  Protocol + typed `ParticipantOpenInterestRow`/`ParticipantPositioningSnapshot`,
+  no network), `nse_participant_positioning_source.py` (real adapter: fetches NSE's
+  archived `fao_participant_oi_DDMMYYYY.csv` with a browser UA — the whole anti-bot
+  handshake for the archives host — 404→None on holidays, header-trim, TOTAL
+  long==short checksum; vendored URL pattern from nsepython MIT, UA fixed),
+  `opponent_ledger.py` (read model → `OpponentLedgerReading`: FII index-fut net &
+  L/S ratio, Client contrarian net, FII-vs-Client futures/options divergence,
+  directional lean, headline). **New data-flow edge:** NSE archives → 
+  `participant_positioning` → `dashboard` (the writer thread fetches once per trade
+  date, walks back over 404s, publishes `opponent_ledger` through the snapshot →
+  read model → the new **"Opponent ledger"** panel). Acquired per Rule I (research
+  /47). **Verified on REAL data (Rule F pass, not just sim):** the real adapter
+  fetched live NSE, parsed the real EOD file, derived FII net −263,082 / Client
+  +263k-opposed → retail-on-the-other-side; 8 tests incl. a real-sample parse +
+  hermetic in-memory-fake ledger tests (Rule J). Named future consumer (Rule G):
+  a later slice feeds the divergence flag into strategy bias / the assumption
+  registry as an information-diet input. 313 suite green.
 - **2026-07-24h** — Layer 10 slice 4: **shadow-arm recovery** (no new files;
   methods/fields on existing modules). `experience_memory.calibration_board`
   gained a `recency_window` param (SQLite `ROW_NUMBER() OVER (PARTITION BY

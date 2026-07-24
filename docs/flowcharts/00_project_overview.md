@@ -54,7 +54,10 @@ verification when real data is unavailable — verified best-practice + the rule
 demonstrated before codifying) · `../research/46` **Layer 10 slice 4 —
 shadow-arm recovery design** (recency-window veto so a refuted mechanism can
 un-veto once it recovers + 1-in-8 shadow probes to keep evidence flowing; no
-permanent lock-out).
+permanent lock-out) · `../research/47` **opponent ledger design** (Layer 10 §10;
+acquire NSE participant-wise OI — verified URL/UA/format 2026 — and derive FII
+vs Client "who's on the other side" divergence signals; vendor-and-adapt the
+fetch, build the ledger).
 
 ## Scope decided so far
 - Segments in phase 1: NSE cash intraday, NSE options intraday (index +

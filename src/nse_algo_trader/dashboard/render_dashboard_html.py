@@ -283,6 +283,14 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
   </div>
 
   <div class="card">
+    <div class="head"><span class="bar"></span><h2>Opponent ledger — who's on the other side (Layer 10 §10)</h2><span class="aside" id="oppaside"></span></div>
+    <div class="body">
+      <table class="labtbl" id="oppTbl"></table>
+      <p class="note" id="oppnote"></p>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="head"><span class="bar"></span><h2>Layer roadmap</h2><span class="aside" id="roadaside"></span></div>
     <div class="body"><div class="rlist" id="roadmap"></div></div>
   </div>
@@ -517,6 +525,30 @@ function renderLive(snap){
   const shadow=sec?` <span style="color:var(--dim)">+ ${sec.toLocaleString()} shadow probe${sec===1?'':'s'} kept alive to allow recovery.</span>`:"";
   const antibody=vmc?`<b style="color:var(--loss)">Antibody active:</b> ${vmc} mechanism${vmc>1?'s':''} auto-vetoed · ${vec.toLocaleString()} new entr${vec===1?'y':'ies'} blocked.${shadow} `:"";
   document.getElementById("tripnote").innerHTML=antibody+"Significance-tested (min 12 trades). A tripped thesis is statistically refuted by the memory — the bot then <b>vetoes new entries</b> on that mechanism (Layer 10 antibody feedback).";
+  // --- Opponent ledger: FII vs Client participant-wise OI (L10 §10) ---
+  const opp=snap.opponent_ledger;
+  const leanColor={bullish:'var(--profit)',bearish:'var(--loss)',neutral:'var(--faint)'};
+  if(!opp){
+    document.getElementById("oppaside").textContent="no report yet";
+    document.getElementById("oppTbl").innerHTML=`<tr><td style="color:var(--faint)">awaiting NSE participant-wise OI (EOD ~19:00 IST)…</td></tr>`;
+    document.getElementById("oppnote").innerHTML="NSE's daily Client/DII/FII/Pro open-interest split, read as “who is on the other side.” A multi-day <b>confirmation</b> input, never an intraday trigger.";
+  } else {
+    const lc=leanColor[opp.directional_lean]||'var(--faint)';
+    document.getElementById("oppaside").innerHTML=`<span style="color:${lc};font-weight:600">FII ${opp.directional_lean}</span> · ${opp.report_date_iso}`;
+    const sgn=n=>(n>0?"+":"")+Number(n).toLocaleString();
+    const netColor=n=>n>0?'var(--profit)':(n<0?'var(--loss)':'var(--faint)');
+    let rows="<tr><th>Party</th><th>Index-fut net (L−S)</th><th>Index-opt call bias</th></tr>";
+    rows+=`<tr><td class="tablename">FII</td>`+
+      `<td style="color:${netColor(opp.fii_index_futures_net)};font-weight:600">${sgn(opp.fii_index_futures_net)}`+
+      (opp.fii_index_futures_long_short_ratio!=null?` <span style="color:var(--dim);font-weight:400">L/S ${opp.fii_index_futures_long_short_ratio.toFixed(2)}</span>`:"")+`</td>`+
+      `<td style="color:${netColor(opp.fii_index_options_net_call_bias)}">${sgn(opp.fii_index_options_net_call_bias)}</td></tr>`;
+    rows+=`<tr><td class="tablename">Client (retail)</td>`+
+      `<td style="color:${netColor(opp.client_index_futures_net)};font-weight:600">${sgn(opp.client_index_futures_net)}</td>`+
+      `<td style="color:${netColor(opp.client_index_options_net_call_bias)}">${sgn(opp.client_index_options_net_call_bias)}</td></tr>`;
+    document.getElementById("oppTbl").innerHTML=rows;
+    const trap=opp.retail_on_other_side?` <b style="color:var(--warnc)">⚠ Retail leaning the OTHER way</b> — reversal-trap watch.`:"";
+    document.getElementById("oppnote").innerHTML=opp.headline+trap+" <span style=\"color:var(--dim)\">NSE participant-wise OI · a multi-day confirmation input, not an intraday trigger.</span>";
+  }
   document.getElementById("sub").textContent="live dashboard · updated "+snap.generated_at.slice(11,16)+(LIVE_API_KEY?" · auto-refresh 20s":"");
 }
 renderLive(SNAPSHOT);
