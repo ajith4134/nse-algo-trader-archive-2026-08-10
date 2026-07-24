@@ -174,6 +174,33 @@ what is already present.** Instead:
   data), Rule E (license-blind sourcing), the full-universe rule (never a
   sample), and the sourcing/building-from-ideas skills.
 
+## Rule J — Hermetic simulation-harness verification when real data is unavailable
+When a feature's REAL production data is not reachable yet (market closed, no
+live session, a source not ingested), do NOT leave it unverified. Build a
+hermetic simulation/injection harness (established practice: hermetic tests +
+dependency-injection test seams + in-memory fakes + contract tests — see
+`docs/research/45`):
+1. **Inject the exact data SHAPE** the feature consumes — trimmed REAL samples
+   preferred over invented (Rule F) — through the SAME swappable interface the
+   real source uses (a faithful in-memory fake / replay source, not an ad-hoc
+   mock). Verify EVERY function: input contracts, internal file→file data flow,
+   output contracts/shapes, and error paths.
+2. **Hermetic isolation (non-negotiable):** the fake/injected source sits behind
+   the DI seam, so PRODUCTION selects the real adapter and the fake is NEVER
+   wired into the live path — the injected test data is structurally unable to
+   reach real behavior (verify: the fake appears only under `tests/`, never in
+   `src/`; prod instantiates the real adapter). A fake that could leak into the
+   live path is a bug to fix BEFORE adding the feature.
+3. **This verifies FUNCTIONAL correctness ONLY.** It does NOT satisfy Rule F's
+   real-data sign-off, which stays an explicit OPEN BLOCKER against the feature
+   until performed on the actual production data. Never present a sim-verified
+   feature as fully done — label it "functionally verified (sim); real-data pass
+   pending (blocker)."
+- Pairs with Rule F (sim never substitutes for the real-data gate), Rule G (the
+  harness exercises the real interface/wiring, not a parallel toy), Rule A
+  (verify before advancing), Rule I (if even the data shape is unknown, go
+  acquire a real sample first).
+
 ## Non-negotiables carried through every layer
 - Intraday only. Every position auto-squares-off before close. No exceptions
   per-segment, ever, unless a future phase explicitly revisits this.

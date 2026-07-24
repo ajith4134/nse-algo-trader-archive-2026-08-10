@@ -49,7 +49,9 @@ Neo4j to the semantic/multi-hop tier) · `../research/44` **memory-substrate OSS
 sourcing pass** (sourcing-oss-parts: keep the SQLite build — no OSS does the
 whole structured-experience + calibration + tripwire feature; queued borrow:
 `python-prediction-scorer` MIT proper scoring rules to enrich grading beyond
-Brier).
+Brier) · `../research/45` **Rule J research** (hermetic simulation-harness
+verification when real data is unavailable — verified best-practice + the rule,
+demonstrated before codifying).
 
 ## Scope decided so far
 - Segments in phase 1: NSE cash intraday, NSE options intraday (index +
