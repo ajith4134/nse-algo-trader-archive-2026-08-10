@@ -116,6 +116,8 @@ class LivePaperPublishedSnapshot:
     memory_experiment_count: int = 0
     calibration_board: tuple = ()  # tuple[CalibrationBoardRow, ...]
     assumption_verdicts: tuple = ()  # tuple[AssumptionVerdict, ...]
+    vetoed_mechanism_count: int = 0
+    vetoed_entry_count: int = 0
 
     @property
     def open_position_count(self) -> int:
@@ -363,8 +365,6 @@ class LivePaperTradingService:
         is opened lazily here so its SQLite connection lives in this thread.
         Best-effort — a memory hiccup must never stall the trading loop."""
         events = self._state.closed_experiment_events
-        if not events:
-            return
         try:
             if self._experience_memory is None:
                 self._experience_memory = SqliteExperienceMemory()
@@ -373,6 +373,11 @@ class LivePaperTradingService:
                 self._experience_memory.record_closed_experiment(
                     build_closed_experiment(graded, closed_trade, instrument_kind)
                 )
+            # Refresh the antibody veto set (Layer 10 slice 3): mechanisms the
+            # memory has statistically refuted stop taking new entries.
+            from nse_algo_trader.memory_reflection import vetoed_mechanisms
+
+            self._state.vetoed_mechanisms = vetoed_mechanisms(self._experience_memory)
         except Exception:
             pass
 
@@ -500,6 +505,8 @@ class LivePaperTradingService:
             memory_experiment_count=self._memory_experiment_count(),
             calibration_board=self._memory_calibration_board(),
             assumption_verdicts=self._memory_assumption_verdicts(),
+            vetoed_mechanism_count=len(self._state.vetoed_mechanisms),
+            vetoed_entry_count=self._state.vetoed_entry_count,
         )
         with self._publish_lock:
             self._published = snapshot

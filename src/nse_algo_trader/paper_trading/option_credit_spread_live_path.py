@@ -212,6 +212,14 @@ def try_open_option_position_for_underlying(
     if net_credit <= 0:
         return False  # a real credit spread must collect net premium
 
+    # §9 record + antibody veto BEFORE placing any leg (Layer 10 slice 3).
+    prediction_record = build_credit_spread_prediction_record(
+        signal.short_leg.instrument, bias.value, adx_value, now.date()
+    )
+    if state.is_mechanism_vetoed(prediction_record.mechanism_name):
+        state.vetoed_entry_count += 1
+        return False
+
     # Open atomically (hedge BUY first) on the sim broker with real prices.
     for leg in (signal.short_leg, signal.hedge_leg):
         px = price_by_token.get(leg.instrument.instrument_token)
@@ -222,9 +230,6 @@ def try_open_option_position_for_underlying(
         return False
 
     lot_size = signal.short_leg.instrument.lot_size
-    prediction_record = build_credit_spread_prediction_record(
-        signal.short_leg.instrument, bias.value, adx_value, now.date()
-    )
     state.open_option_spreads[underlying_symbol] = OpenOptionSpreadPosition(
         underlying_symbol=underlying_symbol,
         bias=bias.value,
@@ -294,6 +299,16 @@ def _try_open_directional_option(
     if premium is None or premium <= 0:
         return False
 
+    # Build the §9 record + antibody veto check BEFORE placing any order, so a
+    # vetoed mechanism never sends a real order (Layer 10 slice 3).
+    prediction_record = build_directional_option_prediction_record(
+        atm, signal.direction.value, adx_value, now.date(),
+        OpeningRangeBreakoutConfig().target_risk_reward_ratio,
+    )
+    if state.is_mechanism_vetoed(prediction_record.mechanism_name):
+        state.vetoed_entry_count += 1
+        return False
+
     state.simulated_broker.update_market_price(atm.instrument_token, premium)
     from nse_algo_trader.broker_oms import OrderIntent, OrderSide
 
@@ -304,10 +319,6 @@ def _try_open_directional_option(
 
     if fill.state is OrderLifecycleState.REJECTED:
         return False
-    prediction_record = build_directional_option_prediction_record(
-        atm, signal.direction.value, adx_value, now.date(),
-        OpeningRangeBreakoutConfig().target_risk_reward_ratio,
-    )
     state.open_directional_options[underlying_symbol] = OpenDirectionalOptionPosition(
         underlying_symbol=underlying_symbol,
         option=atm,

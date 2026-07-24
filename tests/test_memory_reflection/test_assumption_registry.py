@@ -81,3 +81,19 @@ class TestEdgeTripwire:
         edge = [v for v in verdicts if v.assumption_name == "edge"][0]
         assert edge.status is AssumptionStatus.VIOLATED
         mem.close()
+
+
+class TestAntibodyVeto:
+    def test_vetoed_mechanisms_lists_the_tripped_thesis(self, tmp_path):
+        from nse_algo_trader.memory_reflection import vetoed_mechanisms
+        mem = _memory(tmp_path)
+        for i in range(18):  # over-confident -> tripped
+            mem.record_closed_experiment(_exp(i, mechanism="badthesis",
+                                              predicted_win_prob=0.85, won=False, ret=-0.01))
+        for i in range(20):  # calibrated -> not vetoed
+            mem.record_closed_experiment(_exp(100 + i, mechanism="goodthesis",
+                                              predicted_win_prob=0.6, won=(i % 5 < 3), ret=0.01))
+        vetoed = vetoed_mechanisms(mem)
+        assert "badthesis" in vetoed
+        assert "goodthesis" not in vetoed
+        mem.close()

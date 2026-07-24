@@ -114,3 +114,19 @@ tests (`test_assumption_registry.py`).
 Next: slice 3 — feed a tripped assumption back to VETO that mechanism's new
 entries (epidemiology→antibody automation, PLAN §10); opponent ledger (needs
 participant-wise OI — acquire per Rule I).
+
+## Slice 3 (2026-07-24) — Antibody auto-veto (the feedback loop closes)
+`assumption_registry.vetoed_mechanisms(memory)` returns the mechanisms whose
+calibration assumption is statistically tripped. The service sets
+`LiveUniversePaperState.vetoed_mechanisms` each pass; the L7 loop (cash ORB +
+option directional/spread) checks `is_mechanism_vetoed(mechanism)` BEFORE
+placing any order and skips it (incrementing `vetoed_entry_count`) — so a
+refuted thesis stops taking new entries. The memory now feeds back into the
+trading gate: predict → record → refute → **veto**. Dashboard shows the active
+antibody (mechanisms vetoed · entries blocked) on the tripwire panel.
+Verified: a loop pass with the ORB mechanism vetoed opens 0 positions (control
+opens 1); `vetoed_mechanisms` lists a tripped thesis and excludes a calibrated
+one. 302 suite green.
+**Queued next:** a shadow-arm so a small trickle of vetoed-mechanism trades
+still record experiences (recovery/exploration, avoids permanent lock-out);
+opponent ledger (needs participant-wise OI — acquire per Rule I).

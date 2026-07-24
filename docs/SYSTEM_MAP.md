@@ -262,7 +262,7 @@ flowchart LR
 
 ### L10 · memory_reflection  (4 files)  — episodic experience memory + assumption tripwires
 - `experience_memory.py` — `ExperienceMemory` protocol (swappable substrate boundary), `ClosedExperiment` node, `build_closed_experiment` (from a graded §9 prediction + closed trade), summary types.
-- `assumption_registry.py` — `evaluate_trading_assumptions`: each live mechanism's calibration + edge assumptions, TRIPPED (VIOLATED) only with significant evidence (one-sided binomial z-test, min 12 trades). Feeds the dashboard "Assumption tripwires" panel + a WARNING monitoring alert — the bot's antibody signal.
+- `assumption_registry.py` — `evaluate_trading_assumptions` (calibration + edge assumptions, TRIPPED only with significant evidence — one-sided binomial z, min 12 trades) + `vetoed_mechanisms` (the tripped set). Feeds the dashboard "Assumption tripwires" panel, a WARNING alert, AND the **antibody auto-veto**: the service sets `LiveUniversePaperState.vetoed_mechanisms` each pass, and the L7 loop refuses new entries on a refuted mechanism (`is_mechanism_vetoed`) — memory feeding back into the trading gate.
 - `sqlite_experience_memory.py` — `SqliteExperienceMemory`: typed experiment nodes in one `.db`; serves calibration-by-regime, prior-outcomes (entry-time pre-mortem), reflection-diff, and the **calibration_board** (per-mechanism predicted-vs-actual win-rate) by indexed group-by. (Graphiti/Neo4j temporal-KG = documented swap-up for the semantic/multi-hop tier — research/43.)
 - IN: closed §9 experiments (graded prediction + closed trade — **cash AND options**) emitted by the L7 loop, drained by the dashboard service. OUT: calibration / prior-outcome / reflection-diff / calibration-board summaries → dashboard **Reflection panel**.
 - **Wiring:** the L7 loop emits `(graded, trade, kind)` events on close (no L10 import); `dashboard/live_paper_trading_service._drain_closed_experiments_into_memory` records them into `ExperienceMemory` in the writer thread, and publishes the calibration board to the dashboard Reflection panel. Rule-F verified on real closed experiments (2026-07-24) — surfaced that the confident-win "trend-continuation" mechanism ran at 0.05 hit rate while the confident-loss "false-breakout" thesis held at 0.75.
@@ -291,10 +291,22 @@ FastAPI request threads read only the snapshot (no read/write race).
 **D. Daily auth:** `refresh_kite_access_token` (cron, pre-market) → TOTP
 login → `kite_access_token.json` → consumed by the feed + broker clients.
 
+**E. The epistemics feedback loop (Layer 10):** loop predicts → grades a closed
+§9 experiment → service records it into `ExperienceMemory` → memory's calibration
+board refutes an over-confident mechanism (significance-tested) → service sets
+`state.vetoed_mechanisms` → the loop **vetoes new entries** on that mechanism.
+The bot learns to distrust its own bad theses and stops betting them. (Recovery
+via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
+
 ---
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-24f** — Layer 10 slice 3: antibody auto-veto. `vetoed_mechanisms`
+  (assumption_registry) → the service sets `state.vetoed_mechanisms` each pass
+  → the L7 cash + option open paths skip refuted mechanisms (never place an
+  order for one). Dashboard tripwire panel shows the active antibody
+  (mechanisms vetoed · entries blocked). New runtime flow E. No new files.
 - **2026-07-24e** — Layer 10 slice 2: `memory_reflection/assumption_registry.py`
   — significance-tested calibration + edge tripwires over the experience memory;
   dashboard "Assumption tripwires" panel + a WARNING alert when a mechanism's

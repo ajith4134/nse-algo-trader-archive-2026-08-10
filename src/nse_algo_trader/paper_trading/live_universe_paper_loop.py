@@ -126,7 +126,15 @@ class LiveUniversePaperState:
     # Closed §9 experiments awaiting Layer-10 recording: (graded, trade, kind)
     # tuples the dashboard service drains into ExperienceMemory (Rule G).
     closed_experiment_events: list = field(default_factory=list)
+    # Antibody (Layer 10 slice 3): mechanism names the memory has statistically
+    # refuted — new entries on these are vetoed. Set by the service each pass;
+    # the loop never imports Layer 10 (just reads this plain set).
+    vetoed_mechanisms: set = field(default_factory=set)
+    vetoed_entry_count: int = 0
     seeded_cash_tokens: set[int] = field(default_factory=set)
+
+    def is_mechanism_vetoed(self, mechanism_name: str) -> bool:
+        return mechanism_name in self.vetoed_mechanisms
     # Positions Layer 8 could NOT flatten (surfaced CRITICAL, never dropped).
     unflattened_square_off_positions: list[OpenPaperPosition] = field(
         default_factory=list
@@ -413,6 +421,9 @@ def _open_watched_breakout(state, watch, direction, ltp, risk_budget, now) -> bo
         signal=signal, adx_value=watch.regime_adx, session_date=now.date(),
         target_reward_multiple=watch.target_risk_reward_ratio,
     )
+    if state.is_mechanism_vetoed(prediction_record.mechanism_name):
+        state.vetoed_entry_count += 1
+        return False
     _open_position_from_signal(
         state, signal, clamped_quantity, prediction_record, now
     )
@@ -460,6 +471,9 @@ def _seed_cash_instrument_from_orb(
         session_date=session_bars[0].timestamp.date(),
         target_reward_multiple=strategy_config.target_risk_reward_ratio,
     )
+    if state.is_mechanism_vetoed(prediction_record.mechanism_name):
+        state.vetoed_entry_count += 1  # antibody: refuted thesis, don't re-bet it
+        return False
     _open_position_from_signal(
         state, signal, clamped_quantity, prediction_record, signal.triggered_at
     )

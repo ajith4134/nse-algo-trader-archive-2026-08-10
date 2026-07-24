@@ -170,6 +170,8 @@ def build_dashboard_app() -> FastAPI:
             memory_experiment_count=published.memory_experiment_count,
             reflection_board=[asdict(r) for r in published.calibration_board],
             assumption_tripwires=[asdict(v) for v in published.assumption_verdicts],
+            vetoed_mechanism_count=published.vetoed_mechanism_count,
+            vetoed_entry_count=published.vetoed_entry_count,
         )
 
     @app.get("/", response_class=HTMLResponse)

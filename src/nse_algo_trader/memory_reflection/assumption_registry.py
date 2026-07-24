@@ -83,6 +83,25 @@ def evaluate_trading_assumptions(
     return verdicts
 
 
+def vetoed_mechanisms(
+    experience_memory, config: AssumptionConfig = AssumptionConfig()
+) -> set[str]:
+    """Mechanisms whose CALIBRATION assumption is statistically tripped — the
+    antibody: new entries on these should be vetoed until the evidence shifts.
+    Same significance test as `evaluate_trading_assumptions`, returned as the
+    set of mechanism names for the trading loop to gate on."""
+    vetoed: set[str] = set()
+    for row in experience_memory.calibration_board(
+        minimum_experiments=config.minimum_samples
+    ):
+        z = _overconfidence_z(
+            row.actual_win_rate, row.predicted_win_rate, row.experiment_count
+        )
+        if z <= -config.significance_z:
+            vetoed.add(row.mechanism_name)
+    return vetoed
+
+
 def _calibration_verdict(row, config, scope) -> AssumptionVerdict:
     z = _overconfidence_z(row.actual_win_rate, row.predicted_win_rate, row.experiment_count)
     gap = row.predicted_win_rate - row.actual_win_rate

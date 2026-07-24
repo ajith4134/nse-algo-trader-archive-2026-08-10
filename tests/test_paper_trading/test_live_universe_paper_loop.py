@@ -209,3 +209,25 @@ class TestCapitalPerTradeClamp:
     def test_no_limits_is_a_noop(self):
         state = _fresh_state()  # limits default None
         assert state.capital_clamped_quantity(100.0, 500) == 500
+
+
+class TestAntibodyVeto:
+    def test_a_vetoed_mechanism_does_not_open(self):
+        feed = _FakeFeed(_bars_with_long_breakout_still_open(), {STOCK.instrument_token: 101.5})
+        state = _fresh_state()
+        # veto the exact mechanism this breakout would trade
+        state.vetoed_mechanisms = {"post-breakout trend continuation (ADX trending)"}
+        now = datetime(2026, 7, 24, 11, 0, tzinfo=IST)
+        report = run_live_universe_scan_pass(state, [STOCK], feed, RISK, now,
+                                             market_clock=NseMarketClock())
+        assert report.newly_opened_count == 0        # vetoed -> no position
+        assert state.open_position_count() == 0
+        assert state.vetoed_entry_count == 1         # veto counted
+
+    def test_without_veto_the_same_setup_opens(self):
+        feed = _FakeFeed(_bars_with_long_breakout_still_open(), {STOCK.instrument_token: 101.5})
+        state = _fresh_state()  # no veto
+        now = datetime(2026, 7, 24, 11, 0, tzinfo=IST)
+        report = run_live_universe_scan_pass(state, [STOCK], feed, RISK, now,
+                                             market_clock=NseMarketClock())
+        assert report.newly_opened_count == 1        # control: it does open
