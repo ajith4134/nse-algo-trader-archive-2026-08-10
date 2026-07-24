@@ -46,9 +46,21 @@ class KiteBrokerClient:
 
     def place_order(self, order_intent: OrderIntent) -> OrderExecutionResult:
         self._order_rate_limiter.wait_for_order_slot()
+        # Kite order_type strings are the enum values upper-cased (market ->
+        # MARKET, sl -> SL, sl-m -> SL-M). price only for LIMIT/SL;
+        # trigger_price only for SL/SL-M. Product stays MIS (intraday-only).
+        kite_order_type = order_intent.order_type.value.upper()
+        send_price = (
+            order_intent.limit_price
+            if order_intent.order_type in (OrderType.LIMIT, OrderType.STOP_LIMIT)
+            else None
+        )
+        send_trigger = (
+            order_intent.trigger_price if order_intent.is_stop_order() else None
+        )
         try:
             kite_order_id = self._kite_client.place_order(
-                variety="regular",
+                variety=order_intent.variety.value,
                 exchange=_KITE_EXCHANGE_BY_SEGMENT[
                     order_intent.instrument.exchange_segment
                 ],
@@ -58,12 +70,10 @@ class KiteBrokerClient:
                 ),
                 quantity=order_intent.quantity,
                 product="MIS",  # intraday-only, always — project non-negotiable
-                order_type=(
-                    "MARKET"
-                    if order_intent.order_type is OrderType.MARKET
-                    else "LIMIT"
-                ),
-                price=order_intent.limit_price,
+                order_type=kite_order_type,
+                price=send_price,
+                trigger_price=send_trigger,
+                validity=order_intent.time_in_force.value,
                 tag=order_intent.strategy_tag[:_KITE_TAG_MAX_LENGTH],
             )
         except Exception as kite_error:  # kiteconnect raises typed exceptions

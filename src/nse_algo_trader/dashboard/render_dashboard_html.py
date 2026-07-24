@@ -140,6 +140,9 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
   .optbl-n{font-size:.72rem;color:var(--faint)}
   .optbl-pnl{margin-left:auto;font-family:var(--mono);font-weight:700;font-size:.8rem}
   .optbl-more{font-size:.72rem;color:var(--faint);padding:.2rem .6rem .6rem}
+  .optbl-scroll{max-height:360px;overflow-y:auto;border:1px solid var(--line2);border-radius:8px}
+  .optbl-scroll .labtbl th{position:sticky;top:0;background:var(--card,#fff);z-index:1}
+  @media (prefers-color-scheme:dark){.optbl-scroll .labtbl th{background:#1a1c23}}
   .segbadge{display:inline-block;font-size:.58rem;font-weight:700;padding:.1em .4em;border-radius:4px;background:var(--line2);color:var(--faint);letter-spacing:.03em;vertical-align:middle}
   .tag.win{background:var(--profitsoft);color:var(--profit)} .tag.loss{background:var(--losssoft);color:var(--loss)} .tag.unc{background:var(--warnsoft);color:var(--warnc)}
   .wbar{height:7px;border-radius:4px;background:var(--line);overflow:hidden;min-width:70px}
@@ -387,7 +390,7 @@ function renderLive(snap){
       `<span class="optbl-pnl" style="color:${grp>=0?'var(--profit)':'var(--loss)'}">${rows.length?rupee(grp):''}</span></div>`;
     let body=cols;
     if(!rows.length){ body+=`<tr><td colspan="8" style="color:var(--faint)">— none —</td></tr>`; }
-    rows.slice(0,25).forEach(o=>{
+    rows.forEach(o=>{
       const up=o.unrealized_pnl; const upc=up==null?'':(up>=0?'var(--profit)':'var(--loss)');
       const sd=o.direction==="long"?'<span style="color:var(--profit)">BUY</span>':
                (o.direction==="short"?'<span style="color:var(--loss)">SELL</span>':'<span class="segbadge">SPREAD</span>');
@@ -397,8 +400,8 @@ function renderLive(snap){
         `<td style="color:${upc}">${up==null?'—':rupee(up)}</td>`+
         `<td>${o.stop_loss_price}</td><td>${o.target_price}</td></tr>`;
     });
-    html+=`<table class="labtbl optbl">${body}</table>`;
-    if(rows.length>25) html+=`<div class="optbl-more">+${rows.length-25} more in this table</div>`;
+    // Scrollable container so ALL rows are reachable by scrolling (no "+N more").
+    html+=`<div class="optbl-scroll"><table class="labtbl optbl">${body}</table></div>`;
   });
   if(!ops.length){ html=`<p style="color:var(--faint)">no open positions ${lu&&!lu.is_market_open?"(market closed)":"yet — seeding universe…"}</p>`; }
   document.getElementById("openTbl").innerHTML=html;

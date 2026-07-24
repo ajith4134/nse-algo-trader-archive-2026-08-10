@@ -91,3 +91,25 @@ tests/test_broker_oms/              # 16 tests
   wire when Layer 7 sizes real paper trades; Layer 5 estimates stand in.
 - Exchange Algo-ID tagging — requires the broker's algo registration
   workflow; must be resolved before ANY live order (regulatory).
+
+## Order types extension (added 2026-07-24, research/40)
+Extended the OMS order model beyond MARKET/LIMIT to the full Kite v3 set:
+- `OrderType`: + STOP_LIMIT (SL), STOP_MARKET (SL-M). New enums
+  `ProductType` (MIS default — intraday-only), `TimeInForce` (DAY/IOC/TTL),
+  `OrderVariety` (regular/amo/co/iceberg/auction; BO discontinued).
+- `OrderIntent` gains trigger_price, product, variety, time_in_force,
+  validity_ttl_minutes, disclosed_quantity, iceberg_legs; `__post_init__`
+  enforces the price/trigger matrix (SL needs limit+trigger, SL-M needs
+  trigger, TTL needs minutes, iceberg needs 2..50 legs, CO needs trigger).
+- `SimulatedBrokerClient`: SL/SL-M held TRIGGER_PENDING until the live price
+  crosses the trigger (BUY≥trigger, SELL≤trigger), then fills — SL at
+  limit, SL-M at market (via the slippage adjuster). Evaluated on every
+  `update_market_price`. New `OrderLifecycleState.TRIGGER_PENDING`.
+- `KiteBrokerClient`: maps order_type/price/trigger_price/validity/variety
+  onto `kite.place_order` (product stays MIS).
+- 7 tests (`test_order_types_and_stop_orders.py`); 270 suite green.
+
+**Queued follow-ons (research/40):** wire the loop's ORB/spread stop+target
+to real SL-M / two-leg OCO-GTT orders (paper/live exit parity); GTT
+create/OCO, Cover Order, iceberg placement; validity DAY/IOC/TTL emulation
+in the sim broker.
