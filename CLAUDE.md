@@ -141,6 +141,12 @@ data-flow edges (generated from the code's AST import graph, not memory).
   "§0 · HOW TO MAINTAIN" protocol inside it: re-run the extractor to get the
   true graph, update the system diagram (§1), the feature's registry block
   (§2), any runtime flow (§3), and append to the maintenance ledger (§4).
+- **Two required confirmations to the user, every time code files are added
+  or changed** (a `PostToolUse` hook also reminds you, so you never need to be
+  told): (1) BEFORE/at the start, having read `docs/SYSTEM_MAP.md`, post the
+  message **"📖 Read the flow chart"**; (2) AFTER updating the map, post
+  **"🗺️ Updated the flow chart"**. Send both literally so the user can see the
+  map was consulted and kept current.
 - Never hand-guess the graph — always regenerate the ground truth from the
   code so the map stays TRUE to what is on the server.
 - This complements Rule B (per-layer flowchart notes): Rule B is the deep
