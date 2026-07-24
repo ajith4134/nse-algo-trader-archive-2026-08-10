@@ -139,3 +139,34 @@ First authenticated run against `kite.instruments()` (123,443 raw rows):
   5,126 index options, 33,447 stock options across **210** stock-option
   underlyings (the ~185-208 estimate had gone stale — exactly why the
   list is derived live, never hardcoded).
+
+## Live tradable-universe assembly (added 2026-07-24)
+New file `live_tradable_universe.py` turns the raw phase-1 dump into the
+concrete instrument set the live loop scans — closing the "no liquidity
+filter" gap above now that a live feed exists:
+- `select_mainboard_cash_equities(...)` — keeps the full mainboard cash
+  universe, drops only SME-platform scrips (`-SM` / `-ST`). NOT a sample
+  (per the full-universe rule).
+- `select_near_expiry_option_ladder(options, spot_by_underlying,
+  strikes_each_side, expiry)` — per underlying, the near-expiry ATM strike
+  plus N ITM and N OTM strikes, both CALL and PUT. ATM = listed strike
+  closest to live spot; underlyings with no spot are skipped, never guessed.
+- `assemble_tradable_universe(nse_rows, nfo_rows, spot_by_underlying, N)`
+  — pure, fixture-testable; returns `TradableUniverse(cash_equity_instruments,
+  option_ladder_instruments, near_expiry_date)`.
+- `fetch_live_tradable_universe(kite_client, N)` — live adapter: reads the
+  Kite master + batched `ltp()` spots and applies the above.
+- Exports added to `universe_registry/__init__`. 6 unit tests
+  (`test_live_tradable_universe.py`), 249 suite total green.
+
+**Rule-F live verification (2026-07-24, open session):** assembled from the
+real Kite master in 1.6s — **9,272 mainboard cash equities + 2,915 near-
+expiry option contracts (ATM ±3) across all 215 underlyings** (5 index +
+210 stock), near expiry 2026-07-28, 12,172 instruments total. Fixed one
+index spot-symbol mismatch found live: MIDCPNIFTY spot is
+`NSE:NIFTY MID SELECT` (was "MIDCAP SELECT") — without it MIDCPNIFTY had no
+ladder (214/215); now 215/215.
+
+**Named future consumer (Rule G):** consumed by the live universe paper
+loop (slice 3, `docs/research/38`); the live bar/quote source (slice 2)
+prices this set each interval.
