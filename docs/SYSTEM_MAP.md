@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-24m**.
-- **101 Python modules across 14 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-24n**.
+- **102 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -302,6 +302,25 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-24n** — **Brier decomposition** (reliability vs resolution;
+  explainable memory; research/49). Sourcing verdict: **vendored** the Murphy 1973
+  formula (briertools doesn't expose it, drags 6 deps, no license). New file
+  `memory_reflection/brier_decomposition.py` (102 modules; Layer 10 owns it — a
+  reflection concern, no Layer-7 import): `murphy_brier_decomposition(predicted,
+  outcomes, bin_count=10) → BrierDecomposition(reliability, resolution,
+  uncertainty, …)` (equal-frequency bins) + `reliability_diagnosis` ('resolution≈0
+  — no edge' / 'reliability-driven — recalibratable' / 'well-resolved'). New
+  `ExperienceMemory.reliability_decomposition(minimum_experiments, recency_window)`
+  (protocol + sqlite): fetch each cohort's per-experiment (win_prob, won) and
+  decompose. `MechanismReliability` record added. **Consumer (explainable memory
+  — a Layer-10 goal):** `evaluate_trading_assumptions` looks up the per-mechanism
+  diagnosis and appends it to the calibration verdict detail → surfaced on the
+  existing **Assumption-tripwires panel** (the antibody now explains WHY a thesis
+  fails). **Verified on REAL data (Rule F):** decomposed the real 213 SQLite
+  experiences — reconstruction REL−RES+UNC matches the direct Brier per cohort
+  (0.666 vs 0.667, 0.431 vs 0.431, …); diagnoses sensible. 345 suite green (+4).
+  No graph edge change. **Queued (Rule K, BACKLOG):** auto-recalibrate win_prob for
+  a high-REL/good-RES mechanism vs hard-veto for RES≈0.
 - **2026-07-24m** — **Proper scoring rules** (vendored python-prediction-scorer,
   MIT; research/48). New file `paper_trading/prediction_lab/proper_scoring_rules.py`
   (101 modules): `logarithmic_score` (−log₂p, punishes confident-wrong toward ∞

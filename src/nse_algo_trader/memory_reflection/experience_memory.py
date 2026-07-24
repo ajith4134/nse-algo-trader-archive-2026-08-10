@@ -111,6 +111,21 @@ class ReflectionDiffRow:
     baseline_mean_brier: float | None
 
 
+@dataclass(frozen=True)
+class MechanismReliability:
+    """One (strategy × mechanism) cohort's Murphy Brier decomposition — the
+    explainable-memory read of WHY its calibration is off (reliability = biased
+    but discriminates → recalibratable; resolution ≈ 0 → no edge)."""
+
+    strategy_tag: str
+    mechanism_name: str
+    experiment_count: int
+    reliability: float
+    resolution: float
+    uncertainty: float
+    diagnosis: str
+
+
 class ExperienceMemory(Protocol):
     """The swappable substrate boundary (research/43). A SQLite backend today;
     a Graphiti/Neo4j temporal KG is the named future consumer for the
@@ -142,6 +157,12 @@ class ExperienceMemory(Protocol):
         limit: int = 20,
         recency_window: int | None = None,
     ) -> list[CalibrationBoardRow]: ...
+
+    def reliability_decomposition(
+        self,
+        minimum_experiments: int = 12,
+        recency_window: int | None = None,
+    ) -> list[MechanismReliability]: ...
 
 
 def build_closed_experiment(

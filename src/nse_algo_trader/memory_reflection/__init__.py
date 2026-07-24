@@ -6,11 +6,17 @@ swap-up later — research/43). This is where the MEMORY / EPISTEMICS / PREDICTI
 trunks begin to bloom on the real prediction-error stream the §9 lab produces.
 """
 
+from nse_algo_trader.memory_reflection.brier_decomposition import (
+    BrierDecomposition,
+    murphy_brier_decomposition,
+    reliability_diagnosis,
+)
 from nse_algo_trader.memory_reflection.experience_memory import (
     CalibrationBoardRow,
     CalibrationSummary,
     ClosedExperiment,
     ExperienceMemory,
+    MechanismReliability,
     PriorOutcomeSummary,
     ReflectionDiffRow,
     build_closed_experiment,
@@ -33,10 +39,14 @@ __all__ = [
     "AssumptionVerdict",
     "evaluate_trading_assumptions",
     "vetoed_mechanisms",
+    "BrierDecomposition",
+    "murphy_brier_decomposition",
+    "reliability_diagnosis",
     "CalibrationBoardRow",
     "CalibrationSummary",
     "ClosedExperiment",
     "ExperienceMemory",
+    "MechanismReliability",
     "PriorOutcomeSummary",
     "ReflectionDiffRow",
     "build_closed_experiment",

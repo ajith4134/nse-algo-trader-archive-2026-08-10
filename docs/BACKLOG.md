@@ -32,8 +32,15 @@ Status key: 🔴 not started · 🟡 in progress · 🟢 done (moved to Done) ·
 - 🔴 **Graphiti/Neo4j temporal-KG swap-up.** Named swap-up for the semantic /
   multi-hop tier when categorical SQLite queries no longer suffice (research/43).
   Deferred by design until multi-hop queries are actually needed.
-- 🔴 **briertools Brier decomposition** (calibration/discrimination reliability)
-  for the reflection board — enrichment, borrow later (research/44).
+- 🟢 **Brier decomposition** (Murphy reliability/resolution/uncertainty). DONE
+  (2026-07-24): vendored (briertools rejected — no Murphy fn, 6 deps, no license);
+  reliability_decomposition() + diagnosis fed into the antibody's tripwire detail;
+  real-data verified over 213 experiences. *(task #26)*
+- 🔴 **Auto-recalibration consumer (queued, Rule K).** Use the decomposition to
+  RECALIBRATE win_probability for a high-reliability/good-resolution mechanism
+  (biased but discriminates) vs hard-veto a resolution≈0 (no-edge) one — turns the
+  diagnosis into an action. Done = win_prob adjusted or mechanism retired by the
+  reliability read, verified on real experiments.
 
 ## Open real-data blockers (Rule F/J — sim-verified, real pass pending)
 - ⛔ **Shadow-arm recovery (slice 4) live pass.** Functionally verified via sim

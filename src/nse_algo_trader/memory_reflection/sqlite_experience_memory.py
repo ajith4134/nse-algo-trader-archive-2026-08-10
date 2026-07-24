@@ -15,10 +15,15 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
+from nse_algo_trader.memory_reflection.brier_decomposition import (
+    murphy_brier_decomposition,
+    reliability_diagnosis,
+)
 from nse_algo_trader.memory_reflection.experience_memory import (
     CalibrationBoardRow,
     CalibrationSummary,
     ClosedExperiment,
+    MechanismReliability,
     PriorOutcomeSummary,
     ReflectionDiffRow,
 )
@@ -257,6 +262,60 @@ class SqliteExperienceMemory:
             )
             for row in cursor.fetchall()
         ]
+
+    def reliability_decomposition(
+        self,
+        minimum_experiments: int = 12,
+        recency_window: int | None = None,
+    ) -> list[MechanismReliability]:
+        """Per-cohort Murphy Brier decomposition (reliability/resolution/
+        uncertainty) + a plain-English diagnosis — the explainable-memory read of
+        WHY a mechanism is miscalibrated. Fetches each cohort's per-experiment
+        (win_probability, won) and decomposes in Python. Honors the same recency
+        window as `calibration_board` (slice 4)."""
+        if recency_window is None:
+            source, params = "experience_nodes", ()
+        else:
+            source = (
+                "(SELECT *, ROW_NUMBER() OVER (PARTITION BY mechanism_name "
+                "ORDER BY occurred_at DESC) AS rn FROM experience_nodes) "
+                "WHERE rn <= ?"
+            )
+            params = (recency_window,)
+        cursor = self._connection.execute(
+            "SELECT strategy_tag, mechanism_name, win_probability, "
+            "CASE WHEN actual_outcome='win' THEN 1.0 ELSE 0.0 END AS won "
+            f"FROM {source} ORDER BY strategy_tag, mechanism_name",
+            params,
+        )
+        cohorts: dict[tuple[str, str], list[tuple[float, float]]] = {}
+        for row in cursor.fetchall():
+            cohorts.setdefault(
+                (row["strategy_tag"], row["mechanism_name"]), []
+            ).append((row["win_probability"], row["won"]))
+
+        results: list[MechanismReliability] = []
+        for (strategy_tag, mechanism_name), pairs in cohorts.items():
+            if len(pairs) < minimum_experiments:
+                continue
+            decomposition = murphy_brier_decomposition(
+                [prob for prob, _ in pairs], [won for _, won in pairs]
+            )
+            if decomposition is None:
+                continue
+            results.append(
+                MechanismReliability(
+                    strategy_tag=strategy_tag,
+                    mechanism_name=mechanism_name,
+                    experiment_count=decomposition.sample_count,
+                    reliability=decomposition.reliability,
+                    resolution=decomposition.resolution,
+                    uncertainty=decomposition.uncertainty,
+                    diagnosis=reliability_diagnosis(decomposition),
+                )
+            )
+        results.sort(key=lambda r: r.reliability, reverse=True)
+        return results
 
     def _aggregate_cohorts(self, where_clause: str, params: tuple) -> dict:
         cursor = self._connection.execute(

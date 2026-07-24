@@ -341,3 +341,32 @@ actual 0.09 → 2.40 bits (Brier only 0.667), 'long ATM option' 0.83 vs 0.41 →
 bits — both over-confident → vetoed. 341 suite green (+7 tests: proper-score math,
 grading, log-score antibody trip, real board mean_log_score).
 **Queued (docs/BACKLOG.md):** briertools Brier decomposition (reliability view).
+
+### Brier decomposition (2026-07-24) — explainable memory (reliability vs resolution)
+The antibody knew a thesis was over-confident; now it says WHY. Vendored the Murphy
+1973 Brier decomposition `BS = Reliability − Resolution + Uncertainty` (research/49;
+briertools doesn't expose it + drags 6 deps + no license → vendored the formula).
+
+**`memory_reflection/brier_decomposition.py`** (Layer 10 owns it — a reflection
+concern, no Layer-7 import): `murphy_brier_decomposition(predicted, outcomes,
+bin_count=10)` (equal-frequency bins) → `BrierDecomposition(reliability, resolution,
+uncertainty, brier_reconstructed, …)`; `reliability_diagnosis` → 'resolution≈0 — no
+edge' / 'reliability-driven — recalibratable' / 'well-resolved'.
+
+**Data flow (Rule G):** `ExperienceMemory.reliability_decomposition(min_experiments,
+recency_window)` (protocol + sqlite) fetches each cohort's per-experiment
+(win_prob, won) and decomposes → `MechanismReliability`. `evaluate_trading_assumptions`
+looks up the diagnosis by mechanism and appends it to the calibration verdict detail
+→ the existing **Assumption-tripwires panel** now shows e.g. "over-confident thesis,
+distrust it — reliability-driven — biased but discriminates (recalibratable)". The
+decomposition explains a decision (the antibody refutation), so it is decision-adjacent,
+not decoration.
+
+**Verified — REAL DATA (Rule F):** decomposed the real 213 experiences — the
+reconstruction REL−RES+UNC matches the direct Brier per cohort (post-breakout-trend
+0.666 vs 0.667; long-ATM-option 0.431 vs 0.431); diagnoses sensible. 4 tests
+(reconstruction identity, no-edge→resolution≈0, reliability-driven, <2 samples None).
+345 suite green.
+**Queued (Rule K, docs/BACKLOG.md):** auto-recalibrate win_prob for a
+high-reliability/good-resolution mechanism (recalibratable) vs hard-veto RES≈0 (no
+edge) — a later slice.

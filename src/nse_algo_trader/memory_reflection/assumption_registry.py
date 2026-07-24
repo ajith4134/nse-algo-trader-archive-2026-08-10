@@ -86,6 +86,14 @@ def evaluate_trading_assumptions(
     """Evaluate every live mechanism's calibration + edge assumptions over the
     experience memory. Returns all verdicts, tripped (VIOLATED) first."""
     verdicts: list[AssumptionVerdict] = []
+    # Explainable-memory: the Murphy decomposition diagnosis (reliability vs
+    # resolution) per mechanism, to explain WHY a tripped thesis fails.
+    diagnosis_by_mechanism = {
+        r.mechanism_name: r.diagnosis
+        for r in experience_memory.reliability_decomposition(
+            minimum_experiments=config.minimum_samples
+        )
+    }
     for row in experience_memory.calibration_board(minimum_experiments=1):
         scope = f"{row.strategy_tag} · {row.mechanism_name}"
         if row.experiment_count < config.minimum_samples:
@@ -97,7 +105,11 @@ def evaluate_trading_assumptions(
                 )
             )
             continue
-        verdicts.append(_calibration_verdict(row, config, scope))
+        verdicts.append(
+            _calibration_verdict(
+                row, config, scope, diagnosis_by_mechanism.get(row.mechanism_name)
+            )
+        )
         verdicts.append(_edge_verdict(row, config, scope))
 
     _tripped_first = {AssumptionStatus.VIOLATED: 0,
@@ -124,21 +136,22 @@ def vetoed_mechanisms(
     return vetoed
 
 
-def _calibration_verdict(row, config, scope) -> AssumptionVerdict:
+def _calibration_verdict(row, config, scope, diagnosis=None) -> AssumptionVerdict:
     z = _overconfidence_z(row.actual_win_rate, row.predicted_win_rate, row.experiment_count)
     gap = row.predicted_win_rate - row.actual_win_rate
     log_score = getattr(row, "mean_log_score", 0.0)
+    diagnosis_text = f" — {diagnosis}" if diagnosis else ""
     if _calibration_is_tripped(row, config):
         return AssumptionVerdict(
             "calibration", scope, AssumptionStatus.VIOLATED, row.experiment_count,
             f"predicted {row.predicted_win_rate:.0%} vs actual {row.actual_win_rate:.0%} "
             f"(gap {gap:+.0%}, z={z:.1f}, log {log_score:.2f} bits) — "
-            f"over-confident thesis, distrust it",
+            f"over-confident thesis, distrust it{diagnosis_text}",
         )
     return AssumptionVerdict(
         "calibration", scope, AssumptionStatus.HOLDING, row.experiment_count,
         f"predicted {row.predicted_win_rate:.0%} ≈ actual {row.actual_win_rate:.0%} "
-        f"(log {log_score:.2f} bits)",
+        f"(log {log_score:.2f} bits){diagnosis_text}",
     )
 
 
