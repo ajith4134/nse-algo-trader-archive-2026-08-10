@@ -1,5 +1,10 @@
 # 00 — Project Overview & Layer Roadmap
 
+> **START HERE → [`docs/SYSTEM_MAP.md`](../SYSTEM_MAP.md)** — the living,
+> code-generated architecture & data-flow map (every feature, its files, and
+> the real data-flow edges between and within them). Read it before opening
+> any source file; keep it updated on every new file/feature (CLAUDE.md Rule H).
+
 This is the index note. Every layer gets its own numbered file in this
 folder (`01_...`, `02_...`, ...). Each one is appended to as the layer
 grows — never rewritten from scratch, never deleted. Read this file first,

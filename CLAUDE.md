@@ -129,6 +129,23 @@ IMPORTANT (a feature that isn't wired in is not "done").
   real data): a feature is done when it is wired into the loop AND
   verified on the real data it operates on.
 
+## Rule H — Keep the living System Map current (read it first, update it always)
+`docs/SYSTEM_MAP.md` is the single source of truth for how the project is
+built and how data flows — feature-by-feature, file-by-file, with the real
+data-flow edges (generated from the code's AST import graph, not memory).
+- **Read it FIRST** — before opening source files — to understand where we
+  stand. It exists so you (and any fresh agent on any server) can grasp the
+  whole system without grepping the tree.
+- **Update it on EVERY new/renamed/deleted file or feature, and whenever the
+  data flow between features changes** — in the SAME change. Follow the
+  "§0 · HOW TO MAINTAIN" protocol inside it: re-run the extractor to get the
+  true graph, update the system diagram (§1), the feature's registry block
+  (§2), any runtime flow (§3), and append to the maintenance ledger (§4).
+- Never hand-guess the graph — always regenerate the ground truth from the
+  code so the map stays TRUE to what is on the server.
+- This complements Rule B (per-layer flowchart notes): Rule B is the deep
+  per-feature narrative; Rule H is the one consolidated cross-feature map.
+
 ## Non-negotiables carried through every layer
 - Intraday only. Every position auto-squares-off before close. No exceptions
   per-segment, ever, unless a future phase explicitly revisits this.
