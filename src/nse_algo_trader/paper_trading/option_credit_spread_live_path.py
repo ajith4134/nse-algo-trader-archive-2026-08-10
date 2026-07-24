@@ -35,12 +35,19 @@ from nse_algo_trader.risk_management import (
 )
 from nse_algo_trader.strategy_engine import (
     CreditSpreadBias,
+    OpeningRangeBreakoutConfig,
     OptionLegAction,
+    SignalDirection,
     V1SessionStrategyChoice,
     choose_v1_session_strategy,
+    detect_opening_range_breakout,
     select_credit_spread_legs,
 )
 from nse_algo_trader.universe_registry import Instrument, InstrumentKind
+
+# Directional long-option exits, as a fraction of premium paid.
+_DIRECTIONAL_TARGET_GAIN_FRACTION = 1.0  # +100% premium
+_DIRECTIONAL_STOP_LOSS_FRACTION = 0.5  # -50% premium
 
 # Capture target / stop on the net credit (fraction of the credit received).
 _PROFIT_TARGET_CREDIT_FRACTION = 0.5
@@ -73,6 +80,25 @@ class OpenOptionSpreadPosition:
             return None
         # Credit spread profits as the net premium decays below entry credit.
         return (self.entry_net_credit_per_unit - current) * self.lots * self.lot_size
+
+
+@dataclass
+class OpenDirectionalOptionPosition:
+    underlying_symbol: str
+    option: Instrument  # the long CE/PE bought
+    breakout_direction: str  # "long" (bought CE) | "short" (bought PE)
+    lots: int
+    lot_size: int
+    entry_premium: float
+    opened_at: datetime
+    strategy_tag: str
+    assigned_table: str
+
+    def unrealized_pnl(self, price_by_token: dict) -> float | None:
+        ltp = price_by_token.get(self.option.instrument_token)
+        if ltp is None:
+            return None
+        return (ltp - self.entry_premium) * self.lots * self.lot_size
 
 
 def _intraday_drift_bias(spot_bars) -> CreditSpreadBias:
@@ -113,7 +139,7 @@ def _assigned_table_for_regime(adx_value: float) -> str:
     return "confident_loss"
 
 
-def try_open_credit_spread_for_underlying(
+def try_open_option_position_for_underlying(
     state,
     underlying_symbol: str,
     spot_instrument: Instrument,
@@ -123,8 +149,9 @@ def try_open_credit_spread_for_underlying(
     now: datetime,
     banned_underlying_symbols: frozenset = frozenset(),
 ) -> bool:
-    """Regime-gate one underlying and, if RANGE_BOUND, open a defined-risk
-    credit spread. Returns True if a spread was opened."""
+    """Regime-dispatch one underlying: RANGE_BOUND → defined-risk credit
+    spread; TRENDING → directional ATM long option on an ORB breakout;
+    INDECISIVE → stand aside. Returns True if any option position opened."""
     state.seeded_option_underlyings.add(underlying_symbol)
     spot_bars = live_universe_feed.recent_intraday_bars(
         spot_instrument, now, bar_interval=BarInterval.MINUTE_5
@@ -132,12 +159,18 @@ def try_open_credit_spread_for_underlying(
     if len(spot_bars) < 28:
         return False
     adx_value = _regime_adx_warmed_at(spot_bars, spot_bars[-1].timestamp)
-    if choose_v1_session_strategy(adx_value) is not V1SessionStrategyChoice.CREDIT_SPREAD:
+    choice = choose_v1_session_strategy(adx_value)
+    underlying_options = [o for o in option_ladder if o.underlying_symbol == underlying_symbol]
+    price_by_token = live_universe_feed.latest_price_by_token(underlying_options)
+    if choice is V1SessionStrategyChoice.OPENING_RANGE_BREAKOUT:
+        return _try_open_directional_option(
+            state, underlying_symbol, spot_instrument, spot_bars, underlying_options,
+            price_by_token, adx_value, now,
+        )
+    if choice is not V1SessionStrategyChoice.CREDIT_SPREAD:
         return False
 
     spot_price = spot_bars[-1].close_price
-    underlying_options = [o for o in option_ladder if o.underlying_symbol == underlying_symbol]
-    price_by_token = live_universe_feed.latest_price_by_token(underlying_options)
     atm_iv = _atm_call_implied_volatility(
         option_ladder, underlying_symbol, spot_price, price_by_token, now
     )
@@ -212,6 +245,103 @@ def manage_open_credit_spreads(state, live_universe_feed, now: datetime) -> int:
     return closed
 
 
+def _try_open_directional_option(
+    state, underlying_symbol, spot_instrument, spot_bars, underlying_options,
+    price_by_token, adx_value, now,
+) -> bool:
+    """Trending underlying: on an ORB breakout of the spot, BUY an ATM option
+    in the breakout direction (CE up / PE down). Defined-risk = premium paid.
+    This is what gives trending indices (and stocks) option trades."""
+    today = [b for b in spot_bars if b.timestamp.date() == spot_bars[-1].timestamp.date()]
+    if not today:
+        return False
+    signal = detect_opening_range_breakout(
+        today, spot_instrument, OpeningRangeBreakoutConfig()
+    )
+    if signal is None:
+        return False
+    want_right = "CE" if signal.direction is SignalDirection.LONG else "PE"
+    spot_price = today[-1].close_price
+    candidates = [
+        o for o in underlying_options if o.option_right.value == want_right
+    ]
+    if not candidates:
+        return False
+    atm = min(candidates, key=lambda o: abs(o.strike_price - spot_price))
+    premium = price_by_token.get(atm.instrument_token)
+    if premium is None or premium <= 0:
+        return False
+
+    state.simulated_broker.update_market_price(atm.instrument_token, premium)
+    from nse_algo_trader.broker_oms import OrderIntent, OrderSide
+
+    fill = state.simulated_broker.place_order(
+        OrderIntent(atm, OrderSide.BUY, atm.lot_size, "directional_option_orb_v1")
+    )
+    from nse_algo_trader.broker_oms import OrderLifecycleState
+
+    if fill.state is OrderLifecycleState.REJECTED:
+        return False
+    state.open_directional_options[underlying_symbol] = OpenDirectionalOptionPosition(
+        underlying_symbol=underlying_symbol,
+        option=atm,
+        breakout_direction=signal.direction.value,
+        lots=1,
+        lot_size=atm.lot_size,
+        entry_premium=premium,
+        opened_at=now,
+        strategy_tag="directional_option_orb_v1",
+        assigned_table=_directional_assigned_table(adx_value),
+    )
+    return True
+
+
+def _directional_assigned_table(adx_value: float) -> str:
+    # A stronger trend (higher ADX) is a more confident directional play.
+    if adx_value >= 30.0:
+        return "confident_win"
+    if adx_value >= 27.0:
+        return "uncertain"
+    return "confident_loss"
+
+
+def manage_open_directional_options(state, live_universe_feed, now) -> int:
+    if not state.open_directional_options:
+        return 0
+    options = [pos.option for pos in state.open_directional_options.values()]
+    price_by_token = live_universe_feed.latest_price_by_token(options)
+    closed = 0
+    for underlying_symbol, pos in list(state.open_directional_options.items()):
+        ltp = price_by_token.get(pos.option.instrument_token)
+        if ltp is None:
+            continue
+        target = pos.entry_premium * (1 + _DIRECTIONAL_TARGET_GAIN_FRACTION)
+        stop = pos.entry_premium * (1 - _DIRECTIONAL_STOP_LOSS_FRACTION)
+        if ltp >= target or ltp <= stop:
+            _close_directional(state, pos, ltp, now)
+            closed += 1
+    return closed
+
+
+def _close_directional(state, pos, exit_premium, now) -> None:
+    realized = (exit_premium - pos.entry_premium) * pos.lots * pos.lot_size
+    state.realized_directional_option_pnl += realized
+    state.closed_directional_options.append((pos, realized))
+    del state.open_directional_options[pos.underlying_symbol]
+
+
+def square_off_all_directional_options(state, live_universe_feed, now) -> None:
+    """Flatten every long option at 15:15 (a long option is sold to close —
+    no naked-leg concern, but routed for consistency)."""
+    if not state.open_directional_options:
+        return
+    options = [pos.option for pos in state.open_directional_options.values()]
+    price_by_token = live_universe_feed.latest_price_by_token(options)
+    for underlying_symbol, pos in list(state.open_directional_options.items()):
+        ltp = price_by_token.get(pos.option.instrument_token, pos.entry_premium)
+        _close_directional(state, pos, ltp, now)
+
+
 def advance_option_credit_spread_pass(
     state,
     tradable_universe,
@@ -225,9 +355,12 @@ def advance_option_credit_spread_pass(
     """One options pass: manage open spreads, then either flatten all (15:15)
     or seed a bounded batch of un-seeded underlyings into new spreads."""
     closed = manage_open_credit_spreads(state, live_universe_feed, now)
+    closed += manage_open_directional_options(state, live_universe_feed, now)
     if is_square_off_window:
         square_off_all_open_spreads(state, live_universe_feed, now)
-        return {"opened": 0, "closed": closed, "open": len(state.open_option_spreads)}
+        square_off_all_directional_options(state, live_universe_feed, now)
+        return {"opened": 0, "closed": closed,
+                "open": len(state.open_option_spreads) + len(state.open_directional_options)}
 
     option_ladder = list(tradable_universe.option_ladder_instruments)
     spot_by_underlying = tradable_universe.spot_instrument_by_option_underlying or {}
@@ -240,9 +373,11 @@ def advance_option_credit_spread_pass(
             continue
         if underlying_symbol in state.open_option_spreads:
             continue
+        if underlying_symbol in state.open_directional_options:
+            continue
         seeded_this_pass += 1
         try:
-            if try_open_credit_spread_for_underlying(
+            if try_open_option_position_for_underlying(
                 state, underlying_symbol,
                 spot_by_underlying[underlying_symbol], option_ladder,
                 live_universe_feed, risk_budget, now, banned_underlying_symbols,
@@ -254,7 +389,8 @@ def advance_option_credit_spread_pass(
                 flush=True,
             )
             state.seeded_option_underlyings.add(underlying_symbol)
-    return {"opened": opened, "closed": closed, "open": len(state.open_option_spreads)}
+    return {"opened": opened, "closed": closed,
+            "open": len(state.open_option_spreads) + len(state.open_directional_options)}
 
 
 def _close_spread(state, spread, exit_net_premium, now) -> None:

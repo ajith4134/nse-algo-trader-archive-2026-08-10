@@ -316,7 +316,9 @@ class LivePaperTradingService:
             segment_boards=segment_boards,
             recent_closed_trades=recent_closed,
             combined_realized_pnl=(
-                ledger.realized_pnl + self._state.realized_option_spread_pnl
+                ledger.realized_pnl
+                + self._state.realized_option_spread_pnl
+                + self._state.realized_directional_option_pnl
             ),
         )
         with self._publish_lock:
@@ -356,6 +358,43 @@ class LivePaperTradingService:
                     last_price=None if current is None else round(current, 2),
                     unrealized_pnl=spread.unrealized_pnl(price_by_token),
                     assigned_table=spread.assigned_table,
+                    segment=segment,
+                )
+            )
+        rows.extend(self._directional_option_views(price))
+        return rows
+
+    def _directional_option_views(self, price: bool) -> list[OpenPositionView]:
+        positions = list(self._state.open_directional_options.values())
+        if not positions:
+            return []
+        price_by_token: dict[int, float] = {}
+        if price:
+            try:
+                price_by_token = self._feed.latest_price_by_token(
+                    [p.option for p in positions]
+                )
+            except Exception:
+                price_by_token = {}
+        rows = []
+        for pos in positions:
+            segment = (
+                "index_option"
+                if pos.underlying_symbol in self._INDEX_UNDERLYINGS
+                else "stock_option"
+            )
+            ltp = price_by_token.get(pos.option.instrument_token)
+            rows.append(
+                OpenPositionView(
+                    trading_symbol=pos.option.trading_symbol,
+                    direction="long",  # a bought option is a BUY
+                    quantity=pos.lots * pos.lot_size,
+                    entry_price=round(pos.entry_premium, 2),
+                    stop_loss_price=round(pos.entry_premium * 0.5, 2),
+                    target_price=round(pos.entry_premium * 2, 2),
+                    last_price=None if ltp is None else round(ltp, 2),
+                    unrealized_pnl=pos.unrealized_pnl(price_by_token),
+                    assigned_table=pos.assigned_table,
                     segment=segment,
                 )
             )
@@ -401,6 +440,22 @@ class LivePaperTradingService:
                     realized_pnl=realized,
                     outcome="closed",
                     closed_at=spread.opened_at.isoformat(),
+                )
+            )
+        for pos, realized in self._state.closed_directional_options[-15:][::-1]:
+            segment = (
+                "index_option"
+                if pos.underlying_symbol in self._INDEX_UNDERLYINGS
+                else "stock_option"
+            )
+            rows.append(
+                ClosedTradeView(
+                    segment=segment,
+                    trading_symbol=pos.option.trading_symbol,
+                    direction="long",
+                    realized_pnl=realized,
+                    outcome="closed",
+                    closed_at=pos.opened_at.isoformat(),
                 )
             )
         return tuple(rows)

@@ -122,6 +122,10 @@ class LiveUniversePaperState:
     seeded_option_underlyings: set = field(default_factory=set)
     closed_option_spreads: list = field(default_factory=list)
     realized_option_spread_pnl: float = 0.0
+    # Directional long-option path (trending underlyings; one per underlying).
+    open_directional_options: dict = field(default_factory=dict)
+    closed_directional_options: list = field(default_factory=list)
+    realized_directional_option_pnl: float = 0.0
 
     def open_position_count(self) -> int:
         return len(self.open_positions)
