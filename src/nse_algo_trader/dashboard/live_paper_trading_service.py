@@ -113,6 +113,8 @@ class LivePaperPublishedSnapshot:
     recent_closed_trades: tuple[ClosedTradeView, ...] = ()
     combined_realized_pnl: float = 0.0
     strategy_readiness: tuple[StrategyReadinessSummary, ...] = ()
+    memory_experiment_count: int = 0
+    calibration_board: tuple = ()  # tuple[CalibrationBoardRow, ...]
 
     @property
     def open_position_count(self) -> int:
@@ -494,6 +496,8 @@ class LivePaperTradingService:
                 + self._state.realized_directional_option_pnl
             ),
             strategy_readiness=_strategy_readiness_summaries(self._state),
+            memory_experiment_count=self._memory_experiment_count(),
+            calibration_board=self._memory_calibration_board(),
         )
         with self._publish_lock:
             self._published = snapshot
@@ -633,6 +637,22 @@ class LivePaperTradingService:
                 )
             )
         return tuple(rows)
+
+    def _memory_experiment_count(self) -> int:
+        try:
+            return self._experience_memory.experiment_count() if self._experience_memory else 0
+        except Exception:
+            return 0
+
+    def _memory_calibration_board(self) -> tuple:
+        """The reflection surface: per-mechanism predicted-vs-actual calibration
+        (writer thread — same thread that owns the memory's SQLite connection)."""
+        if self._experience_memory is None:
+            return ()
+        try:
+            return tuple(self._experience_memory.calibration_board(minimum_experiments=3))
+        except Exception:
+            return ()
 
     def _summarize_prediction_table(self, table) -> PredictionTableSummary:
         score = self._state.scoreboard.score_for_table(table)

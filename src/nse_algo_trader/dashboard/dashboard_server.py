@@ -167,6 +167,8 @@ def build_dashboard_app() -> FastAPI:
             closed_trades=[asdict(t) for t in published.recent_closed_trades],
             combined_realized_pnl=published.combined_realized_pnl,
             strategy_readiness=list(published.strategy_readiness),
+            memory_experiment_count=published.memory_experiment_count,
+            reflection_board=[asdict(r) for r in published.calibration_board],
         )
 
     @app.get("/", response_class=HTMLResponse)

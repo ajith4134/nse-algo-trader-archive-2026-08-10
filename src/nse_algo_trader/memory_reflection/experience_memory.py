@@ -76,6 +76,21 @@ class PriorOutcomeSummary:
 
 
 @dataclass(frozen=True)
+class CalibrationBoardRow:
+    """One (strategy × mechanism) cohort's calibration: what it PREDICTED vs
+    what actually happened — the core reflection surface. A big gap between
+    `predicted_win_rate` and `actual_win_rate` is a miscalibrated thesis."""
+
+    strategy_tag: str
+    mechanism_name: str
+    experiment_count: int
+    predicted_win_rate: float  # mean predicted win-probability
+    actual_win_rate: float  # fraction that actually won
+    mean_brier: float
+    mean_return_fraction: float
+
+
+@dataclass(frozen=True)
 class ReflectionDiffRow:
     """How one (strategy × mechanism × regime) cohort moved between a recent
     window and the baseline before it — the nightly reflection signal."""
@@ -116,6 +131,10 @@ class ExperienceMemory(Protocol):
     def reflection_diff(
         self, recent_window_start: datetime
     ) -> list[ReflectionDiffRow]: ...
+
+    def calibration_board(
+        self, minimum_experiments: int = 1, limit: int = 20
+    ) -> list[CalibrationBoardRow]: ...
 
 
 def build_closed_experiment(

@@ -15,6 +15,7 @@ from datetime import datetime
 from pathlib import Path
 
 from nse_algo_trader.memory_reflection.experience_memory import (
+    CalibrationBoardRow,
     CalibrationSummary,
     ClosedExperiment,
     PriorOutcomeSummary,
@@ -187,6 +188,35 @@ class SqliteExperienceMemory:
             )
         rows.sort(key=lambda row: (row.hit_rate_delta is None, row.hit_rate_delta or 0))
         return rows
+
+    def calibration_board(
+        self, minimum_experiments: int = 1, limit: int = 20
+    ) -> list[CalibrationBoardRow]:
+        """Per (strategy × mechanism): predicted vs actual win-rate + Brier —
+        the reflection surface. Ordered by the calibration gap (predicted −
+        actual) descending, so the most over-confident theses surface first."""
+        cursor = self._connection.execute(
+            "SELECT strategy_tag, mechanism_name, COUNT(*) AS n, "
+            "AVG(win_probability) AS pred, "
+            "AVG(CASE WHEN actual_outcome='win' THEN 1.0 ELSE 0.0 END) AS act, "
+            "AVG(brier_contribution) AS brier, "
+            "AVG(realized_return_fraction) AS ret "
+            "FROM experience_nodes GROUP BY strategy_tag, mechanism_name "
+            "HAVING n >= ? ORDER BY (pred - act) DESC LIMIT ?",
+            (minimum_experiments, limit),
+        )
+        return [
+            CalibrationBoardRow(
+                strategy_tag=row["strategy_tag"],
+                mechanism_name=row["mechanism_name"],
+                experiment_count=row["n"],
+                predicted_win_rate=row["pred"],
+                actual_win_rate=row["act"],
+                mean_brier=row["brier"],
+                mean_return_fraction=row["ret"],
+            )
+            for row in cursor.fetchall()
+        ]
 
     def _aggregate_cohorts(self, where_clause: str, params: tuple) -> dict:
         cursor = self._connection.execute(

@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-24c**.
-- **93 Python modules across 13 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-24d**.
+- **94 Python modules across 13 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -214,7 +214,7 @@ Each block: purpose · files (role) · what flows IN/OUT · internal file→file
 - **Router/feed:** `nse_market_clock` (is-NSE-open authority) · `historical_bar_replay_source` · `market_clock_gated_data_source_router` (replay↔live) · `replay_universe_feed` (market-CLOSED universe feed).
 - **Engines:** `opening_range_breakout_paper_engine` (replay ORB) · **`live_universe_paper_loop`** (the live cash loop: open/hold/manage/breakout-watch/L8 square-off) · **`option_credit_spread_live_path`** (options: regime-gated credit spreads + directional long options).
 - **Ledger/fills:** `paper_trading_ledger` · `fill_slippage_model`.
-- **§9 lab (`prediction_lab/`, 6):** `prediction_record` (immutable) · `adx_confidence_prediction` · `prediction_outcome_grading` (Brier) · `prediction_table_scoreboard` · `opening_range_breakout_prediction_lab`.
+- **§9 lab (`prediction_lab/`, 7):** `prediction_record` (immutable) · `adx_confidence_prediction` · `option_prediction_records` (§9 records for options: directional confidence rises with ADX, spread confidence rises as ADX falls) · `prediction_outcome_grading` (Brier) · `prediction_table_scoreboard` · `opening_range_breakout_prediction_lab`. **Cash + options** are both graded now.
 - **Promotion gates:** `strategy_promotion_gate` (Deflated-Sharpe) · `combinatorial_purged_cross_validation` (CPCV).
 - IN: `PriceBar` (L2 live+replay), indicators (L3), signals+regime (L4), `RiskGateDecision` (L5), `OrderIntent`/broker (L6), square-off (L8). OUT: `LiveUniversePaperState` (open positions, closed trades, §9 scoreboard, spreads) → dashboard; open legs → session_management.
 - Internal flow (live loop):
@@ -262,9 +262,9 @@ flowchart LR
 
 ### L10 · memory_reflection  (3 files)  — episodic experience memory
 - `experience_memory.py` — `ExperienceMemory` protocol (swappable substrate boundary), `ClosedExperiment` node, `build_closed_experiment` (from a graded §9 prediction + closed trade), summary types.
-- `sqlite_experience_memory.py` — `SqliteExperienceMemory`: typed experiment nodes in one `.db`; serves calibration-by-regime, prior-outcomes (entry-time pre-mortem), and reflection-diff by indexed group-by. (Graphiti/Neo4j temporal-KG = documented swap-up for the semantic/multi-hop tier — research/43.)
-- IN: closed §9 experiments (graded prediction + closed trade) emitted by the L7 loop, drained by the dashboard service. OUT: calibration / prior-outcome / reflection-diff summaries → dashboard.
-- **Wiring:** the L7 loop emits `(graded, trade, kind)` events on close (no L10 import); `dashboard/live_paper_trading_service._drain_closed_experiments_into_memory` records them into `ExperienceMemory` in the writer thread. Rule-F verified on 48 real closed experiments (2026-07-24) — surfaced that the confident-win "trend-continuation" mechanism ran at 0.05 hit rate while the confident-loss "false-breakout" thesis held at 0.75.
+- `sqlite_experience_memory.py` — `SqliteExperienceMemory`: typed experiment nodes in one `.db`; serves calibration-by-regime, prior-outcomes (entry-time pre-mortem), reflection-diff, and the **calibration_board** (per-mechanism predicted-vs-actual win-rate) by indexed group-by. (Graphiti/Neo4j temporal-KG = documented swap-up for the semantic/multi-hop tier — research/43.)
+- IN: closed §9 experiments (graded prediction + closed trade — **cash AND options**) emitted by the L7 loop, drained by the dashboard service. OUT: calibration / prior-outcome / reflection-diff / calibration-board summaries → dashboard **Reflection panel**.
+- **Wiring:** the L7 loop emits `(graded, trade, kind)` events on close (no L10 import); `dashboard/live_paper_trading_service._drain_closed_experiments_into_memory` records them into `ExperienceMemory` in the writer thread, and publishes the calibration board to the dashboard Reflection panel. Rule-F verified on real closed experiments (2026-07-24) — surfaced that the confident-win "trend-continuation" mechanism ran at 0.05 hit rate while the confident-loss "false-breakout" thesis held at 0.75.
 
 ---
 
@@ -294,6 +294,12 @@ login → `kite_access_token.json` → consumed by the feed + broker clients.
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-24d** — Layer 10 surfacing: options are now first-class §9
+  experiments (new `prediction_lab/option_prediction_records.py`; option
+  closes grade into the scoreboard + emit closed experiments into memory —
+  Rule I). Added `calibration_board` to ExperienceMemory + a dashboard
+  **Reflection panel** (per-mechanism predicted-vs-actual calibration).
+  94 modules / 13 features.
 - **2026-07-24c** — Added **`memory_reflection` (L10, 3 files)** — Layer 10
   slice 1 (research/43): `ExperienceMemory` swappable substrate + SQLite
   backend; a closed §9 experiment → a memory node. Wired: the L7 loop emits

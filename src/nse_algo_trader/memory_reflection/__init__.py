@@ -7,6 +7,7 @@ trunks begin to bloom on the real prediction-error stream the §9 lab produces.
 """
 
 from nse_algo_trader.memory_reflection.experience_memory import (
+    CalibrationBoardRow,
     CalibrationSummary,
     ClosedExperiment,
     ExperienceMemory,
@@ -20,6 +21,7 @@ from nse_algo_trader.memory_reflection.sqlite_experience_memory import (
 )
 
 __all__ = [
+    "CalibrationBoardRow",
     "CalibrationSummary",
     "ClosedExperiment",
     "ExperienceMemory",

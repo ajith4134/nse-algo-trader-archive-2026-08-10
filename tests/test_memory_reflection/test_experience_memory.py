@@ -135,3 +135,19 @@ class TestBuildFromGraded:
         assert exp.realized_return_fraction == pytest.approx(50.0 / (100.0 * 10))
         assert exp.actual_exit_cause == "exited_target"
         assert exp.instrument_kind == "cash_equity"
+
+
+class TestCalibrationBoard:
+    def test_board_surfaces_the_miscalibrated_mechanism_first(self, memory):
+        # "trend" predicted-win but mostly loses (overconfident) — the gap
+        # (predicted - actual) should rank it above a well-calibrated cohort.
+        for i in range(10):
+            memory.record_closed_experiment(_experiment(
+                i, mechanism="trend", won=(i < 1)))   # predicted win .7, actual .1
+        for i in range(10):
+            memory.record_closed_experiment(_experiment(
+                50 + i, mechanism="chop", won=(i < 7)))  # actual .7 ~ matches
+        board = memory.calibration_board(minimum_experiments=3)
+        assert board[0].mechanism_name == "trend"     # biggest predicted-actual gap
+        assert board[0].experiment_count == 10
+        assert board[0].actual_win_rate < board[0].predicted_win_rate

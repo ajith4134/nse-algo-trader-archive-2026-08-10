@@ -263,6 +263,14 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
   </div>
 
   <div class="card">
+    <div class="head"><span class="bar"></span><h2>Reflection — mechanism calibration (Layer 10 memory)</h2><span class="aside" id="reflectaside"></span></div>
+    <div class="body">
+      <table class="labtbl" id="reflectTbl"></table>
+      <p class="note" id="reflectnote"></p>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="head"><span class="bar"></span><h2>Layer roadmap</h2><span class="aside" id="roadaside"></span></div>
     <div class="body"><div class="rlist" id="roadmap"></div></div>
   </div>
@@ -454,6 +462,23 @@ function renderLive(snap){
   });
   document.getElementById("readyTbl").innerHTML=rrows;
   document.getElementById("readynote").innerHTML="Each strategy's realized per-trade returns run through CPCV → the Deflated-Sharpe gate (min 30 trades). A 'promote candidate' is a statistical readiness signal only — paper, not live capital.";
+  // --- Reflection: per-mechanism predicted-vs-actual calibration (L10 memory) ---
+  const rb=snap.reflection_board||[];
+  document.getElementById("reflectaside").textContent=(snap.memory_experiment_count||0).toLocaleString()+" experiences";
+  let rbrows="<tr><th>Strategy</th><th>Mechanism</th><th>n</th><th>Predicted</th><th>Actual</th><th>Gap</th><th>Brier</th></tr>";
+  if(!rb.length){ rbrows+=`<tr><td colspan="7" style="color:var(--faint)">learning — no closed experiments yet</td></tr>`; }
+  rb.slice(0,12).forEach(r=>{
+    const gap=r.predicted_win_rate-r.actual_win_rate;
+    const gc=Math.abs(gap)>=0.25?'var(--loss)':(Math.abs(gap)>=0.12?'var(--warnc)':'var(--profit)');
+    rbrows+=`<tr><td class="tablename">${r.strategy_tag.replace(/_/g," ")}</td>`+
+      `<td style="max-width:22ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.mechanism_name}">${r.mechanism_name}</td>`+
+      `<td>${r.experiment_count}</td><td>${Math.round(r.predicted_win_rate*100)}%</td>`+
+      `<td>${Math.round(r.actual_win_rate*100)}%</td>`+
+      `<td style="color:${gc};font-weight:600">${gap>=0?'+':''}${Math.round(gap*100)}%</td>`+
+      `<td>${r.mean_brier.toFixed(3)}</td></tr>`;
+  });
+  document.getElementById("reflectTbl").innerHTML=rbrows;
+  document.getElementById("reflectnote").innerHTML="Each closed §9 experiment (cash + options) becomes a memory node. <b>Gap</b> = predicted − actual win-rate; a large gap is a miscalibrated thesis the bot is learning to distrust.";
   document.getElementById("sub").textContent="live dashboard · updated "+snap.generated_at.slice(11,16)+(LIVE_API_KEY?" · auto-refresh 20s":"");
 }
 renderLive(SNAPSHOT);

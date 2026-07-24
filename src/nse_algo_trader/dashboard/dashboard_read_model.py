@@ -102,6 +102,8 @@ class DashboardSnapshot:
     closed_trades: list[dict] = field(default_factory=list)
     combined_realized_pnl: float = 0.0
     strategy_readiness: list[StrategyReadinessSummary] = field(default_factory=list)
+    memory_experiment_count: int = 0
+    reflection_board: list[dict] = field(default_factory=list)
 
     def to_json_dict(self) -> dict:
         return {
@@ -126,6 +128,8 @@ class DashboardSnapshot:
             "closed_trades": self.closed_trades,
             "combined_realized_pnl": self.combined_realized_pnl,
             "strategy_readiness": [asdict(r) for r in self.strategy_readiness],
+            "memory_experiment_count": self.memory_experiment_count,
+            "reflection_board": self.reflection_board,
         }
 
 
@@ -145,6 +149,8 @@ def build_dashboard_snapshot(
     closed_trades: list[dict] | None = None,
     combined_realized_pnl: float = 0.0,
     strategy_readiness: list[StrategyReadinessSummary] | None = None,
+    memory_experiment_count: int = 0,
+    reflection_board: list[dict] | None = None,
 ) -> DashboardSnapshot:
     """When `precomputed_*` summaries are supplied (by the live service's
     writer thread, which is the sole mutator of the ledger/scoreboard),
@@ -232,6 +238,8 @@ def build_dashboard_snapshot(
         closed_trades=list(closed_trades or []),
         combined_realized_pnl=combined_realized_pnl,
         strategy_readiness=list(strategy_readiness or []),
+        memory_experiment_count=memory_experiment_count,
+        reflection_board=list(reflection_board or []),
     )
 
 

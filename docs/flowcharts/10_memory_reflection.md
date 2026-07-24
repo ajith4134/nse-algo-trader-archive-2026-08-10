@@ -83,3 +83,18 @@ continuation predictions were miscalibrated. Unit: 6 tests; suite green.
   NSE participant-wise OI source, don't skip the feature).
 - Swap-up path: Graphiti/Neo4j `ExperienceMemory` when semantic/multi-hop
   retrieval is needed.
+
+## Surfacing complete (2026-07-24) — options + Reflection panel
+- **Option experiments (Rule I):** options were only display-labeled; now the
+  directional-option and credit-spread paths carry real §9 prediction records
+  (`prediction_lab/option_prediction_records.py`: directional confidence rises
+  WITH ADX, credit-spread confidence rises as ADX FALLS), are graded into the
+  scoreboard, and emit closed experiments into memory — so cash AND options
+  populate calibration/reflection. Rule-F verified: 14 directional-option
+  closes → 14 graded §9 experiments across stock+index options.
+- **Reflection panel:** `SqliteExperienceMemory.calibration_board` (per
+  strategy×mechanism: predicted vs actual win-rate + Brier, ordered by the
+  over-confidence gap) is published by the service and rendered as the
+  dashboard "Reflection — mechanism calibration" panel. The EPISTEMICS
+  transparency surface — it shows, live, which theses the bot's predictions
+  are miscalibrated on (large predicted−actual gap).
