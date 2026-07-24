@@ -300,3 +300,13 @@ when shut for now); the DSR/CPCV promotion gates (`strategy_promotion_gate`,
 step, not the live open loop; `KiteLiveTickStreamSource` (superseded by the
 LTP-polling feed). The `min_capital_per_trade` clamp is not yet enforced on
 the live path (max-capital is, as a margin fraction).
+
+## Post-seed intraday breakout watch (added 2026-07-24)
+A cash name seeded with no breakout at seed time no longer goes idle: its
+opening-range high/low is cached (`WatchedOpeningRange`) and every scan pass
+`check_watched_names_for_live_breakout` prices the watched set (batched LTP)
+and opens any that have since broken the range on live price (LONG above the
+range high, SHORT below the low; stop = opposite bound, target = entry ±
+RR×risk; ADX from seed time). Watches are dropped past the 14:30 entry
+cutoff or once the name opens. Closes the "breakout after seeding is missed"
+gap. Unit-tested (`TestPostSeedBreakoutWatch`).

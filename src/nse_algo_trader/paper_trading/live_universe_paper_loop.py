@@ -117,6 +117,9 @@ class LiveUniversePaperState:
     unflattened_square_off_positions: list[OpenPaperPosition] = field(
         default_factory=list
     )
+    # Seeded cash names with no breakout YET — watched for a later intraday
+    # breakout of their cached opening range (token -> WatchedOpeningRange).
+    watched_opening_ranges: dict = field(default_factory=dict)
     # Options credit-spread path (one spread per underlying at a time).
     open_option_spreads: dict = field(default_factory=dict)
     seeded_option_underlyings: set = field(default_factory=set)
@@ -246,6 +249,116 @@ def _manage_open_positions_against_prices(
     return closed_count
 
 
+@dataclass
+class WatchedOpeningRange:
+    instrument: Instrument
+    opening_range_high: float
+    opening_range_low: float
+    regime_adx: float
+    target_risk_reward_ratio: float
+
+
+def _cache_opening_range_for_watch(
+    state, instrument, session_bars, recent_bars, strategy_config, now
+) -> None:
+    """Cache the opening-range high/low of a seeded-no-signal name so later
+    passes can catch an intraday breakout from live LTP."""
+    from datetime import timedelta
+
+    session_open = session_bars[0].timestamp
+    range_end = session_open + timedelta(minutes=strategy_config.opening_range_minutes)
+    opening_bars = [b for b in session_bars if b.timestamp < range_end]
+    if len(opening_bars) < 1:
+        return
+    # Past the latest-entry cutoff -> no point watching.
+    if now.timetz().replace(tzinfo=None) >= strategy_config.latest_entry_time_ist:
+        return
+    state.watched_opening_ranges[instrument.instrument_token] = WatchedOpeningRange(
+        instrument=instrument,
+        opening_range_high=max(b.high_price for b in opening_bars),
+        opening_range_low=min(b.low_price for b in opening_bars),
+        regime_adx=_regime_adx_warmed_at(recent_bars, recent_bars[-1].timestamp),
+        target_risk_reward_ratio=strategy_config.target_risk_reward_ratio,
+    )
+
+
+def check_watched_names_for_live_breakout(
+    state: LiveUniversePaperState,
+    live_universe_feed,
+    risk_budget: RiskBudgetConfig,
+    now: datetime,
+    strategy_config: OpeningRangeBreakoutConfig,
+) -> int:
+    """Each pass: price the watched names and open a position on any that
+    have now broken their cached opening range (live-LTP breakout). Returns
+    the number opened."""
+    if not state.watched_opening_ranges:
+        return 0
+    if now.timetz().replace(tzinfo=None) >= strategy_config.latest_entry_time_ist:
+        state.watched_opening_ranges.clear()
+        return 0
+    watched = list(state.watched_opening_ranges.values())
+    price_by_token = live_universe_feed.latest_price_by_token(
+        [w.instrument for w in watched]
+    )
+    opened = 0
+    for watch in watched:
+        token = watch.instrument.instrument_token
+        if token in state.open_positions:
+            state.watched_opening_ranges.pop(token, None)
+            continue
+        ltp = price_by_token.get(token)
+        if ltp is None:
+            continue
+        direction = None
+        if ltp > watch.opening_range_high:
+            direction = SignalDirection.LONG
+        elif ltp < watch.opening_range_low:
+            direction = SignalDirection.SHORT
+        if direction is None:
+            continue
+        if _open_watched_breakout(state, watch, direction, ltp, risk_budget, now):
+            opened += 1
+        state.watched_opening_ranges.pop(token, None)
+    return opened
+
+
+def _open_watched_breakout(state, watch, direction, ltp, risk_budget, now) -> bool:
+    from nse_algo_trader.strategy_engine import OpeningRangeBreakoutSignal
+
+    stop = watch.opening_range_low if direction is SignalDirection.LONG else watch.opening_range_high
+    risk_per_unit = abs(ltp - stop)
+    if risk_per_unit <= 0:
+        return False
+    target = (
+        ltp + watch.target_risk_reward_ratio * risk_per_unit
+        if direction is SignalDirection.LONG
+        else ltp - watch.target_risk_reward_ratio * risk_per_unit
+    )
+    signal = OpeningRangeBreakoutSignal(
+        instrument=watch.instrument,
+        direction=direction,
+        triggered_at=now,
+        breakout_close_price=ltp,
+        opening_range_high=watch.opening_range_high,
+        opening_range_low=watch.opening_range_low,
+        stop_loss_price=stop,
+        target_price=target,
+        strategy_tag="opening_range_breakout_v1",
+    )
+    risk_decision = evaluate_opening_range_breakout_signal(signal, risk_budget)
+    if not risk_decision.approved or risk_decision.approved_quantity <= 0:
+        return False
+    prediction_record = build_orb_prediction_record(
+        signal=signal, adx_value=watch.regime_adx, session_date=now.date(),
+        target_reward_multiple=watch.target_risk_reward_ratio,
+    )
+    _open_position_from_signal(
+        state, signal, risk_decision.approved_quantity, prediction_record, now
+    )
+    return True
+
+
 def _seed_cash_instrument_from_orb(
     state: LiveUniversePaperState,
     instrument: Instrument,
@@ -266,6 +379,11 @@ def _seed_cash_instrument_from_orb(
         return False
     signal = detect_opening_range_breakout(session_bars, instrument, strategy_config)
     if signal is None:
+        # No breakout at seed time -> cache the opening range and watch live
+        # LTP for a later intraday breakout (post-seed breakout watch).
+        _cache_opening_range_for_watch(
+            state, instrument, session_bars, recent_bars, strategy_config, now
+        )
         return False
     risk_decision = evaluate_opening_range_breakout_signal(signal, risk_budget)
     if not risk_decision.approved or risk_decision.approved_quantity <= 0:
@@ -381,6 +499,12 @@ def run_live_universe_scan_pass(
 
     closed_this_pass = _manage_open_positions_against_prices(
         state, latest_price_by_token, now
+    )
+
+    # Post-seed breakout watch: open any watched name that has now broken its
+    # cached opening range on live LTP.
+    check_watched_names_for_live_breakout(
+        state, live_universe_feed, risk_budget, now, strategy_config
     )
 
     # Force square-off window: flatten everything, seed nothing more.

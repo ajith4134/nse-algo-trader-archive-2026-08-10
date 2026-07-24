@@ -122,6 +122,40 @@ class TestLivePriceManagement:
         assert state.closed_trades[0].realized_pnl > 0
 
 
+def _bars_no_breakout_inside_range():
+    """Prior-day filler (warms ADX) + today's opening range with NO breakout
+    (price stays inside the 95-100 range all session)."""
+    bars = []
+    base = datetime(2026, 7, 20, 9, 15, tzinfo=IST)
+    price = 80.0
+    for day in range(4):
+        for i in range(8):
+            price += 0.5
+            bars.append(_bar(base.replace(day=20 + day) + timedelta(minutes=5 * i),
+                             price, price + 1, price - 1, price))
+    t = datetime(2026, 7, 24, 9, 15, tzinfo=IST)
+    for i in range(8):  # opening range + rest of session, all inside 95..100
+        bars.append(_bar(t + timedelta(minutes=5 * i), 97, 100, 95, 98))
+    return bars
+
+
+class TestPostSeedBreakoutWatch:
+    def test_seeded_no_signal_name_is_watched_then_opens_on_live_breakout(self):
+        feed = _FakeFeed(_bars_no_breakout_inside_range(), {STOCK.instrument_token: 98.0})
+        state = _fresh_state()
+        now = datetime(2026, 7, 24, 11, 0, tzinfo=IST)
+        report = run_live_universe_scan_pass(state, [STOCK], feed, RISK, now,
+                                             market_clock=NseMarketClock())
+        assert report.newly_opened_count == 0
+        assert STOCK.instrument_token in state.watched_opening_ranges  # now watched
+        # next pass: live LTP breaks above the opening-range high (100)
+        feed._price_by_token = {STOCK.instrument_token: 101.0}
+        run_live_universe_scan_pass(state, [STOCK], feed, RISK,
+                                    now + timedelta(minutes=5), market_clock=NseMarketClock())
+        assert STOCK.instrument_token in state.open_positions  # opened on live breakout
+        assert state.open_positions[STOCK.instrument_token].direction.value == "long"
+
+
 class TestForcedSquareOff:
     def test_all_open_positions_flatten_via_layer8_at_1515(self):
         feed = _FakeFeed(_bars_with_long_breakout_still_open(), {STOCK.instrument_token: 101.5})
