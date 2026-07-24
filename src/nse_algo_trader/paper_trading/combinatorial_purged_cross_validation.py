@@ -54,37 +54,28 @@ def partition_returns_into_groups(
 def compute_cpcv_backtest_path_sharpes(
     per_period_returns: list[float], config: CpcvConfig = CpcvConfig()
 ) -> list[float]:
-    """One out-of-sample Sharpe per combination of test groups (embargoed)."""
+    """One out-of-sample Sharpe per combination of test groups.
+
+    The OOS path for a combination is the concatenation of ALL its test
+    groups' realized returns. Purge/embargo (López de Prado) removes TRAINING
+    observations near a test boundary to stop label leakage — but this is a
+    label-free realized-returns series with no per-path model training, so
+    there is nothing to purge and the embargo must NOT shrink the OOS path
+    itself (research/41 fix: it previously dropped adjacent test groups,
+    corrupting the trial distribution the Deflated-Sharpe gate deflates
+    against). `embargo_group_count` is retained for a future label-based CV.
+    """
     groups = partition_returns_into_groups(per_period_returns, config.group_count)
     path_sharpes: list[float] = []
     for test_group_indices in itertools.combinations(
         range(config.group_count), config.test_group_count
     ):
-        embargoed = _embargoed_group_indices(
-            test_group_indices, config.group_count, config.embargo_group_count
-        )
         path_returns = [
-            r
-            for group_index in test_group_indices
-            if group_index not in embargoed
-            for r in groups[group_index]
+            r for group_index in test_group_indices for r in groups[group_index]
         ]
         if len(path_returns) >= 2:
             path_sharpes.append(compute_sharpe_ratio(path_returns))
     return path_sharpes
-
-
-def _embargoed_group_indices(
-    test_group_indices: tuple[int, ...], group_count: int, embargo_group_count: int
-) -> set[int]:
-    """Group indices to exclude because they sit within `embargo` of a test
-    group's boundary (leak-prevention)."""
-    embargoed: set[int] = set()
-    for test_index in test_group_indices:
-        for offset in range(1, embargo_group_count + 1):
-            if test_index + offset < group_count:
-                embargoed.add(test_index + offset)
-    return embargoed
 
 
 def evaluate_strategy_with_cpcv_gate(

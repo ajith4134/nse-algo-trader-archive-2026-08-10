@@ -35,7 +35,10 @@ class TestCpcvPaths:
         # C(6,2) = 15 combinations
         assert len(paths) == 15
 
-    def test_embargo_can_drop_some_paths(self):
+    def test_embargo_does_not_corrupt_the_oos_path(self):
+        # research/41 fix: for a label-free realized-returns series there is
+        # nothing to purge, so the embargo must NOT drop test-group returns
+        # from the OOS path — the trial distribution stays intact.
         returns = [0.1 * ((-1) ** i) + 0.05 for i in range(60)]
         no_embargo = compute_cpcv_backtest_path_sharpes(
             returns, CpcvConfig(6, 2, embargo_group_count=0)
@@ -43,8 +46,7 @@ class TestCpcvPaths:
         with_embargo = compute_cpcv_backtest_path_sharpes(
             returns, CpcvConfig(6, 2, embargo_group_count=1)
         )
-        # embargo removes adjacent groups from paths -> some paths shrink/drop
-        assert len(with_embargo) <= len(no_embargo)
+        assert with_embargo == no_embargo  # embargo is a no-op on OOS paths
 
 
 class TestCpcvGate:
