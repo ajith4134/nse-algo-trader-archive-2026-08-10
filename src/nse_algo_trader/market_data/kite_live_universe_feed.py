@@ -22,7 +22,8 @@ loop above consumes broker-neutral `PriceBar`s and a token->price dict.
 
 from __future__ import annotations
 
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
+from time import monotonic, sleep
 from zoneinfo import ZoneInfo
 
 from nse_algo_trader.market_data.kite_historical_bar_source import (
@@ -36,6 +37,12 @@ from nse_algo_trader.universe_registry import Instrument
 _INDIA_MARKET_TIMEZONE = ZoneInfo("Asia/Kolkata")
 _NSE_REGULAR_SESSION_OPEN_IST = time(9, 15)
 
+# Kite caps historical_data at ~3 requests/second; pace below that and back
+# off on the "Too many requests" NetworkException so a universe-wide seed
+# does not trip the limit.
+_HISTORICAL_MIN_SECONDS_BETWEEN_CALLS = 0.34
+_HISTORICAL_MAX_RETRIES = 4
+
 
 class KiteLiveUniverseFeed:
     def __init__(
@@ -46,6 +53,7 @@ class KiteLiveUniverseFeed:
         self._kite_client = authenticated_kite_client
         self._historical_bar_source = KiteHistoricalBarSource(authenticated_kite_client)
         self._ltp_batch_size = ltp_batch_size
+        self._last_historical_call_monotonic = 0.0
 
     def _kite_ltp_symbol(self, instrument: Instrument) -> str:
         exchange = "NFO" if instrument.exchange_segment.value == "NSE_FO" else "NSE"
@@ -84,9 +92,47 @@ class KiteLiveUniverseFeed:
             second=0,
             microsecond=0,
         )
-        return self._historical_bar_source.fetch_historical_bars(
+        return self._paced_fetch_historical_bars(
             instrument, bar_interval, session_open, as_of_moment
         )
+
+    def recent_intraday_bars(
+        self,
+        instrument: Instrument,
+        as_of_moment: datetime,
+        lookback_calendar_days: int = 7,
+        bar_interval: BarInterval = BarInterval.MINUTE_5,
+    ) -> list[PriceBar]:
+        """Intraday candles over the last `lookback_calendar_days` through
+        `as_of_moment`, in ONE historical call. Enough bars to warm ADX
+        (which needs ~2×period) before today's opening range — today's
+        session is a slice of the tail (`bar.timestamp.date() == today`)."""
+        window_start = as_of_moment - timedelta(days=lookback_calendar_days)
+        return self._paced_fetch_historical_bars(
+            instrument, bar_interval, window_start, as_of_moment
+        )
+
+    def _paced_fetch_historical_bars(self, instrument, bar_interval, frm, to):
+        """Fetch with ≤3 req/s pacing and exponential backoff on Kite's
+        'Too many requests' NetworkException."""
+        for attempt in range(_HISTORICAL_MAX_RETRIES):
+            elapsed = monotonic() - self._last_historical_call_monotonic
+            if elapsed < _HISTORICAL_MIN_SECONDS_BETWEEN_CALLS:
+                sleep(_HISTORICAL_MIN_SECONDS_BETWEEN_CALLS - elapsed)
+            try:
+                bars = self._historical_bar_source.fetch_historical_bars(
+                    instrument, bar_interval, frm, to
+                )
+                self._last_historical_call_monotonic = monotonic()
+                return bars
+            except Exception as kite_error:
+                self._last_historical_call_monotonic = monotonic()
+                if "Too many requests" not in str(kite_error) or (
+                    attempt == _HISTORICAL_MAX_RETRIES - 1
+                ):
+                    raise
+                sleep(0.5 * (2**attempt))
+        return []
 
     def stream_bars(self, loop_forever: bool = False):
         """Present so the router can treat this as its live bar source. The

@@ -9,6 +9,14 @@ interface, seamless handoff. The prediction-labeled trade-tables lab
 from nse_algo_trader.paper_trading.historical_bar_replay_source import (
     HistoricalBarReplaySource,
 )
+from nse_algo_trader.paper_trading.live_universe_paper_loop import (
+    ClosedPaperTrade,
+    LiveUniversePaperState,
+    OpenPaperPosition,
+    ScanPassReport,
+    run_live_universe_scan_pass,
+    square_off_all_open_positions,
+)
 from nse_algo_trader.paper_trading.market_clock_gated_data_source_router import (
     DataSourceMode,
     MarketClockGatedDataSourceRouter,
@@ -50,10 +58,16 @@ from nse_algo_trader.paper_trading.paper_trading_ledger import (
 )
 
 __all__ = [
+    "ClosedPaperTrade",
     "DataSourceMode",
     "FillSlippageConfig",
     "HistoricalBarReplaySource",
     "INDIA_MARKET_TIMEZONE",
+    "LiveUniversePaperState",
+    "OpenPaperPosition",
+    "ScanPassReport",
+    "run_live_universe_scan_pass",
+    "square_off_all_open_positions",
     "estimate_slipped_fill_price",
     "make_slippage_fill_adjuster",
     "MarketClockGatedDataSourceRouter",

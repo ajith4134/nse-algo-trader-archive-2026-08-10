@@ -62,3 +62,17 @@ tests/test_session_management/test_square_off.py   # 12 tests
 - Live-broker OPEN-state polling: for `KiteBrokerClient`, a submitted
   square-off is OPEN until filled — poll to COMPLETE / re-fire on timeout
   (v1 treats accepted-not-rejected as flattening; paper fills instantly).
+
+## Wired into the live loop (2026-07-24) — Rule G closed
+**Correction:** earlier this note said the executor was "consumed by the
+paper loop now." That was inaccurate — before 2026-07-24 nothing runnable
+called `execute_intraday_square_off`; the replay paper engine did its own
+inline single-leg close. Layer 8 is now genuinely wired:
+`paper_trading/live_universe_paper_loop.square_off_all_open_positions`
+builds an `OpenPositionLeg` per held position and calls
+`execute_intraday_square_off` (safe-ordered, retry-to-flat) when the
+`IntradaySquareOffSchedule` fires at 15:15 IST during a scan pass.
+**Rule-F/unit verified:** `test_live_universe_paper_loop.py::TestForcedSquareOff`
+opens a live position then runs a scan pass at 15:20 -> squared_off_at_close,
+0 open, ledger flat (no overnight carry, ever). This is the real consumer
+that closes the Rule-G orphan.

@@ -242,3 +242,47 @@ slippage model · Deflated-Sharpe gate · **CPCV gate**. **Only remaining
 item — the live-feed handoff (drain replay → live KiteTicker at the open) —
 is BLOCKED pending an open market session + live auth, exactly like Layer
 2's live-tick check.** Nothing else is outstanding.
+
+## Live universe paper loop (added 2026-07-24) — positions that stay OPEN
+`live_universe_paper_loop.py` is the always-on loop that runs DURING the
+open session, the piece the dashboard was missing (it only ever ran a
+single-symbol INFY replay that opened+closed inside the replay, so nothing
+was ever "open"). See `docs/research/38`.
+
+Data flow:
+```
+KiteLiveUniverseFeed (Layer 2)                TradableUniverse (Layer 1)
+  latest_price_by_token  ─┐                     9,272 cash + 215 opt ladders
+  recent_intraday_bars   ─┤                              │
+                          ▼                               ▼
+[run_live_universe_scan_pass]  (one pass, repeatable; router gates LIVE/REPLAY)
+  1. price whole universe (batched LTP)
+  2. manage OPEN positions vs live price -> stop/target exit (Layer 4 levels)
+  3. seed a bounded batch of un-seeded cash: recent_intraday_bars ->
+     ORB detect (L4) -> risk gate (L5) -> open HELD position or, if it
+     already stopped/targeted earlier today, record the completed trade
+     (per-instrument replay->live catch-up). ADX warmed over the multi-day
+     window (today's ~20 bars alone can't warm it).
+  4. from 15:15 IST -> square_off_all_open_positions via Layer 8
+        │
+        ▼
+  LiveUniversePaperState: open_positions{token->OpenPaperPosition},
+  closed_trades[], PaperTradingLedger, §9 PredictionTableScoreboard
+```
+
+Exports: `LiveUniversePaperState`, `OpenPaperPosition`, `ClosedPaperTrade`,
+`ScanPassReport`, `run_live_universe_scan_pass`, `square_off_all_open_positions`.
+
+**Rule-F live verification (2026-07-24, ~11:00 IST open session):** seeded
+60 F&O-liquid cash names in ~22s (historical paced ≤3/s) -> **29 positions
+opened and held OPEN across the universe** (ADANIPORTS, AMBER, AMBUJACEM,
+ASHOKLEY, ASTRAL, AUROPHARMA, …) + 5 caught-up closed trades; §9 open-
+position labels spread **confident_win 26 / confident_loss 2 / uncertain 1**
+(all three tables populate, not all-one-label — fixed by warming ADX over a
+7-day 5-min window instead of today's ~20 bars). 4 deterministic unit tests
+(`test_live_universe_paper_loop.py`), 257 suite total green.
+
+**Still to do (slice 4):** surface these OPEN positions + the live §9 tables
+on the dashboard (currently the server still runs the old INFY replay);
+options/credit-spread entry path (cash ORB is wired; option ladders are
+priced but the credit-spread open path is the next entry rule).
