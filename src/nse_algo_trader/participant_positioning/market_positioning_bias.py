@@ -28,6 +28,11 @@ def institutional_positioning_opposes_entry(
     # slice 1 (the divergence stands on the OI signal alone).
     if getattr(reading, "participation_conviction", None) == "low":
         return False
+    # Slice 3: don't fade the retail side when the multi-day trend shows FII are
+    # already COVERING the very position we'd be leaning on (an early reversal) —
+    # a "weakening" trend suppresses the defer. Confirming/flat/None → defer.
+    if getattr(reading, "fii_net_trend", None) == "weakening":
+        return False
     lean = getattr(reading, "directional_lean", "neutral")
     if entry_is_bullish and lean == "bearish":
         return True

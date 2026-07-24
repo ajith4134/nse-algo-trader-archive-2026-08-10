@@ -53,6 +53,14 @@ class OpponentLedgerReading:
     fii_index_futures_churn: float | None = None
     fii_volume_share: float | None = None
     participation_conviction: str | None = None
+    # Slice 3 (multi-day trend): the recent FII index-futures net TREND relative
+    # to today's lean. None when no history supplied. `fii_net_trend` is
+    # 'confirming' (FII building the leaned-into position), 'weakening' (FII
+    # covering it — an early reversal), or 'flat'. The gate suppresses a defer on
+    # 'weakening' (don't fade retail when institutions are already unwinding).
+    fii_net_trend: str | None = None
+    fii_net_change_over_window: int | None = None
+    fii_net_window_days: int | None = None
 
 
 # FII index-futures churn (volume ÷ open interest) tiers — thresholds grounded
@@ -69,6 +77,43 @@ def _participation_conviction(churn: float | None) -> str | None:
     if churn < _CONVICTION_LOW_CHURN:
         return "low"
     return "normal"
+
+
+def _least_squares_slope(series: list[int]) -> float:
+    """Slope (contracts/day) of the series against its index 0..n-1 — robust to
+    a single-day blip in a way endpoint-difference is not."""
+    n = len(series)
+    mean_x = (n - 1) / 2.0
+    mean_y = sum(series) / n
+    covariance = sum((i - mean_x) * (y - mean_y) for i, y in enumerate(series))
+    variance = sum((i - mean_x) ** 2 for i in range(n))
+    return covariance / variance if variance > 0 else 0.0
+
+
+def _fii_net_trend_vs_lean(
+    recent_fii_nets: list[int] | None, lean: str, todays_net: int
+) -> tuple[str | None, int | None, int | None]:
+    """Classify the recent FII-net trend against today's lean. Returns
+    (trend, net_change_over_window, window_days). 'confirming' = FII building the
+    leaned-into position; 'weakening' = FII covering it; 'flat' = neutral lean or
+    a change inside the deadband. None when <2 data points."""
+    if recent_fii_nets is None or len(recent_fii_nets) < 2:
+        return None, None, None
+    window_days = len(recent_fii_nets)
+    net_change = recent_fii_nets[-1] - recent_fii_nets[0]
+    slope = _least_squares_slope(recent_fii_nets)
+    modeled_change = slope * (window_days - 1)
+    # Deadband: <10% of today's net magnitude, or a neutral lean → flat.
+    deadband = 0.10 * abs(todays_net) if todays_net else 0.0
+    if lean == "neutral" or abs(modeled_change) < deadband:
+        return "flat", net_change, window_days
+    # Rising net (slope>0) = building long / covering short; falling = building
+    # short / reducing long. "Confirming" = trend deepens the leaned-into side.
+    if lean == "bearish":
+        trend = "confirming" if slope < 0 else "weakening"
+    else:  # bullish
+        trend = "confirming" if slope > 0 else "weakening"
+    return trend, net_change, window_days
 
 
 def _directional_lean(fii_index_futures_net: int, ratio: float | None) -> str:
@@ -112,11 +157,14 @@ def _fii_index_futures_activity(
 def read_opponent_ledger(
     snapshot: ParticipantPositioningSnapshot,
     volume_snapshot: ParticipantPositioningSnapshot | None = None,
+    recent_fii_index_futures_nets: list[int] | None = None,
 ) -> OpponentLedgerReading | None:
     """Compute the opponent-ledger reading, or None if the FII/Client rows are
-    absent (a malformed report). When `volume_snapshot` (the participant
-    trading-volume report) is supplied, also derive the participation-conviction
-    qualifier (slice 2)."""
+    absent (a malformed report). When `volume_snapshot` is supplied, derive the
+    participation-conviction qualifier (slice 2). When
+    `recent_fii_index_futures_nets` (the FII index-futures net over the recent
+    window, oldest→newest with today last) is supplied, derive the multi-day
+    net-trend qualifier (slice 3)."""
     fii = snapshot.row_for(ParticipantCategory.FII)
     client = snapshot.row_for(ParticipantCategory.CLIENT)
     if fii is None or client is None:
@@ -143,6 +191,9 @@ def read_opponent_ledger(
         volume_snapshot, fii_open_interest
     )
     conviction = _participation_conviction(fii_churn)
+    trend, net_change, window_days = _fii_net_trend_vs_lean(
+        recent_fii_index_futures_nets, lean, fii_futures_net
+    )
 
     ratio_text = f"{ratio:.2f}" if ratio is not None else "n/a"
     divergence_text = (
@@ -155,9 +206,15 @@ def read_opponent_ledger(
         if conviction is not None
         else ""
     )
+    trend_text = (
+        f" {window_days}-day trend {trend} ({net_change:+,})"
+        if trend is not None
+        else ""
+    )
     headline = (
         f"FII index-futures {lean} (net {fii_futures_net:+,}, L/S {ratio_text}); "
-        f"Client net {client_futures_net:+,}{divergence_text}{conviction_text}."
+        f"Client net {client_futures_net:+,}{divergence_text}{conviction_text}"
+        f"{trend_text}."
     )
     return OpponentLedgerReading(
         report_date_iso=snapshot.report_date.isoformat(),
@@ -175,4 +232,7 @@ def read_opponent_ledger(
         fii_index_futures_churn=fii_churn,
         fii_volume_share=fii_share,
         participation_conviction=conviction,
+        fii_net_trend=trend,
+        fii_net_change_over_window=net_change,
+        fii_net_window_days=window_days,
     )

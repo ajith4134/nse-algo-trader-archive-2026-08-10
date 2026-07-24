@@ -283,3 +283,32 @@ volume-backed so the LONG-defer stands. 6 tests (churn/conviction derivation, re
 volume file, gate suppression on low conviction). 327 suite green. Slice-1 tests
 stay green (None conviction still defers).
 **Backlog (Rule K):** slice 3 = multi-day FII-net trend (history walk) — open.
+
+### Opponent ledger slice 3 (2026-07-24) — multi-day FII-net TREND (wired into decisions)
+Slices 1-2 read one EOD snapshot (a *level*). Slice 3 adds the multi-day **trend** —
+are FII *building* their position or *covering* it, the reversal-lead practitioners
+watch.
+
+**Signal:** `read_opponent_ledger(oi, volume=None, recent_fii_index_futures_nets=None)`
+computes, over a 5-trading-day window (oldest→newest, today last), a **least-squares
+slope** (robust to a one-day blip) and classifies it against today's lean:
+`fii_net_trend` = confirming (FII building the leaned-into side) / weakening
+(covering — early reversal) / flat (neutral lean or |modeled change| < 10% of today's
+net). Fields: `fii_net_trend`, `fii_net_change_over_window`, `fii_net_window_days`.
+
+**Data flow (Rule G):** service `_refresh_opponent_ledger` history-walks up to
+`_FII_NET_TREND_WINDOW=5` trading-day OI snapshots (tolerating weekend/holiday 404s),
+extracts the FII-net series, and passes it in. The gate
+(`institutional_positioning_opposes_entry`) **suppresses the defer when
+`fii_net_trend == "weakening"`** (don't fade retail when institutions are already
+unwinding). Confirming/flat/None → defer stands (subject to slice-2 conviction).
+Trend → panel note (confirming=loss-red, weakening=profit-green).
+
+**Verified — REAL DATA (Rule F):** live 5-trading-day history walk → real FII nets
+building short (−216,528 → −263,082) → "confirming" (−46,554); the 23-Jul bearish
+defer is now trend-backed. 7 tests (confirming/weakening/flat classification, real
+series, gate suppression on weakening). 334 suite green. Slices 1-2 tests stay green.
+
+**Opponent-ledger feature COMPLETE** — the full pipeline (fetch OI+volume → derive
+lean/divergence/conviction/trend → defer opposed entries → dashboard) is built,
+wired into decisions, and real-data verified. Backlog for this feature is empty.

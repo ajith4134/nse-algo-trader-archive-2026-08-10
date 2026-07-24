@@ -96,3 +96,15 @@ class TestConvictionGatesTheDefer:
         r = replace(_reading("bearish", retail_on_other_side=True),
                     participation_conviction="normal")
         assert institutional_positioning_opposes_entry(r, entry_is_bullish=True)
+
+
+class TestTrendGatesTheDefer:
+    def test_weakening_trend_suppresses_the_defer(self):
+        r = replace(_reading("bearish", retail_on_other_side=True),
+                    participation_conviction="normal", fii_net_trend="weakening")
+        assert not institutional_positioning_opposes_entry(r, entry_is_bullish=True)
+
+    def test_confirming_trend_keeps_the_defer(self):
+        r = replace(_reading("bearish", retail_on_other_side=True),
+                    participation_conviction="normal", fii_net_trend="confirming")
+        assert institutional_positioning_opposes_entry(r, entry_is_bullish=True)

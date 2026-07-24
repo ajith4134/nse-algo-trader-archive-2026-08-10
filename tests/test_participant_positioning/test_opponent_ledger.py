@@ -178,3 +178,50 @@ class TestParticipationConviction:
         assert reading.fii_index_futures_churn == 0.354
         assert reading.participation_conviction == "normal"
         assert reading.fii_volume_share is not None
+
+
+class TestFiiNetTrend:
+    def _bearish_oi(self):
+        # FII net short, Client net long -> bearish lean + divergence
+        return _snapshot(_row("FII", 100, 400), _row("Client", 350, 120))
+
+    def test_building_short_confirms_bearish_lean(self):
+        # FII net falling (more short) over the window -> confirming
+        reading = read_opponent_ledger(
+            self._bearish_oi(),
+            recent_fii_index_futures_nets=[-200, -240, -270, -300, -340],
+        )
+        assert reading.directional_lean == "bearish"
+        assert reading.fii_net_trend == "confirming"
+        assert reading.fii_net_change_over_window == -140
+        assert reading.fii_net_window_days == 5
+
+    def test_covering_short_weakens_bearish_lean(self):
+        # FII net rising (covering the short) -> weakening
+        reading = read_opponent_ledger(
+            self._bearish_oi(),
+            recent_fii_index_futures_nets=[-340, -300, -270, -240, -200],
+        )
+        assert reading.fii_net_trend == "weakening"
+        assert reading.fii_net_change_over_window == 140
+
+    def test_flat_within_deadband(self):
+        reading = read_opponent_ledger(
+            self._bearish_oi(),
+            recent_fii_index_futures_nets=[-300, -301, -299, -300, -300],
+        )
+        assert reading.fii_net_trend == "flat"
+
+    def test_no_history_leaves_trend_none(self):
+        reading = read_opponent_ledger(self._bearish_oi())
+        assert reading.fii_net_trend is None
+
+    @pytest.mark.skipif(not _REAL_SAMPLE.exists(), reason="real sample absent")
+    def test_real_recent_series_confirms_the_bearish_lean(self):
+        oi = parse_participant_report_csv(_REAL_SAMPLE.read_text(), date(2026, 7, 23))
+        # real FII index-fut nets 17->23 Jul (oldest->newest), building short
+        real_series = [-216528, -219823, -228847, -251704, -263082]
+        reading = read_opponent_ledger(oi, recent_fii_index_futures_nets=real_series)
+        assert reading.directional_lean == "bearish"
+        assert reading.fii_net_trend == "confirming"
+        assert reading.fii_net_change_over_window == -46554

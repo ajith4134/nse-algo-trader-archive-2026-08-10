@@ -176,3 +176,42 @@ conviction + FII volume share.
 **Verify:** hermetic churn/conviction derivation + gate-suppression-on-low; a real
 `fao_participant_vol` fetch (EOD, market-closed OK) → real churn 0.35 → "normal";
 slice-1 tests stay green (None conviction still defers).
+
+---
+
+## Slice 3 (2026-07-24) — multi-day FII-net TREND (wired into decisions)
+Slices 1-2 read a single EOD snapshot; a one-day FII net is a *level*. The
+reversal-lead practitioners actually watch is the day-over-day **trend**: are FII
+*building* their position or *covering* it? (research/47 §4: "watch the day-over-day
+change for a reversal lead.")
+
+**Data (already acquired):** the same `positioning_on(date)` over a history walk —
+the last N=5 trading days (walking back over weekends/holidays via 404). EOD
+archives back to 2014, reachable market-closed → a real Rule-F pass now.
+
+**Signal:** over the recent window (oldest→newest, last = today), FII index-futures
+net series → a **least-squares slope** (robust to a one-day blip) + net change.
+Classified against today's lean:
+- bearish lean + net falling (building short) → **confirming**;
+  bearish lean + net rising (covering) → **weakening**.
+- bullish lean + net rising (building long) → confirming; net falling → weakening.
+- neutral lean, or a change inside a deadband (|modeled change| < 10% of |today's
+  net|) → **flat**.
+Real 5-day series 17→23 Jul (−216,528 → −263,082) → building short → **confirming**
+the bearish lean.
+
+**Primary consumer (Rule K — decisions, not display):** the positioning gate
+suppresses the defer when `fii_net_trend == "weakening"` — don't fade the retail
+long when institutions are already unwinding the very short we'd be leaning on.
+Confirming/flat/None → defer stands (subject to slice-2 conviction). On real data:
+confirming → the LONG-defer stands, now trend-backed.
+
+**Files/changes:** `read_opponent_ledger(oi, volume=None,
+recent_fii_index_futures_nets=None)` computes the trend fields
+(`fii_net_trend`, `fii_net_change_over_window`, `fii_net_window_days`); the service
+history-walks the window and passes it; the gate reads `fii_net_trend`; the panel
+shows the trend. No new files.
+
+**Verify:** hermetic trend classification (confirming/weakening/flat) + gate
+suppression on weakening; a real 5-trading-day history walk → confirming for the
+real bearish lean. Slices 1-2 tests stay green (None trend unchanged).

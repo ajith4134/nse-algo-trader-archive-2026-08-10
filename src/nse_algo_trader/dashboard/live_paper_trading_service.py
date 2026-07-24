@@ -194,6 +194,10 @@ def _strategy_readiness_summaries(state) -> tuple[StrategyReadinessSummary, ...]
 
 
 class LivePaperTradingService:
+    # Multi-day FII-net trend window (slice 3): trading days of participant OI
+    # history walked back to trend FII index-futures net.
+    _FII_NET_TREND_WINDOW = 5
+
     def __init__(
         self,
         authenticated_kite_client,
@@ -400,10 +404,10 @@ class LivePaperTradingService:
 
     def _refresh_opponent_ledger(self, now: datetime) -> None:
         """Fetch NSE participant-wise OI at most once per calendar date and
-        cache the opponent-ledger reading (Layer 10 §10, Rule G wiring). The
-        EOD report publishes ~19:00 IST and 404s on holidays / before publish,
-        so we walk back up to 5 days to the most recent available report.
-        Best-effort — a fetch hiccup must never stall the trading loop."""
+        cache the opponent-ledger reading (Layer 10 §10, Rule G wiring). Walks
+        back over holidays/before-publish 404s to collect the most recent report
+        plus a window of prior trading days for the multi-day FII-net trend
+        (slice 3). Best-effort — a fetch hiccup must never stall the loop."""
         today = now.date()
         if self._opponent_ledger_fetched_for == today:
             return
@@ -412,28 +416,44 @@ class LivePaperTradingService:
             from datetime import timedelta
 
             from nse_algo_trader.participant_positioning import read_opponent_ledger
+            from nse_algo_trader.participant_positioning.participant_positioning_source import (  # noqa: E501
+                ParticipantCategory,
+            )
 
+            # History walk: collect up to _FII_NET_TREND_WINDOW trading-day OI
+            # snapshots (newest first), tolerating weekend/holiday 404s.
+            dated_snapshots: list = []
             probe_date = today
-            for _ in range(5):
+            for _ in range(self._FII_NET_TREND_WINDOW + 8):
+                if len(dated_snapshots) >= self._FII_NET_TREND_WINDOW:
+                    break
                 snapshot = self._participant_positioning_source.positioning_on(
                     probe_date
                 )
                 if snapshot is not None:
-                    # slice 2: pair the OI report with the same-day VOLUME report
-                    # so the reading carries a participation-conviction qualifier.
-                    volume_snapshot = self._participant_positioning_source.volume_on(
-                        probe_date
-                    )
-                    reading = read_opponent_ledger(snapshot, volume_snapshot)
-                    if reading is not None:
-                        from dataclasses import asdict
-
-                        self._opponent_ledger_reading = asdict(reading)
-                        # slice 1: the loop reads this to DEFER entries that
-                        # institutions oppose while retail is trapped on that side.
-                        self._state.market_positioning_bias = reading
-                    return
+                    dated_snapshots.append((probe_date, snapshot))
                 probe_date -= timedelta(days=1)
+
+            if not dated_snapshots:
+                return
+            newest_date, newest_snapshot = dated_snapshots[0]
+            # Recent FII index-futures net, oldest→newest (today last).
+            recent_fii_nets = [
+                row.future_index_net_long
+                for _, snap in reversed(dated_snapshots)
+                if (row := snap.row_for(ParticipantCategory.FII)) is not None
+            ]
+            volume_snapshot = self._participant_positioning_source.volume_on(
+                newest_date
+            )
+            reading = read_opponent_ledger(
+                newest_snapshot, volume_snapshot, recent_fii_nets
+            )
+            if reading is not None:
+                from dataclasses import asdict
+
+                self._opponent_ledger_reading = asdict(reading)
+                self._state.market_positioning_bias = reading
         except Exception:
             # Retry on the next calendar date, not this pass.
             pass

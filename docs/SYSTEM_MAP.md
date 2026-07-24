@@ -11,7 +11,7 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-24k**.
+  true to what is actually on the server. Last regenerated: **2026-07-24l**.
 - **100 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
@@ -302,6 +302,22 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-24l** — Opponent-ledger **slice 3: multi-day FII-net TREND** (no new
+  files; edits only, 100 modules). `read_opponent_ledger(oi, volume,
+  recent_fii_index_futures_nets)` now derives the FII index-futures net **trend**
+  over a 5-trading-day window (least-squares slope, robust to a one-day blip):
+  `fii_net_trend` = 'confirming' (FII building the leaned-into position) /
+  'weakening' (covering it — early reversal) / 'flat', plus net change & window.
+  The service now **history-walks** the window (tolerating weekend/holiday 404s,
+  `_FII_NET_TREND_WINDOW=5`) and passes the FII-net series. **Wired into DECISIONS
+  (Rule K):** the positioning gate suppresses the defer when `fii_net_trend ==
+  "weakening"` (don't fade retail when institutions are already unwinding the
+  short/long we'd lean on). Confirming/flat/None → defer stands (subject to
+  slice-2 conviction). Trend surfaces on the panel. **Verified on REAL data
+  (Rule F):** live 5-trading-day history walk → real FII nets building short
+  (−216,528→−263,082) → "confirming" (−46,554); the 23-Jul bearish defer is now
+  trend-backed. 334 suite green (+7). **Opponent-ledger backlog now EMPTY** —
+  slices 1-3 all delivered + real-data verified.
 - **2026-07-24k** — Opponent-ledger **slice 2: participant VOLUME → conviction**
   (no new files; edits only, 100 modules). Added the `fao_participant_vol` report:
   `ParticipantPositioningSource` protocol gains `volume_on(date)`; the real adapter

@@ -17,9 +17,10 @@ Status key: 🔴 not started · 🟡 in progress · 🟢 done (moved to Done) ·
 - 🟢 **Slice 2 — participant VOLUME file.** DONE (2026-07-24): volume_on() added;
   FII churn (vol/OI) → participation_conviction, wired into the gate (suppress
   defer on "low" conviction); real-data verified (live churn 0.354 → normal). *(task #23)*
-- 🔴 **Slice 3 — multi-day FII-net trend.** History walk over N trading days of
-  participant OI to trend FII net (not just today's level). Done = an N-day FII
-  net-trend signal derived + surfaced, real-data verified.
+- 🟢 **Slice 3 — multi-day FII-net trend.** DONE (2026-07-24): 5-day FII-net
+  least-squares trend (confirming/weakening/flat) wired into the gate (weakening
+  suppresses the defer); real-data verified (live walk → building short →
+  confirming). *(task #24)* — **opponent-ledger feature COMPLETE.**
 
 ## §9/§10 grading — proper scoring rules (research/44 borrow)
 - 🔴 **Vendor python-prediction-scorer (MIT) proper scores.** Add Logarithmic +
