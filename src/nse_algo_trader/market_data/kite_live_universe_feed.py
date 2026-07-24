@@ -22,17 +22,19 @@ loop above consumes broker-neutral `PriceBar`s and a token->price dict.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, time
+from zoneinfo import ZoneInfo
 
 from nse_algo_trader.market_data.kite_historical_bar_source import (
     KiteHistoricalBarSource,
 )
 from nse_algo_trader.market_data.market_data_types import BarInterval, PriceBar
-from nse_algo_trader.paper_trading.nse_market_clock import (
-    INDIA_MARKET_TIMEZONE,
-    NSE_REGULAR_SESSION_OPEN_IST,
-)
 from nse_algo_trader.universe_registry import Instrument
+
+# Layer 2 must not import Layer 7 (the market clock lives in paper_trading);
+# the 09:15 IST open is a fixed exchange fact, defined locally here.
+_INDIA_MARKET_TIMEZONE = ZoneInfo("Asia/Kolkata")
+_NSE_REGULAR_SESSION_OPEN_IST = time(9, 15)
 
 
 class KiteLiveUniverseFeed:
@@ -76,9 +78,9 @@ class KiteLiveUniverseFeed:
     ) -> list[PriceBar]:
         """Today's candles from the 09:15 open through `as_of_moment` — the
         real opening range plus every bar since, for one instrument."""
-        session_open = as_of_moment.astimezone(INDIA_MARKET_TIMEZONE).replace(
-            hour=NSE_REGULAR_SESSION_OPEN_IST.hour,
-            minute=NSE_REGULAR_SESSION_OPEN_IST.minute,
+        session_open = as_of_moment.astimezone(_INDIA_MARKET_TIMEZONE).replace(
+            hour=_NSE_REGULAR_SESSION_OPEN_IST.hour,
+            minute=_NSE_REGULAR_SESSION_OPEN_IST.minute,
             second=0,
             microsecond=0,
         )
