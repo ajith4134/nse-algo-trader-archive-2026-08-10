@@ -31,6 +31,14 @@ and the per-layer testing method — lives in `../PLAN.md`. Read that
 first**, then the individual research files for backing detail, before
 starting Layer 3 onward.
 
+**Later research/design docs (2026-07-24, the live-trading build):**
+`../research/37` dashboard Layer-9 plan · `../research/38` live universe
+paper-loop build plan · `../research/39` options credit-spread live-path
+design · `../research/40` order-types Kite spec + taxonomy (SL/SL-M, the
+options-SL-M-blocked gotcha, CO/BO/GTT decisions) · `../research/41` **deep
+cross-verification audit of Layers 1–9** (Rule-G orphans found + fixes) ·
+`../research/42` raw order-types research notes.
+
 ## Scope decided so far
 - Segments in phase 1: NSE cash intraday, NSE options intraday (index +
   single-stock). Futures, commodities, BSE index options (SENSEX/BANKEX):
