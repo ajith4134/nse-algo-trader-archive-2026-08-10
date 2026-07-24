@@ -115,7 +115,14 @@ def build_dashboard_snapshot(
     stored_bar_count: int = 1,
     open_positions: list[OpenPositionSummary] | None = None,
     live_universe_status: LiveUniverseStatus | None = None,
+    precomputed_paper_trading: PaperTradingSummary | None = None,
+    precomputed_prediction_tables: list[PredictionTableSummary] | None = None,
+    precomputed_confident_win_beats_confident_loss: bool | None = None,
 ) -> DashboardSnapshot:
+    """When `precomputed_*` summaries are supplied (by the live service's
+    writer thread, which is the sole mutator of the ledger/scoreboard),
+    they are used verbatim — the request thread never reads the mutating
+    ledger/scoreboard objects, so there is no dictionary-changed-size race."""
     layer_roadmap = [
         {
             "number": layer.number,
@@ -141,21 +148,32 @@ def build_dashboard_snapshot(
         trunk_count=len(CONCEPT_TREE),
         total_branch_count=sum(trunk.branch_count for trunk in CONCEPT_TREE),
     )
-    paper_trading = PaperTradingSummary(
+    paper_trading = precomputed_paper_trading or PaperTradingSummary(
         starting_virtual_cash=paper_ledger.starting_virtual_cash,
         realized_pnl=paper_ledger.realized_pnl,
         fill_count=len(paper_ledger.recorded_fills),
         is_flat=paper_ledger.is_flat(),
     )
-    prediction_tables = [
+    prediction_tables = precomputed_prediction_tables or [
         _summarize_table(prediction_scoreboard, table)
         for table in PredictionLabeledTable
     ]
+    confident_win_beats_confident_loss = (
+        precomputed_confident_win_beats_confident_loss
+        if precomputed_prediction_tables is not None
+        else prediction_scoreboard.confident_win_beats_confident_loss()
+    )
     alerts = [
         {"level": a.level.value, "category": a.category, "message": a.message}
         for a in generate_dashboard_alerts(
-            control_config, paper_ledger, prediction_scoreboard,
+            control_config, paper_trading, prediction_tables,
             kite_access_token_valid, stored_bar_count,
+            generated_at=generated_at,
+            open_position_count=(
+                live_universe_status.open_position_count
+                if live_universe_status is not None
+                else 0
+            ),
         )
     ]
     return DashboardSnapshot(
@@ -167,9 +185,7 @@ def build_dashboard_snapshot(
         concept_tree_counts=concept_tree_counts,
         paper_trading=paper_trading,
         prediction_tables=prediction_tables,
-        confident_win_beats_confident_loss=(
-            prediction_scoreboard.confident_win_beats_confident_loss()
-        ),
+        confident_win_beats_confident_loss=confident_win_beats_confident_loss,
         open_positions=list(open_positions or []),
         live_universe_status=live_universe_status,
     )

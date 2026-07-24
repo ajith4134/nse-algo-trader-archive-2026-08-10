@@ -136,3 +136,28 @@ class TestForcedSquareOff:
         assert report.squared_off_at_close
         assert state.open_position_count() == 0  # no overnight carry, ever
         assert state.ledger.is_flat()
+
+    def test_unflattened_leg_is_surfaced_not_silently_booked(self):
+        # A broker that always REJECTS -> Layer 8 cannot flatten -> the loop
+        # must surface it, never book it closed (Rule: never a silent drop).
+        from nse_algo_trader.broker_oms import OrderExecutionResult, OrderLifecycleState
+        feed = _FakeFeed(_bars_with_long_breakout_still_open(), {STOCK.instrument_token: 101.5})
+        state = _fresh_state()
+
+        class _AlwaysRejectBroker:
+            def update_market_price(self, token, price):
+                pass
+            def place_order(self, intent):
+                return OrderExecutionResult("", OrderLifecycleState.REJECTED, 0, None, "RMS")
+        state.simulated_broker = _AlwaysRejectBroker()
+
+        open_now = datetime(2026, 7, 24, 11, 0, tzinfo=IST)
+        # open a position first (with a normal fill path via a fresh state feed)
+        state2 = _fresh_state()
+        run_live_universe_scan_pass(state2, [STOCK], feed, RISK, open_now, market_clock=NseMarketClock())
+        # move its open position into the reject-broker state
+        state.open_positions = state2.open_positions
+        at_close = datetime(2026, 7, 24, 15, 20, tzinfo=IST)
+        run_live_universe_scan_pass(state, [STOCK], feed, RISK, at_close, market_clock=NseMarketClock())
+        assert len(state.unflattened_square_off_positions) == 1  # surfaced
+        assert not state.closed_trades  # NOT silently booked closed

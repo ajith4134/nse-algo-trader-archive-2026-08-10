@@ -113,6 +113,10 @@ class LiveUniversePaperState:
     open_positions: dict[int, OpenPaperPosition] = field(default_factory=dict)
     closed_trades: list[ClosedPaperTrade] = field(default_factory=list)
     seeded_cash_tokens: set[int] = field(default_factory=set)
+    # Positions Layer 8 could NOT flatten (surfaced CRITICAL, never dropped).
+    unflattened_square_off_positions: list[OpenPaperPosition] = field(
+        default_factory=list
+    )
 
     def open_position_count(self) -> int:
         return len(self.open_positions)
@@ -322,9 +326,17 @@ def square_off_all_open_positions(
         state.simulated_broker.update_market_price(
             position.instrument.instrument_token, exit_price
         )
-    execute_intraday_square_off(open_legs, state.simulated_broker)
-    # Record the flat fills + grade predictions at the marked exit price.
+    report = execute_intraday_square_off(open_legs, state.simulated_broker)
+    # Honor Layer 8's guarantee: only book positions that ACTUALLY flattened.
+    # A leg Layer 8 could not flatten stays OPEN and is surfaced as unflattened
+    # (never silently booked closed) — the exact failure mode L8 exists to catch.
+    unflattened_tokens = {
+        leg.instrument.instrument_token for leg in report.unflattened_legs
+    }
     for position in list(state.open_positions.values()):
+        if position.instrument.instrument_token in unflattened_tokens:
+            state.unflattened_square_off_positions.append(position)
+            continue
         exit_price = latest_price_by_token.get(
             position.instrument.instrument_token, position.entry_price
         )

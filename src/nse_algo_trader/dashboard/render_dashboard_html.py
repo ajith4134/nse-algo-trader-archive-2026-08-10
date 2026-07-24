@@ -135,6 +135,11 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
   .labtbl tr:last-child td{border-bottom:none}
   .tablename{font-family:var(--sans);font-weight:600}
   .tag{display:inline-block;font-size:.64rem;font-weight:700;padding:.15em .5em;border-radius:6px;text-transform:uppercase;letter-spacing:.03em}
+  .optbl{margin-bottom:1rem}
+  .optbl-head{display:flex;align-items:center;gap:.6rem;margin:1.1rem 0 .3rem}
+  .optbl-n{font-size:.72rem;color:var(--faint)}
+  .optbl-pnl{margin-left:auto;font-family:var(--mono);font-weight:700;font-size:.8rem}
+  .optbl-more{font-size:.72rem;color:var(--faint);padding:.2rem .6rem .6rem}
   .tag.win{background:var(--profitsoft);color:var(--profit)} .tag.loss{background:var(--losssoft);color:var(--loss)} .tag.unc{background:var(--warnsoft);color:var(--warnc)}
   .wbar{height:7px;border-radius:4px;background:var(--line);overflow:hidden;min-width:70px}
   .wbar > i{display:block;height:100%;background:var(--profit);border-radius:4px}
@@ -215,7 +220,7 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
     <div class="head"><span class="bar"></span><h2>Open positions — live paper</h2><span class="aside" id="liveaside"></span></div>
     <div class="body">
       <div class="minikpis" id="livekpis"></div>
-      <table class="labtbl" id="openTbl"></table>
+      <div id="openTbl"></div>
       <p class="note" id="opennote"></p>
     </div>
   </div>
@@ -330,17 +335,38 @@ function renderLive(snap){
       `<div class="minikpi"><div class="lab">Closed today</div><div class="v">${lu.closed_trade_count}</div></div>`+
       `<div class="minikpi"><div class="lab">Universe seeded</div><div class="v">${lu.seeded_count.toLocaleString()}/${lu.cash_universe_size.toLocaleString()}</div></div>`;
   }
-  let orows="<tr><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Last</th><th>Unreal</th><th>Table</th></tr>";
-  if(!ops.length){ orows+=`<tr><td colspan="7" style="color:var(--faint)">no open positions ${lu&&!lu.is_market_open?"(market closed)":"yet — seeding universe…"}</td></tr>`; }
-  ops.slice(0,40).forEach(o=>{
-    const up=o.unrealized_pnl; const upc=up==null?'':(up>=0?'var(--profit)':'var(--loss)');
-    const tg=`<span class="tag ${tagcls[o.assigned_table]||''}">${o.assigned_table.replace(/_/g," ")}</span>`;
-    orows+=`<tr><td class="tablename">${o.trading_symbol}</td><td>${o.direction}</td><td>${o.quantity}</td>`+
-      `<td>${o.entry_price}</td><td>${o.last_price==null?'—':o.last_price}</td>`+
-      `<td style="color:${upc}">${up==null?'—':rupee(up)}</td><td>${tg}</td></tr>`;
+  // Split the live open positions into the three §9 tables, each a broker-
+  // style positions grid (Symbol/Side/Qty/Entry/LTP/P&L/Stop/Target).
+  const tableMeta=[
+    ["confident_win","Confident WIN","win"],
+    ["confident_loss","Confident LOSS","loss"],
+    ["uncertain","Uncertain","unc"],
+  ];
+  const cols="<tr><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>LTP</th><th>Unreal P&L</th><th>Stop</th><th>Target</th></tr>";
+  let html="";
+  tableMeta.forEach(([key,label,cls])=>{
+    const rows=ops.filter(o=>o.assigned_table===key)
+                  .sort((a,b)=>(b.unrealized_pnl||0)-(a.unrealized_pnl||0));
+    const grp=rows.reduce((s,o)=>s+(o.unrealized_pnl||0),0);
+    html+=`<div class="optbl-head"><span class="tag ${cls}">${label}</span>`+
+      `<span class="optbl-n">${rows.length} open</span>`+
+      `<span class="optbl-pnl" style="color:${grp>=0?'var(--profit)':'var(--loss)'}">${rows.length?rupee(grp):''}</span></div>`;
+    let body=cols;
+    if(!rows.length){ body+=`<tr><td colspan="8" style="color:var(--faint)">— none —</td></tr>`; }
+    rows.slice(0,25).forEach(o=>{
+      const up=o.unrealized_pnl; const upc=up==null?'':(up>=0?'var(--profit)':'var(--loss)');
+      const sd=o.direction==="long"?'<span style="color:var(--profit)">BUY</span>':'<span style="color:var(--loss)">SELL</span>';
+      body+=`<tr><td class="tablename">${o.trading_symbol}</td><td>${sd}</td><td>${o.quantity}</td>`+
+        `<td>${o.entry_price}</td><td>${o.last_price==null?'—':o.last_price}</td>`+
+        `<td style="color:${upc}">${up==null?'—':rupee(up)}</td>`+
+        `<td>${o.stop_loss_price}</td><td>${o.target_price}</td></tr>`;
+    });
+    html+=`<table class="labtbl optbl">${body}</table>`;
+    if(rows.length>25) html+=`<div class="optbl-more">+${rows.length-25} more in this table</div>`;
   });
-  document.getElementById("openTbl").innerHTML=orows;
-  document.getElementById("opennote").innerHTML= ops.length>40?`Showing top 40 of ${ops.length} open by unrealized P&L.`:"Paper positions on the live feed — simulated fills, virtual capital. Flattened by Layer 8 at 15:15 IST.";
+  if(!ops.length){ html=`<p style="color:var(--faint)">no open positions ${lu&&!lu.is_market_open?"(market closed)":"yet — seeding universe…"}</p>`; }
+  document.getElementById("openTbl").innerHTML=html;
+  document.getElementById("opennote").innerHTML="Live paper positions on the real feed, grouped by §9 prediction table — simulated fills, virtual capital. Auto-flattened by Layer 8 at 15:15 IST.";
   document.getElementById("paperkpis").innerHTML=
     `<div class="minikpi"><div class="lab">Starting capital</div><div class="v">${rupeeShort(p.starting_virtual_cash)}</div></div>`+
     `<div class="minikpi"><div class="lab">Realized P&L</div><div class="v" style="color:${p.realized_pnl>=0?'var(--profit)':'var(--loss)'}">${rupee(p.realized_pnl)}</div></div>`+

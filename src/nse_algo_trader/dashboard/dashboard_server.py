@@ -137,15 +137,22 @@ def build_dashboard_app() -> FastAPI:
             closed_trade_count=published.closed_trade_count,
             last_pass_at=published.last_pass_at,
         )
+        from zoneinfo import ZoneInfo
+
         return build_dashboard_snapshot(
             control_config,
-            live_service.ledger,
-            live_service.scoreboard,
-            datetime.now(),
+            None,  # ledger not read directly — avoids the writer-thread race
+            None,  # scoreboard not read directly — same reason
+            datetime.now(ZoneInfo("Asia/Kolkata")),
             kite_access_token_valid=_is_kite_token_valid(),
             stored_bar_count=1,
             open_positions=open_positions,
             live_universe_status=live_status,
+            precomputed_paper_trading=published.paper_trading_summary,
+            precomputed_prediction_tables=list(published.prediction_table_summaries),
+            precomputed_confident_win_beats_confident_loss=(
+                published.confident_win_beats_confident_loss
+            ),
         )
 
     @app.get("/", response_class=HTMLResponse)

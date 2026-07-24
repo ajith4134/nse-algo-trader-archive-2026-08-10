@@ -25,6 +25,10 @@ from nse_algo_trader.dashboard.config_enforced_paper_run import (
     is_orb_cash_trading_enabled,
     map_control_config_to_risk_budget,
 )
+from nse_algo_trader.dashboard.dashboard_read_model import (
+    PaperTradingSummary,
+    PredictionTableSummary,
+)
 from nse_algo_trader.dashboard.trading_control_config import (
     load_trading_control_config,
 )
@@ -36,6 +40,9 @@ from nse_algo_trader.paper_trading import (
 )
 from nse_algo_trader.paper_trading.nse_market_clock import NseMarketClock
 from nse_algo_trader.paper_trading.prediction_lab import PredictionTableScoreboard
+from nse_algo_trader.paper_trading.prediction_lab.prediction_record import (
+    PredictionLabeledTable,
+)
 from nse_algo_trader.universe_registry import fetch_live_tradable_universe
 
 _INDIA_MARKET_TIMEZONE = ZoneInfo("Asia/Kolkata")
@@ -62,6 +69,11 @@ class LivePaperPublishedSnapshot:
     seeded_count: int
     last_pass_at: str | None
     is_market_open: bool
+    # Summaries computed in the writer thread (sole mutator) so request
+    # threads never read the mutating ledger/scoreboard — no race.
+    paper_trading_summary: PaperTradingSummary | None = None
+    prediction_table_summaries: tuple[PredictionTableSummary, ...] = ()
+    confident_win_beats_confident_loss: bool | None = None
 
     @property
     def open_position_count(self) -> int:
@@ -202,6 +214,17 @@ class LivePaperTradingService:
                 )
             )
         views.sort(key=lambda view: -(view.unrealized_pnl or 0.0))
+        ledger = self._state.ledger
+        paper_summary = PaperTradingSummary(
+            starting_virtual_cash=ledger.starting_virtual_cash,
+            realized_pnl=ledger.realized_pnl,
+            fill_count=len(ledger.recorded_fills),
+            is_flat=ledger.is_flat(),
+        )
+        table_summaries = tuple(
+            self._summarize_prediction_table(table)
+            for table in PredictionLabeledTable
+        )
         snapshot = LivePaperPublishedSnapshot(
             open_positions=tuple(views),
             closed_trade_count=len(self._state.closed_trades),
@@ -209,9 +232,27 @@ class LivePaperTradingService:
             seeded_count=len(self._state.seeded_cash_tokens),
             last_pass_at=now.isoformat(),
             is_market_open=self._clock.is_market_open(now),
+            paper_trading_summary=paper_summary,
+            prediction_table_summaries=table_summaries,
+            confident_win_beats_confident_loss=(
+                self._state.scoreboard.confident_win_beats_confident_loss()
+            ),
         )
         with self._publish_lock:
             self._published = snapshot
+
+    def _summarize_prediction_table(self, table) -> PredictionTableSummary:
+        score = self._state.scoreboard.score_for_table(table)
+        if score is None:
+            return PredictionTableSummary(table.value, 0, None, None, None, None)
+        return PredictionTableSummary(
+            table=table.value,
+            trade_count=score.prediction_count,
+            prediction_hit_rate=score.prediction_hit_rate,
+            mean_win_probability=score.mean_win_probability,
+            actual_win_rate=score.actual_win_rate,
+            brier_score=score.brier_score,
+        )
 
     def published_snapshot(self) -> LivePaperPublishedSnapshot:
         with self._publish_lock:

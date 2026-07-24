@@ -8,17 +8,18 @@ testable against real state.
 """
 
 from dataclasses import dataclass
+from datetime import datetime, time
 from enum import Enum
 
 from nse_algo_trader.dashboard.trading_control_config import (
     TradingControlConfig,
     TradingMode,
 )
-from nse_algo_trader.paper_trading import PaperTradingLedger
-from nse_algo_trader.paper_trading.prediction_lab import (
-    PredictionLabeledTable,
-    PredictionTableScoreboard,
-)
+
+# From this IST time, a still-open position is a genuine no-overnight risk
+# (square-off is scheduled at 15:15); before it, open positions are the
+# normal intraday state and must NOT raise a CRITICAL "overnight" alarm.
+_SQUARE_OFF_DEADLINE_IST = time(15, 15)
 
 
 class AlertLevel(str, Enum):
@@ -36,10 +37,12 @@ class MonitoringAlert:
 
 def generate_dashboard_alerts(
     control_config: TradingControlConfig,
-    paper_ledger: PaperTradingLedger,
-    prediction_scoreboard: PredictionTableScoreboard,
+    paper_trading_summary,
+    prediction_table_summaries: list,
     kite_access_token_valid: bool,
     stored_bar_count: int,
+    generated_at: datetime | None = None,
+    open_position_count: int = 0,
 ) -> list[MonitoringAlert]:
     alerts: list[MonitoringAlert] = []
 
@@ -52,18 +55,35 @@ def generate_dashboard_alerts(
             )
         )
 
-    if not paper_ledger.is_flat():
+    positions_open = open_position_count > 0 or not paper_trading_summary.is_flat
+    past_square_off = (
+        generated_at is not None
+        and generated_at.timetz().replace(tzinfo=None) >= _SQUARE_OFF_DEADLINE_IST
+    )
+    if positions_open and past_square_off:
         alerts.append(
             MonitoringAlert(
                 AlertLevel.CRITICAL, "position",
-                "A position is open — the intraday-only rule requires flat by "
-                "close. Check square-off.",
+                "A position is still open after 15:15 — the intraday-only rule "
+                "requires flat by close. Check square-off immediately.",
+            )
+        )
+    elif positions_open:
+        alerts.append(
+            MonitoringAlert(
+                AlertLevel.INFO, "position",
+                f"{open_position_count} paper positions open intraday — normal; "
+                "Layer 8 flattens all at 15:15.",
             )
         )
 
-    win = prediction_scoreboard.score_for_table(PredictionLabeledTable.CONFIDENT_WIN)
-    loss = prediction_scoreboard.score_for_table(PredictionLabeledTable.CONFIDENT_LOSS)
-    if win is not None and loss is not None and win.actual_win_rate <= loss.actual_win_rate:
+    win = _summary_for(prediction_table_summaries, "confident_win")
+    loss = _summary_for(prediction_table_summaries, "confident_loss")
+    if (
+        win is not None and loss is not None
+        and win.actual_win_rate is not None and loss.actual_win_rate is not None
+        and win.actual_win_rate <= loss.actual_win_rate
+    ):
         alerts.append(
             MonitoringAlert(
                 AlertLevel.WARNING, "calibration",
@@ -90,11 +110,18 @@ def generate_dashboard_alerts(
             )
         )
 
-    if not alerts:
+    if not any(a.level is not AlertLevel.INFO for a in alerts):
         alerts.append(
             MonitoringAlert(
                 AlertLevel.INFO, "status",
-                "All systems nominal — paper sandbox healthy, positions flat.",
+                "All systems nominal — paper sandbox healthy on the live feed.",
             )
         )
     return alerts
+
+
+def _summary_for(prediction_table_summaries: list, table_name: str):
+    for summary in prediction_table_summaries:
+        if summary.table == table_name:
+            return summary
+    return None
