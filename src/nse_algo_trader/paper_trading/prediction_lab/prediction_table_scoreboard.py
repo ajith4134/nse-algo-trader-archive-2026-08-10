@@ -25,6 +25,11 @@ class TableScore:
     mean_win_probability: float
     actual_win_rate: float
     brier_score: float  # lower is better; 0 = perfect, 0.25 = always-0.5 guess
+    # Proper scoring rules (research/48): mean log-score in bits (lower better;
+    # 1.0 = always-0.5 guess; punishes confident-wrong far harder than Brier),
+    # mean quadratic score (higher better; +1 best, −1 worst).
+    mean_logarithmic_score: float = 0.0
+    mean_quadratic_score: float = 0.0
 
 
 class PredictionTableScoreboard:
@@ -66,4 +71,6 @@ def _score(graded_list: list[GradedPrediction]) -> TableScore | None:
         )
         / count,
         brier_score=sum(g.brier_contribution for g in graded_list) / count,
+        mean_logarithmic_score=sum(g.logarithmic_score for g in graded_list) / count,
+        mean_quadratic_score=sum(g.quadratic_score for g in graded_list) / count,
     )

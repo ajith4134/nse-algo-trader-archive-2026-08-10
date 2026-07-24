@@ -49,6 +49,12 @@ class AssumptionConfig:
     # slice 4: the veto looks only at each mechanism's most-recent N experiments,
     # so fresh shadow-probe evidence can lift it (recovery). None = all-time.
     veto_recency_window: int | None = 40
+    # research/48: an over-confident cohort also trips when its mean log-score
+    # (calibration cross-entropy, bits) is at/above this — worse than an
+    # always-0.5 guess (1.0 bit). The log score punishes confident-wrong harder
+    # than Brier, so it catches a confident bad thesis the binomial z can miss at
+    # smaller n. ORed with the z-test (only ever ADDS trips).
+    confidently_wrong_log_score: float = 1.0
 
 
 def _overconfidence_z(actual_rate: float, predicted_rate: float, n: int) -> float:
@@ -57,6 +63,21 @@ def _overconfidence_z(actual_rate: float, predicted_rate: float, n: int) -> floa
     p0 = min(max(predicted_rate, 1e-6), 1 - 1e-6)
     standard_error = math.sqrt(p0 * (1 - p0) / n)
     return (actual_rate - p0) / standard_error if standard_error > 0 else 0.0
+
+
+def _calibration_is_tripped(row, config: AssumptionConfig) -> bool:
+    """A mechanism's calibration is refuted when it is over-confident (actual
+    below predicted) by EITHER the one-sided binomial z-test OR a
+    confidently-wrong log-score. The log-score arm is guarded by the
+    over-confidence direction so a merely under-confident cohort never trips."""
+    z = _overconfidence_z(row.actual_win_rate, row.predicted_win_rate, row.experiment_count)
+    if z <= -config.significance_z:
+        return True
+    is_over_confident = row.actual_win_rate < row.predicted_win_rate
+    return (
+        is_over_confident
+        and getattr(row, "mean_log_score", 0.0) >= config.confidently_wrong_log_score
+    )
 
 
 def evaluate_trading_assumptions(
@@ -98,10 +119,7 @@ def vetoed_mechanisms(
         minimum_experiments=config.minimum_samples,
         recency_window=config.veto_recency_window,
     ):
-        z = _overconfidence_z(
-            row.actual_win_rate, row.predicted_win_rate, row.experiment_count
-        )
-        if z <= -config.significance_z:
+        if _calibration_is_tripped(row, config):
             vetoed.add(row.mechanism_name)
     return vetoed
 
@@ -109,15 +127,18 @@ def vetoed_mechanisms(
 def _calibration_verdict(row, config, scope) -> AssumptionVerdict:
     z = _overconfidence_z(row.actual_win_rate, row.predicted_win_rate, row.experiment_count)
     gap = row.predicted_win_rate - row.actual_win_rate
-    if z <= -config.significance_z:
+    log_score = getattr(row, "mean_log_score", 0.0)
+    if _calibration_is_tripped(row, config):
         return AssumptionVerdict(
             "calibration", scope, AssumptionStatus.VIOLATED, row.experiment_count,
             f"predicted {row.predicted_win_rate:.0%} vs actual {row.actual_win_rate:.0%} "
-            f"(gap {gap:+.0%}, z={z:.1f}) — over-confident thesis, distrust it",
+            f"(gap {gap:+.0%}, z={z:.1f}, log {log_score:.2f} bits) — "
+            f"over-confident thesis, distrust it",
         )
     return AssumptionVerdict(
         "calibration", scope, AssumptionStatus.HOLDING, row.experiment_count,
-        f"predicted {row.predicted_win_rate:.0%} ≈ actual {row.actual_win_rate:.0%}",
+        f"predicted {row.predicted_win_rate:.0%} ≈ actual {row.actual_win_rate:.0%} "
+        f"(log {log_score:.2f} bits)",
     )
 
 

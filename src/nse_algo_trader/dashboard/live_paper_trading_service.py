@@ -766,6 +766,7 @@ class LivePaperTradingService:
             mean_win_probability=score.mean_win_probability,
             actual_win_rate=score.actual_win_rate,
             brier_score=score.brier_score,
+            mean_logarithmic_score=score.mean_logarithmic_score,
         )
 
     def published_snapshot(self) -> LivePaperPublishedSnapshot:

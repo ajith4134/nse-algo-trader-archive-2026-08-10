@@ -123,3 +123,33 @@ class TestRecencyWindowRecovery:
         # all-time still shows the bad history; the recency-window veto lifts
         assert vetoed_mechanisms(mem) == set()   # recovered
         mem.close()
+
+
+class TestLogScoreAntibodyTrip:
+    def test_confidently_wrong_cohort_trips_via_log_score(self, tmp_path):
+        from nse_algo_trader.memory_reflection import vetoed_mechanisms
+        mem = _memory(tmp_path)
+        # 12 experiments predicting 80% that consistently LOSE -> over-confident,
+        # high log-score. Trips the calibration wire (z and/or log-score).
+        for i in range(12):
+            mem.record_closed_experiment(
+                _exp(i, mechanism="overc", predicted_win_prob=0.80, won=False, ret=-0.01)
+            )
+        assert "overc" in vetoed_mechanisms(mem)
+        board = {r.mechanism_name: r for r in mem.calibration_board(minimum_experiments=1)}
+        assert board["overc"].mean_log_score > 1.0  # worse than a coin-flip
+        mem.close()
+
+    def test_well_calibrated_cohort_has_low_log_score_and_holds(self, tmp_path):
+        from nse_algo_trader.memory_reflection import vetoed_mechanisms
+        mem = _memory(tmp_path)
+        # predict 60%, ~60% actually win -> calibrated -> low log-score, not vetoed
+        for i in range(20):
+            mem.record_closed_experiment(
+                _exp(i, mechanism="cal", predicted_win_prob=0.60,
+                     won=(i % 5 < 3), ret=0.01 if i % 5 < 3 else -0.01)
+            )
+        assert "cal" not in vetoed_mechanisms(mem)
+        board = {r.mechanism_name: r for r in mem.calibration_board(minimum_experiments=1)}
+        assert board["cal"].mean_log_score < 1.05
+        mem.close()

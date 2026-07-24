@@ -10,6 +10,7 @@ semantic retrieval — it would implement the same `ExperienceMemory` protocol.
 
 from __future__ import annotations
 
+import math
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -25,6 +26,25 @@ from nse_algo_trader.memory_reflection.experience_memory import (
 DEFAULT_EXPERIENCE_MEMORY_DB_PATH = Path(
     "~/.nse_algo_trader/experience_memory.sqlite3"
 ).expanduser()
+
+# Cohort mean log-score in bits = the calibration cross-entropy H(actual,
+# predicted) (research/48). Inlined here (not imported from the §9 prediction
+# lab) to keep Layer 10 from depending on Layer 7. Predicted is clamped away
+# from 0/1 so log is always defined.
+_LOG_SCORE_PROBABILITY_EPSILON = 1e-9
+
+
+def _calibration_cross_entropy_bits(
+    actual_win_rate: float, predicted_win_rate: float
+) -> float:
+    predicted = min(
+        1.0 - _LOG_SCORE_PROBABILITY_EPSILON,
+        max(_LOG_SCORE_PROBABILITY_EPSILON, predicted_win_rate),
+    )
+    return -(
+        actual_win_rate * math.log2(predicted)
+        + (1.0 - actual_win_rate) * math.log2(1.0 - predicted)
+    )
 
 _CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS experience_nodes (
@@ -231,6 +251,9 @@ class SqliteExperienceMemory:
                 actual_win_rate=row["act"],
                 mean_brier=row["brier"],
                 mean_return_fraction=row["ret"],
+                mean_log_score=_calibration_cross_entropy_bits(
+                    row["act"], row["pred"]
+                ),
             )
             for row in cursor.fetchall()
         ]

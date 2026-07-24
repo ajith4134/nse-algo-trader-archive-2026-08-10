@@ -39,6 +39,7 @@ class PredictionTableSummary:
     mean_win_probability: float | None
     actual_win_rate: float | None
     brier_score: float | None
+    mean_logarithmic_score: float | None = None
 
 
 @dataclass(frozen=True)
@@ -281,4 +282,5 @@ def _summarize_table(
         mean_win_probability=score.mean_win_probability,
         actual_win_rate=score.actual_win_rate,
         brier_score=score.brier_score,
+        mean_logarithmic_score=score.mean_logarithmic_score,
     )

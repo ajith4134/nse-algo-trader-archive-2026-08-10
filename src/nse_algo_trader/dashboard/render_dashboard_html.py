@@ -489,19 +489,22 @@ function renderLive(snap){
   // signed status, not a 3-way magnitude scale (the red↔amber pair fails CVD
   // separation; the bar shows the gap geometrically instead).
   const calColor=g=>g>=0.15?'var(--loss)':(g<=-0.15?'var(--brand)':'var(--profit)');
-  let rbrows="<tr><th>Strategy</th><th>Mechanism</th><th>n</th><th>Calibration&nbsp;— predicted ▏ vs actual&nbsp;█</th><th>Gap</th><th>Brier</th></tr>";
-  if(!rb.length){ rbrows+=`<tr><td colspan="6" style="color:var(--faint)">learning — no closed experiments yet</td></tr>`; }
+  let rbrows="<tr><th>Strategy</th><th>Mechanism</th><th>n</th><th>Calibration&nbsp;— predicted ▏ vs actual&nbsp;█</th><th>Gap</th><th>Brier</th><th title=\"mean log-score, bits — 1.0 = coin-flip; >1 = confidently wrong\">Log</th></tr>";
+  if(!rb.length){ rbrows+=`<tr><td colspan="7" style="color:var(--faint)">learning — no closed experiments yet</td></tr>`; }
   rb.slice(0,12).forEach(r=>{
     const gap=r.predicted_win_rate-r.actual_win_rate;
     const pred=Math.round(r.predicted_win_rate*100), act=Math.round(r.actual_win_rate*100);
     const c=calColor(gap);
     const bar=`<div class="calbar" title="predicted ${pred}% · actual ${act}%">`+
       `<i style="width:${act}%;background:${c}"></i><b style="left:${pred}%"></b></div>`;
+    // Log-score > 1 bit = worse than a coin-flip (confidently wrong) -> flag red.
+    const logv=r.mean_log_score, logc=logv!=null&&logv>=1.0?'var(--loss)':'var(--dim)';
     rbrows+=`<tr><td class="tablename">${r.strategy_tag.replace(/_/g," ")}</td>`+
       `<td style="max-width:22ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.mechanism_name}">${r.mechanism_name}</td>`+
       `<td>${r.experiment_count}</td><td>${bar}</td>`+
       `<td style="color:${c};font-weight:600">${gap>=0?'+':''}${Math.round(gap*100)}%</td>`+
-      `<td>${r.mean_brier.toFixed(3)}</td></tr>`;
+      `<td>${r.mean_brier.toFixed(3)}</td>`+
+      `<td style="color:${logc}">${logv!=null?logv.toFixed(2):'—'}</td></tr>`;
   });
   document.getElementById("reflectTbl").innerHTML=rbrows;
   document.getElementById("reflectnote").innerHTML="Each closed §9 experiment (cash + options) is a memory node. The bar is the <b>actual</b> win-rate; the tick <b>▏</b> is what was <b>predicted</b>. A tick far to the RIGHT of the bar = over-confident thesis (red) — the bot learns to distrust it; tick left of the bar = under-confident (blue).";

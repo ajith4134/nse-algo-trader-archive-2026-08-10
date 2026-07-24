@@ -23,12 +23,10 @@ Status key: 🔴 not started · 🟡 in progress · 🟢 done (moved to Done) ·
   confirming). *(task #24)* — **opponent-ledger feature COMPLETE.**
 
 ## §9/§10 grading — proper scoring rules (research/44 borrow)
-- 🔴 **Vendor python-prediction-scorer (MIT) proper scores.** Add Logarithmic +
-  Quadratic proper scores to `prediction_outcome_grading` beyond Brier-only;
-  aggregate on the scoreboard/calibration board; let tripwires use log-score
-  (punishes confident-wrong harder than Brier, which saturates). Verify on the
-  real closed experiments in SQLite memory. *(started sourcing pass; set aside
-  per user to do the opponent-ledger queue first)*
+- 🟢 **Vendor python-prediction-scorer (MIT) proper scores.** DONE (2026-07-24):
+  log/quadratic on §9 grading + scoreboard; cohort mean_log_score on the
+  calibration board; antibody trips on confidently-wrong log-score. Real-data
+  verified over 213 SQLite experiences. *(task #25)*
 
 ## Layer 10 memory substrate
 - 🔴 **Graphiti/Neo4j temporal-KG swap-up.** Named swap-up for the semantic /

@@ -312,3 +312,32 @@ series, gate suppression on weakening). 334 suite green. Slices 1-2 tests stay g
 **Opponent-ledger feature COMPLETE** — the full pipeline (fetch OI+volume → derive
 lean/divergence/conviction/trend → defer opposed entries → dashboard) is built,
 wired into decisions, and real-data verified. Backlog for this feature is empty.
+
+### Proper scoring rules (2026-07-24) — log-score sharpens the antibody
+The §9 grading scored only Brier, which **saturates** — a *confidently* wrong thesis
+barely stands out. Vendored python-prediction-scorer (MIT, research/48) proper
+scores fix that; the logarithmic score punishes confident-wrong toward ∞.
+
+**`paper_trading/prediction_lab/proper_scoring_rules.py`** (vendored, float, Rule C):
+`probability_assigned_to_outcome(win_prob, won)` → p; `logarithmic_score(p)=−log₂p`,
+`quadratic_score(p)`, `brier_score_two_class(p)`, and `calibration_cross_entropy_bits`
+(cohort mean log-score derivable from predicted/actual rates — no per-experiment
+storage change).
+
+**Data flow (Rule G):** `grade_prediction` sets `logarithmic_score`+`quadratic_score`
+on each `GradedPrediction` → `TableScore` aggregates them (§9 tables). The
+`CalibrationBoardRow` carries `mean_log_score` (cohort cross-entropy, computed at
+build in `sqlite_experience_memory` — inlined there so Layer 10 doesn't import Layer
+7). **Antibody consumer:** `assumption_registry._calibration_is_tripped` ORs a
+confidently-wrong log-score (≥1.0 bit, guarded to the over-confident direction) with
+the one-sided binomial z — so `vetoed_mechanisms` + the tripwire refute a confident
+bad thesis the z misses at smaller n (only ADDS trips; hold/recovery unchanged).
+Reflection panel gains a "Log" column.
+
+**Verified — REAL DATA (Rule F):** recomputed over the real 213 experiences in
+`~/.nse_algo_trader/experience_memory.sqlite3`: log-score cleanly separates the
+confidently-wrong cohorts — 'post-breakout trend continuation' predicted 0.84 vs
+actual 0.09 → 2.40 bits (Brier only 0.667), 'long ATM option' 0.83 vs 0.41 → 1.61
+bits — both over-confident → vetoed. 341 suite green (+7 tests: proper-score math,
+grading, log-score antibody trip, real board mean_log_score).
+**Queued (docs/BACKLOG.md):** briertools Brier decomposition (reliability view).

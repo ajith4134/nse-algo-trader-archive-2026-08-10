@@ -88,6 +88,10 @@ class CalibrationBoardRow:
     actual_win_rate: float  # fraction that actually won
     mean_brier: float
     mean_return_fraction: float
+    # Cohort mean log-score in bits (research/48): the calibration cross-entropy
+    # H(actual, predicted). 1.0 = an always-0.5 guess; a confidently-wrong cohort
+    # scores well above 1.0 — a sharper over-confidence signal than Brier.
+    mean_log_score: float = 0.0
 
 
 @dataclass(frozen=True)

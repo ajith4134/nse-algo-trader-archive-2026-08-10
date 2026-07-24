@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-24l**.
-- **100 Python modules across 14 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-24m**.
+- **101 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -302,6 +302,24 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-24m** — **Proper scoring rules** (vendored python-prediction-scorer,
+  MIT; research/48). New file `paper_trading/prediction_lab/proper_scoring_rules.py`
+  (101 modules): `logarithmic_score` (−log₂p, punishes confident-wrong toward ∞
+  where Brier saturates), `quadratic_score`, `brier_score_two_class`,
+  `calibration_cross_entropy_bits`. `grade_prediction` now sets `logarithmic_score`
+  + `quadratic_score` on `GradedPrediction`; `TableScore` aggregates
+  `mean_logarithmic_score`/`mean_quadratic_score` (surfaced on §9 tables);
+  `CalibrationBoardRow` carries `mean_log_score` = cohort cross-entropy (computed at
+  build from predicted/actual rates — NO SQL/schema change; inlined in
+  `sqlite_experience_memory` to keep Layer 10 off Layer 7). **Wired into DECISIONS
+  (Rule K):** `assumption_registry._calibration_is_tripped` ORs a confidently-wrong
+  log-score (≥1.0 bit, over-confident direction) with the existing binomial z, so
+  `vetoed_mechanisms` + the tripwire catch confident-wrong the z misses at small n
+  (only ADDS trips). Reflection panel gains a "Log" column. **Verified on REAL data
+  (Rule F):** recomputed over the real 213 SQLite experiences — log-score cleanly
+  separates the confidently-wrong theses ('post-breakout trend continuation' pred
+  0.84 vs act 0.09 → 2.40 bits while Brier only 0.667; 'long ATM option' → 1.61
+  bits). 341 suite green (+7). No graph edge change (§9 internal).
 - **2026-07-24l** — Opponent-ledger **slice 3: multi-day FII-net TREND** (no new
   files; edits only, 100 modules). `read_opponent_ledger(oi, volume,
   recent_fii_index_futures_nets)` now derives the FII index-futures net **trend**
