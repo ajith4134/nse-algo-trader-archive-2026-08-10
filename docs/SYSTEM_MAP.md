@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-24p**.
-- **103 Python modules across 14 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-24q**.
+- **104 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -302,6 +302,25 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-24q** — **Information diet** (§10 institution feature — the LAST one;
+  research/52; 104 modules). New file `paper_trading/information_diet.py`:
+  `read_information_diet(considered, positioning_deferred, antibody_vetoed,
+  memory_recalibrated, shadow_probes) -> InformationDiet` — per-source influence
+  RATES + a clamped `memory_influence_share` + a `health_status`
+  (gathering/healthy/**warning**). New loop-state field `entry_decisions_considered`
+  (the denominator), incremented once per candidate at the `apply_recalibration`
+  choke point; the other inputs are counters that already flow. **Consumer (Rule K):**
+  `monitoring_alerts` raises a WARNING when the diet is unhealthy — the loud failure
+  it catches is **inert learning** (memory shaping 0 decisions while the bot trades on
+  the base ADX signal); plus an "Information diet" dashboard panel of per-source
+  influence. Service computes+publishes the diet from state counters → read model →
+  server → panel + alert. **Verified on REAL data (Rule F):** drove entry decisions
+  with the REAL 213-experience memory's learned offsets + veto → diet reads
+  recalibration 100% / veto 47% → healthy (the learning genuinely shapes trades);
+  inert case → WARNING. Fixed a real overcount (a decision can be recalibrated AND
+  vetoed → share clamped to ≤100%). 355 suite green (+4). No graph edge change.
+  **⇒ Layer 10 §10 institution features COMPLETE** (assumption registry · opponent
+  ledger · information diet · epidemiology→antibody).
 - **2026-07-24p** — **Mechanism recalibration** (Layer 10 → §9 feedback; act on the
   Brier diagnosis; research/51; 103 modules). New file
   `prediction_lab/mechanism_recalibration.py`: `assign_table_and_outcome` (the

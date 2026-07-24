@@ -429,3 +429,36 @@ post-breakout-trend −0.72 (raw 0.84 → 0.12, near its real 0.09; demoted), lo
 −0.35, false-breakout +0.12; no-edge empty (consistent with all-recalibratable
 decomposition). 3 tests (offset demotes + preserves mechanism identity, empty=identity,
 clamp); cold-start identity keeps all §9 tests green. 351 suite green.
+
+### Information diet (2026-07-24) — §10, the last institution feature
+Account for WHAT the bot consumes to decide, and whether that diet is healthy. The
+loud failure it catches: the whole Layer-10 learning apparatus NOT influencing any
+trades (inert learning).
+
+**`paper_trading/information_diet.py`:** `read_information_diet(considered,
+positioning_deferred, antibody_vetoed, memory_recalibrated, shadow_probes)` →
+`InformationDiet(influence_share_by_source, memory_influence_share [clamped ≤1],
+health_status)`. Sources: ADX regime confidence (100% base), opponent ledger,
+memory antibody (veto), memory recalibration, shadow probe. health_status ∈
+{gathering (<20 decisions), warning (memory shaped 0 decisions — inert), healthy}.
+
+**Data flow (Rule G):** the loop increments `state.entry_decisions_considered` once
+per candidate at the `apply_recalibration` choke point; the other counters
+(positioning_deferred / vetoed / recalibrated / shadow) already flow. Service
+computes the diet from state counters → publishes → read model → server → an
+"Information diet" panel; `monitoring_alerts` raises a WARNING when unhealthy (inert
+learning) — the real decision consumer, in the same alert feed as the antibody.
+
+**Verified — REAL DATA (Rule F):** drove entry decisions with the REAL 213-experience
+memory's learned offsets + veto → recalibration engaged 100%, veto 47% → healthy
+(learning genuinely shapes trades); the inert case raises the WARNING alert. Fixed a
+real overcount found on real data (a decision can be recalibrated AND vetoed → the
+memory share is clamped to ≤100%). 4 tests + 355 suite green.
+
+--- 
+**LAYER 10 §10 INSTITUTION FEATURES COMPLETE:** assumption registry ✓ · opponent
+ledger (participant-wise OI) ✓ · information diet ✓ · epidemiology→antibody (veto) ✓.
+Plus the reflection stack: memory substrate, calibration/tripwires, shadow-arm
+recovery, proper scoring, Brier decomposition, SQLite multi-hop, mechanism
+recalibration — all real-data verified. Remaining L10 items are DATA/MARKET-blocked
+only (multi-regime queries; shadow-arm live pass).

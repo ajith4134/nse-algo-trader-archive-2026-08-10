@@ -28,6 +28,18 @@ Status key: 🔴 not started · 🟡 in progress · 🟢 done (moved to Done) ·
   calibration board; antibody trips on confidently-wrong log-score. Real-data
   verified over 213 SQLite experiences. *(task #25)*
 
+## Layer 10 — §10 institution features
+- 🟢 **Information diet (accounting).** DONE (2026-07-24): per-source influence +
+  diet-health read; inert-learning raises a monitoring WARNING; panel wired. Real-data
+  verified (real memory → recalibration 100% / veto 47% → healthy). *(task #30)*
+  ~~The one §10 institution feature not yet built~~
+  (PLAN §10 order: assumption registry ✓, opponent ledger ✓, INFORMATION DIET,
+  epidemiology→antibody ✓). Account for WHAT information the bot consumes to decide —
+  the sources/signals feeding entries (ADX regime, opponent ledger, memory priors) and
+  their diversity/quality/provenance — so an over-reliance or echo-chamber is visible.
+  ("information-diet-DIRECTED research targeting" is separately PARKED to Layer 11.)
+  Done = a per-decision information-source ledger + a diet-health read, wired + verified.
+
 ## Layer 10 memory substrate
 - 🟢 **Graph substrate decision + SQLite multi-hop.** DONE (2026-07-24):
   Graphiti/Neo4j REJECTED (LLM-text-extraction KG, server+LLM required, Kùzu

@@ -44,8 +44,19 @@ def generate_dashboard_alerts(
     generated_at: datetime | None = None,
     open_position_count: int = 0,
     assumption_tripwires: list | None = None,
+    information_diet: dict | None = None,
 ) -> list[MonitoringAlert]:
     alerts: list[MonitoringAlert] = []
+
+    # Information-diet health (§10, research/52): the loud failure is the whole
+    # Layer-10 learning apparatus not influencing any trades — surface it.
+    if information_diet and information_diet.get("health_status") == "warning":
+        alerts.append(
+            MonitoringAlert(
+                AlertLevel.WARNING, "information-diet",
+                f"Information diet — {information_diet.get('note', '')}",
+            )
+        )
 
     # Layer-10 assumption tripwires (slice 2): a mechanism whose thesis the
     # memory has significantly refuted — the bot flagging its own bad edge.

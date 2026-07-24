@@ -151,6 +151,10 @@ class LiveUniversePaperState:
     # recording — empty at cold start (identity), so it is safe unconditionally.
     recalibration_offset_by_mechanism: dict = field(default_factory=dict)
     recalibrated_entry_count: int = 0
+    # Information-diet accounting (§10, research/52): every candidate entry that
+    # gets a prediction record is one "decision considered" — the denominator for
+    # each information source's influence share.
+    entry_decisions_considered: int = 0
 
     def apply_recalibration(self, prediction_record):
         """Bias-correct a freshly-built prediction record with the memory-learned
@@ -160,6 +164,7 @@ class LiveUniversePaperState:
             recalibrate_prediction_record,
         )
 
+        self.entry_decisions_considered += 1  # info-diet denominator (§10)
         recalibrated = recalibrate_prediction_record(
             prediction_record, self.recalibration_offset_by_mechanism
         )

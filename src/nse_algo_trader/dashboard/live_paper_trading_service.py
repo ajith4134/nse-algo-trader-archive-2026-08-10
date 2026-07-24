@@ -121,6 +121,7 @@ class LivePaperPublishedSnapshot:
     shadow_entry_count: int = 0
     opponent_ledger: dict | None = None  # OpponentLedgerReading as a dict
     positioning_deferred_count: int = 0
+    information_diet: dict | None = None  # InformationDiet as a dict
 
     @property
     def open_position_count(self) -> int:
@@ -410,6 +411,26 @@ class LivePaperTradingService:
         except Exception:
             pass
 
+    def _information_diet_dict(self) -> dict:
+        """Aggregate the loop's decision-input counters into the §10 information
+        diet + health read (research/52)."""
+        from dataclasses import asdict
+
+        from nse_algo_trader.paper_trading.information_diet import (
+            read_information_diet,
+        )
+
+        state = self._state
+        return asdict(
+            read_information_diet(
+                decisions_considered=state.entry_decisions_considered,
+                positioning_deferred=state.positioning_deferred_count,
+                antibody_vetoed=state.vetoed_entry_count,
+                memory_recalibrated=state.recalibrated_entry_count,
+                shadow_probes=state.shadow_entry_count,
+            )
+        )
+
     def _refresh_opponent_ledger(self, now: datetime) -> None:
         """Fetch NSE participant-wise OI at most once per calendar date and
         cache the opponent-ledger reading (Layer 10 §10, Rule G wiring). Walks
@@ -595,6 +616,7 @@ class LivePaperTradingService:
             shadow_entry_count=self._state.shadow_entry_count,
             opponent_ledger=self._opponent_ledger_reading,
             positioning_deferred_count=self._state.positioning_deferred_count,
+            information_diet=self._information_diet_dict(),
         )
         with self._publish_lock:
             self._published = snapshot

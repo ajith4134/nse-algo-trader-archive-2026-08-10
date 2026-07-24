@@ -291,6 +291,14 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
   </div>
 
   <div class="card">
+    <div class="head"><span class="bar"></span><h2>Information diet — what the bot consumes to decide (Layer 10 §10)</h2><span class="aside" id="dietaside"></span></div>
+    <div class="body">
+      <table class="labtbl" id="dietTbl"></table>
+      <p class="note" id="dietnote"></p>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="head"><span class="bar"></span><h2>Layer roadmap</h2><span class="aside" id="roadaside"></span></div>
     <div class="body"><div class="rlist" id="roadmap"></div></div>
   </div>
@@ -557,6 +565,26 @@ function renderLive(snap){
     const pdc=snap.positioning_deferred_count||0;
     const deferred=pdc?` <b style="color:var(--warnc)">${pdc.toLocaleString()} new entr${pdc===1?'y':'ies'} deferred</b> (institutions on the other side).`:"";
     document.getElementById("oppnote").innerHTML=opp.headline+trap+conv+trend+deferred+" <span style=\"color:var(--dim)\">NSE participant-wise OI + volume · a multi-day confirmation input, not an intraday trigger.</span>";
+  }
+  // --- Information diet: which sources shape the decisions (L10 §10) ---
+  const diet=snap.information_diet;
+  const dietStatusColor={healthy:'var(--profit)',warning:'var(--loss)',gathering:'var(--faint)'};
+  if(!diet){
+    document.getElementById("dietaside").textContent="—";
+    document.getElementById("dietTbl").innerHTML=`<tr><td style="color:var(--faint)">no decisions yet</td></tr>`;
+    document.getElementById("dietnote").textContent="Accounts for which information sources shape each entry — so an over-reliance, or the memory not influencing trades, is visible.";
+  } else {
+    const sc=dietStatusColor[diet.health_status]||'var(--faint)';
+    document.getElementById("dietaside").innerHTML=`<span style="color:${sc};font-weight:600">${diet.health_status}</span> · ${(diet.decisions_considered||0).toLocaleString()} decisions`;
+    const shares=diet.influence_share_by_source||{};
+    let rows="<tr><th>Information source</th><th>Influence on decisions</th></tr>";
+    Object.keys(shares).forEach(src=>{
+      const pct=Math.round((shares[src]||0)*100);
+      rows+=`<tr><td class="tablename">${src}</td>`+
+        `<td><div class="wbar" style="display:inline-block;width:120px;vertical-align:middle"><i style="width:${pct}%"></i></div> <span style="font-variant-numeric:tabular-nums">${pct}%</span></td></tr>`;
+    });
+    document.getElementById("dietTbl").innerHTML=rows;
+    document.getElementById("dietnote").innerHTML=`<b style="color:${sc}">Memory influence: ${Math.round((diet.memory_influence_share||0)*100)}%</b> — ${diet.note}`;
   }
   document.getElementById("sub").textContent="live dashboard · updated "+snap.generated_at.slice(11,16)+(LIVE_API_KEY?" · auto-refresh 20s":"");
 }
