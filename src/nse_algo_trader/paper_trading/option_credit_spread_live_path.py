@@ -27,7 +27,19 @@ from nse_algo_trader.indicators.black_scholes_implied_volatility import (
 )
 from nse_algo_trader.market_data.market_data_types import BarInterval
 from nse_algo_trader.paper_trading.live_universe_paper_loop import (
+    ClosedPaperTrade,
     _regime_adx_warmed_at,
+)
+from nse_algo_trader.paper_trading.opening_range_breakout_paper_engine import (
+    PaperSessionOutcome,
+)
+from nse_algo_trader.paper_trading.prediction_lab import grade_prediction
+from nse_algo_trader.paper_trading.prediction_lab.option_prediction_records import (
+    build_credit_spread_prediction_record,
+    build_directional_option_prediction_record,
+)
+from nse_algo_trader.paper_trading.prediction_lab.prediction_record import (
+    TradePredictionRecord,
 )
 from nse_algo_trader.risk_management import (
     RiskBudgetConfig,
@@ -66,6 +78,7 @@ class OpenOptionSpreadPosition:
     opened_at: datetime
     strategy_tag: str
     assigned_table: str
+    prediction_record: TradePredictionRecord | None = None
 
     def current_net_premium_per_unit(self, price_by_token: dict) -> float | None:
         short_px = price_by_token.get(self.short_leg.instrument_token)
@@ -93,6 +106,7 @@ class OpenDirectionalOptionPosition:
     opened_at: datetime
     strategy_tag: str
     assigned_table: str
+    prediction_record: TradePredictionRecord | None = None
 
     def unrealized_pnl(self, price_by_token: dict) -> float | None:
         ltp = price_by_token.get(self.option.instrument_token)
@@ -208,6 +222,9 @@ def try_open_option_position_for_underlying(
         return False
 
     lot_size = signal.short_leg.instrument.lot_size
+    prediction_record = build_credit_spread_prediction_record(
+        signal.short_leg.instrument, bias.value, adx_value, now.date()
+    )
     state.open_option_spreads[underlying_symbol] = OpenOptionSpreadPosition(
         underlying_symbol=underlying_symbol,
         bias=bias.value,
@@ -218,7 +235,8 @@ def try_open_option_position_for_underlying(
         entry_net_credit_per_unit=net_credit,
         opened_at=now,
         strategy_tag=signal.strategy_tag,
-        assigned_table=_assigned_table_for_regime(adx_value),
+        assigned_table=prediction_record.assigned_table.value,
+        prediction_record=prediction_record,
     )
     return True
 
@@ -240,7 +258,11 @@ def manage_open_credit_spreads(state, live_universe_feed, now: datetime) -> int:
         target = spread.entry_net_credit_per_unit * (1 - _PROFIT_TARGET_CREDIT_FRACTION)
         stop = spread.entry_net_credit_per_unit * _STOP_LOSS_CREDIT_MULTIPLE
         if current <= target or current >= stop:
-            _close_spread(state, spread, current, now)
+            outcome = (
+                PaperSessionOutcome.EXITED_TARGET if current <= target
+                else PaperSessionOutcome.EXITED_STOP
+            )
+            _close_spread(state, spread, current, now, outcome)
             closed += 1
     return closed
 
@@ -282,6 +304,10 @@ def _try_open_directional_option(
 
     if fill.state is OrderLifecycleState.REJECTED:
         return False
+    prediction_record = build_directional_option_prediction_record(
+        atm, signal.direction.value, adx_value, now.date(),
+        OpeningRangeBreakoutConfig().target_risk_reward_ratio,
+    )
     state.open_directional_options[underlying_symbol] = OpenDirectionalOptionPosition(
         underlying_symbol=underlying_symbol,
         option=atm,
@@ -291,7 +317,8 @@ def _try_open_directional_option(
         entry_premium=premium,
         opened_at=now,
         strategy_tag="directional_option_orb_v1",
-        assigned_table=_directional_assigned_table(adx_value),
+        assigned_table=prediction_record.assigned_table.value,
+        prediction_record=prediction_record,
     )
     return True
 
@@ -318,15 +345,47 @@ def manage_open_directional_options(state, live_universe_feed, now) -> int:
         target = pos.entry_premium * (1 + _DIRECTIONAL_TARGET_GAIN_FRACTION)
         stop = pos.entry_premium * (1 - _DIRECTIONAL_STOP_LOSS_FRACTION)
         if ltp >= target or ltp <= stop:
-            _close_directional(state, pos, ltp, now)
+            outcome = (
+                PaperSessionOutcome.EXITED_TARGET if ltp >= target
+                else PaperSessionOutcome.EXITED_STOP
+            )
+            _close_directional(state, pos, ltp, now, outcome)
             closed += 1
     return closed
 
 
-def _close_directional(state, pos, exit_premium, now) -> None:
+def _record_option_experiment(
+    state, prediction_record, instrument, quantity, entry_price, exit_price,
+    realized, outcome, opened_at, closed_at,
+) -> None:
+    """Grade the option's §9 prediction and emit a closed experiment (so option
+    trades feed the §9 scoreboard AND Layer-10 memory, like cash — Rule I)."""
+    if prediction_record is None:
+        return
+    graded = grade_prediction(prediction_record, realized)
+    state.scoreboard.add_graded_prediction(graded)
+    closed_trade = ClosedPaperTrade(
+        instrument=instrument, direction=prediction_record.direction,
+        quantity=quantity, entry_price=entry_price, exit_price=exit_price,
+        realized_pnl=realized, outcome=outcome,
+        opened_at=opened_at, closed_at=closed_at,
+    )
+    state.closed_experiment_events.append(
+        (graded, closed_trade, instrument.kind.value.lower())
+    )
+
+
+def _close_directional(
+    state, pos, exit_premium, now,
+    outcome=PaperSessionOutcome.SQUARED_OFF_AT_CLOSE,
+) -> None:
     realized = (exit_premium - pos.entry_premium) * pos.lots * pos.lot_size
     state.realized_directional_option_pnl += realized
     state.closed_directional_options.append((pos, realized))
+    _record_option_experiment(
+        state, pos.prediction_record, pos.option, pos.lots * pos.lot_size,
+        pos.entry_premium, exit_premium, realized, outcome, pos.opened_at, now,
+    )
     del state.open_directional_options[pos.underlying_symbol]
 
 
@@ -393,13 +452,21 @@ def advance_option_credit_spread_pass(
             "open": len(state.open_option_spreads) + len(state.open_directional_options)}
 
 
-def _close_spread(state, spread, exit_net_premium, now) -> None:
+def _close_spread(
+    state, spread, exit_net_premium, now,
+    outcome=PaperSessionOutcome.SQUARED_OFF_AT_CLOSE,
+) -> None:
     realized = (
         (spread.entry_net_credit_per_unit - exit_net_premium)
         * spread.lots * spread.lot_size
     )
     state.realized_option_spread_pnl += realized
     state.closed_option_spreads.append((spread, realized))
+    _record_option_experiment(
+        state, spread.prediction_record, spread.short_leg,
+        spread.lots * spread.lot_size, spread.entry_net_credit_per_unit,
+        exit_net_premium, realized, outcome, spread.opened_at, now,
+    )
     del state.open_option_spreads[spread.underlying_symbol]
 
 
