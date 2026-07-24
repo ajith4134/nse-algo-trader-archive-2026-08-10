@@ -212,7 +212,16 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
   </div>
 
   <div class="card">
-    <div class="head"><span class="bar"></span><h2>Paper trading — last replay run</h2><span class="aside">real data</span></div>
+    <div class="head"><span class="bar"></span><h2>Open positions — live paper</h2><span class="aside" id="liveaside"></span></div>
+    <div class="body">
+      <div class="minikpis" id="livekpis"></div>
+      <table class="labtbl" id="openTbl"></table>
+      <p class="note" id="opennote"></p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="head"><span class="bar"></span><h2>Paper trading — session P&L</h2><span class="aside">real data</span></div>
     <div class="body"><div class="minikpis" id="paperkpis"></div></div>
   </div>
 
@@ -308,6 +317,30 @@ function renderLive(snap){
     kpi("","Layers built",built+"/11","core pipeline complete")+
     kpi("","AI trunks",snap.concept_tree_counts.trunk_count,"faculties mapped")+
     kpi("","AI branches",snap.concept_tree_counts.total_branch_count+"+","sub-features");
+  // --- live open positions ---
+  const lu=snap.live_universe_status;
+  const ops=snap.open_positions||[];
+  if(lu){
+    document.getElementById("liveaside").textContent=
+      (lu.is_market_open?"● market open":"○ market closed")+" · scanning "+lu.cash_universe_size.toLocaleString()+" cash";
+    const totUnreal=ops.reduce((s,o)=>s+(o.unrealized_pnl||0),0);
+    document.getElementById("livekpis").innerHTML=
+      `<div class="minikpi"><div class="lab">Open now</div><div class="v">${lu.open_position_count}</div></div>`+
+      `<div class="minikpi"><div class="lab">Unrealized</div><div class="v" style="color:${totUnreal>=0?'var(--profit)':'var(--loss)'}">${rupee(totUnreal)}</div></div>`+
+      `<div class="minikpi"><div class="lab">Closed today</div><div class="v">${lu.closed_trade_count}</div></div>`+
+      `<div class="minikpi"><div class="lab">Universe seeded</div><div class="v">${lu.seeded_count.toLocaleString()}/${lu.cash_universe_size.toLocaleString()}</div></div>`;
+  }
+  let orows="<tr><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Last</th><th>Unreal</th><th>Table</th></tr>";
+  if(!ops.length){ orows+=`<tr><td colspan="7" style="color:var(--faint)">no open positions ${lu&&!lu.is_market_open?"(market closed)":"yet — seeding universe…"}</td></tr>`; }
+  ops.slice(0,40).forEach(o=>{
+    const up=o.unrealized_pnl; const upc=up==null?'':(up>=0?'var(--profit)':'var(--loss)');
+    const tg=`<span class="tag ${tagcls[o.assigned_table]||''}">${o.assigned_table.replace(/_/g," ")}</span>`;
+    orows+=`<tr><td class="tablename">${o.trading_symbol}</td><td>${o.direction}</td><td>${o.quantity}</td>`+
+      `<td>${o.entry_price}</td><td>${o.last_price==null?'—':o.last_price}</td>`+
+      `<td style="color:${upc}">${up==null?'—':rupee(up)}</td><td>${tg}</td></tr>`;
+  });
+  document.getElementById("openTbl").innerHTML=orows;
+  document.getElementById("opennote").innerHTML= ops.length>40?`Showing top 40 of ${ops.length} open by unrealized P&L.`:"Paper positions on the live feed — simulated fills, virtual capital. Flattened by Layer 8 at 15:15 IST.";
   document.getElementById("paperkpis").innerHTML=
     `<div class="minikpi"><div class="lab">Starting capital</div><div class="v">${rupeeShort(p.starting_virtual_cash)}</div></div>`+
     `<div class="minikpi"><div class="lab">Realized P&L</div><div class="v" style="color:${p.realized_pnl>=0?'var(--profit)':'var(--loss)'}">${rupee(p.realized_pnl)}</div></div>`+

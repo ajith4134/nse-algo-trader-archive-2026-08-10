@@ -155,3 +155,45 @@ re-render from a 20s poll of `/api/snapshot` in server mode (guarded by
 API both 200. This is the last non-blocked Layer 9 slice; remaining
 (push alerts, live tick feed, advanced AI panels) are channel/market/L10
 gated.
+
+## Live open positions + universe §9 tables (added 2026-07-24)
+The dashboard now shows the **live universe paper loop**, replacing the
+single-symbol INFY replay that was the reason no OPEN trades ever appeared
+(it opened+closed inside a replay). New `live_paper_trading_service.py`
+(`LivePaperTradingService`) runs the loop in a background writer thread and
+publishes an immutable snapshot each pass; the server reads only that
+snapshot (the slow historical seeding never blocks a page load, single
+mutator = no races).
+- Read model gains `OpenPositionSummary` + `LiveUniverseStatus` (open
+  positions with live mark + unrealized P&L; market-open flag, universe
+  size, seeded count, open/closed counts). Serialized in
+  `DashboardSnapshot.to_json_dict`.
+- `render_dashboard_html`: new "Open positions — live paper" card (live
+  KPIs + a top-40 open-positions table tagged by §9 table) rendered in
+  `renderLive` and refreshed by the existing 20s poll.
+- Server: `_start_live_paper_trading_service` authenticates Kite from the
+  token store (degrades to no-live-positions if unauthenticated) and starts
+  the service; `_current_snapshot` reads its published open positions + the
+  live ledger/scoreboard.
+- **Control plane preserved (Rule G):** the service re-reads
+  `TradingControlConfig` each pass — turning cash ORB off stops opening NEW
+  positions (open risk is still managed + squared off, never abandoned),
+  and capital/risk knobs feed the sizing budget via
+  `config_enforced_paper_run` (which the server no longer calls directly —
+  the service now owns that enforcement).
+
+**Rule-F live verification (2026-07-24, ~11:13 IST, running server):**
+`/api/snapshot` reported market-open, **cash_universe_size 9,272, 45 open
+positions held live** with live marks + unrealized P&L (ASTRAL +₹679,
+BAJFINANCE +₹485, GVT&D +₹421, …) spread across confident_win/loss/
+uncertain, seeding growing 40/pass toward the full universe; the `/` page
+renders the OPEN POSITIONS card with the injected positions. Fixed a writer-
+thread crash (an unguarded `ltp()` in `_publish` killed the loop after one
+pass) — the loop body is now fully guarded and logs errors. 3 unit tests
+(`test_live_paper_trading_service.py`), 260 suite total green.
+
+**Still deferred:** post-seed intraday breakout watching (an instrument
+seeded with no signal is not re-checked for a later breakout — most ORB
+breakouts are early, but this is a known gap); options/credit-spread OPEN
+path (ladders priced, entry rule pending); replay-when-closed in the
+service (idles when market shut for now).

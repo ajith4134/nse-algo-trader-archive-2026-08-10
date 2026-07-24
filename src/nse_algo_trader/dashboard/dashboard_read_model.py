@@ -42,6 +42,29 @@ class PredictionTableSummary:
 
 
 @dataclass(frozen=True)
+class OpenPositionSummary:
+    trading_symbol: str
+    direction: str
+    quantity: int
+    entry_price: float
+    stop_loss_price: float
+    target_price: float
+    last_price: float | None
+    unrealized_pnl: float | None
+    assigned_table: str
+
+
+@dataclass(frozen=True)
+class LiveUniverseStatus:
+    is_market_open: bool
+    cash_universe_size: int
+    seeded_count: int
+    open_position_count: int
+    closed_trade_count: int
+    last_pass_at: str | None
+
+
+@dataclass(frozen=True)
 class ConceptTreeCounts:
     trunk_count: int
     total_branch_count: int
@@ -58,6 +81,8 @@ class DashboardSnapshot:
     paper_trading: PaperTradingSummary
     prediction_tables: list[PredictionTableSummary]
     confident_win_beats_confident_loss: bool | None
+    open_positions: list[OpenPositionSummary]
+    live_universe_status: LiveUniverseStatus | None
 
     def to_json_dict(self) -> dict:
         return {
@@ -72,6 +97,12 @@ class DashboardSnapshot:
             "confident_win_beats_confident_loss": (
                 self.confident_win_beats_confident_loss
             ),
+            "open_positions": [asdict(p) for p in self.open_positions],
+            "live_universe_status": (
+                asdict(self.live_universe_status)
+                if self.live_universe_status is not None
+                else None
+            ),
         }
 
 
@@ -82,6 +113,8 @@ def build_dashboard_snapshot(
     generated_at: datetime,
     kite_access_token_valid: bool = True,
     stored_bar_count: int = 1,
+    open_positions: list[OpenPositionSummary] | None = None,
+    live_universe_status: LiveUniverseStatus | None = None,
 ) -> DashboardSnapshot:
     layer_roadmap = [
         {
@@ -137,6 +170,8 @@ def build_dashboard_snapshot(
         confident_win_beats_confident_loss=(
             prediction_scoreboard.confident_win_beats_confident_loss()
         ),
+        open_positions=list(open_positions or []),
+        live_universe_status=live_universe_status,
     )
 
 

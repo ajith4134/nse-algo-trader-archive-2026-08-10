@@ -346,7 +346,17 @@ def run_live_universe_scan_pass(
     ),
     market_clock=None,
 ) -> ScanPassReport:
-    latest_price_by_token = live_universe_feed.latest_price_by_token(cash_universe)
+    # Only open positions need live prices (for stop/target management and
+    # square-off); ORB entry reads today's bars, not LTP. Pricing just the
+    # held set keeps each pass cheap so a background thread never stalls.
+    open_instruments = [
+        position.instrument for position in state.open_positions.values()
+    ]
+    latest_price_by_token = (
+        live_universe_feed.latest_price_by_token(open_instruments)
+        if open_instruments
+        else {}
+    )
 
     closed_this_pass = _manage_open_positions_against_prices(
         state, latest_price_by_token, now
