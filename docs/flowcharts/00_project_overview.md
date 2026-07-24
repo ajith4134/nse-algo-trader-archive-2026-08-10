@@ -45,7 +45,11 @@ cross-verification audit of Layers 1–9** (Rule-G orphans found + fixes) ·
 `../research/42` raw order-types research notes · `../research/43` **Layer 10
 slice 1 — experience-memory substrate** (memory node per closed §9 experiment;
 recommend a swappable `ExperienceMemory` over SQLite for v1, defer Graphiti/
-Neo4j to the semantic/multi-hop tier).
+Neo4j to the semantic/multi-hop tier) · `../research/44` **memory-substrate OSS
+sourcing pass** (sourcing-oss-parts: keep the SQLite build — no OSS does the
+whole structured-experience + calibration + tripwire feature; queued borrow:
+`python-prediction-scorer` MIT proper scoring rules to enrich grading beyond
+Brier).
 
 ## Scope decided so far
 - Segments in phase 1: NSE cash intraday, NSE options intraday (index +
