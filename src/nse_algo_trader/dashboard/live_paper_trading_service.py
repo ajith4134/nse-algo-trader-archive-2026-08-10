@@ -28,6 +28,14 @@ from nse_algo_trader.dashboard.config_enforced_paper_run import (
 from nse_algo_trader.dashboard.dashboard_read_model import (
     PaperTradingSummary,
     PredictionTableSummary,
+    StrategyReadinessSummary,
+)
+from nse_algo_trader.paper_trading.combinatorial_purged_cross_validation import (
+    CpcvConfig,
+    evaluate_strategy_with_cpcv_gate,
+)
+from nse_algo_trader.paper_trading.strategy_promotion_gate import (
+    StrategyPromotionConfig,
 )
 from nse_algo_trader.dashboard.trading_control_config import (
     TradableSegment,
@@ -100,10 +108,77 @@ class LivePaperPublishedSnapshot:
     segment_boards: tuple[SegmentBoard, ...] = ()
     recent_closed_trades: tuple[ClosedTradeView, ...] = ()
     combined_realized_pnl: float = 0.0
+    strategy_readiness: tuple[StrategyReadinessSummary, ...] = ()
 
     @property
     def open_position_count(self) -> int:
         return len(self.open_positions)
+
+
+# The promotion gate needs enough trades for CPCV to form groups AND to clear
+# the Deflated-Sharpe minimum-trades bar; below this we report "gathering".
+_MIN_TRADES_FOR_PROMOTION_GATE = StrategyPromotionConfig().minimum_trades
+_PROMOTION_CPCV_CONFIG = CpcvConfig()
+
+
+def _per_trade_return_fractions_by_strategy(state) -> dict[str, list[float]]:
+    """Realized per-trade return fractions for each live strategy, from the
+    closed trades — the input series the Deflated-Sharpe/CPCV gate scores."""
+    returns_by_strategy: dict[str, list[float]] = {
+        "ORB cash": [], "Directional options": [], "Credit spreads": []
+    }
+    for trade in state.closed_trades:
+        basis = trade.entry_price * trade.quantity
+        if basis > 0:
+            returns_by_strategy["ORB cash"].append(trade.realized_pnl / basis)
+    for position, realized in state.closed_directional_options:
+        basis = position.entry_premium * position.lots * position.lot_size
+        if basis > 0:
+            returns_by_strategy["Directional options"].append(realized / basis)
+    for spread, realized in state.closed_option_spreads:
+        basis = abs(spread.entry_net_credit_per_unit * spread.lots * spread.lot_size)
+        if basis > 0:
+            returns_by_strategy["Credit spreads"].append(realized / basis)
+    return returns_by_strategy
+
+
+def _strategy_readiness_summaries(state) -> tuple[StrategyReadinessSummary, ...]:
+    """Run the Deflated-Sharpe + CPCV promotion gate per strategy (research/41
+    wiring). Under the minimum trade count it reports 'gathering' rather than
+    forcing the gate on too little data."""
+    summaries = []
+    for strategy, returns in _per_trade_return_fractions_by_strategy(state).items():
+        if len(returns) < _MIN_TRADES_FOR_PROMOTION_GATE:
+            summaries.append(
+                StrategyReadinessSummary(
+                    strategy=strategy, trade_count=len(returns),
+                    per_trade_sharpe_ratio=None, deflated_sharpe_ratio=None,
+                    outcome="gathering_trades", promoted=False,
+                )
+            )
+            continue
+        try:
+            decision = evaluate_strategy_with_cpcv_gate(
+                returns, _PROMOTION_CPCV_CONFIG,
+                StrategyPromotionConfig(minimum_trades=_MIN_TRADES_FOR_PROMOTION_GATE),
+            )
+            summaries.append(
+                StrategyReadinessSummary(
+                    strategy=strategy, trade_count=decision.trade_count,
+                    per_trade_sharpe_ratio=decision.per_trade_sharpe_ratio,
+                    deflated_sharpe_ratio=decision.deflated_sharpe_ratio,
+                    outcome=decision.outcome.value, promoted=decision.promoted,
+                )
+            )
+        except Exception:
+            summaries.append(
+                StrategyReadinessSummary(
+                    strategy=strategy, trade_count=len(returns),
+                    per_trade_sharpe_ratio=None, deflated_sharpe_ratio=None,
+                    outcome="gathering_trades", promoted=False,
+                )
+            )
+    return tuple(summaries)
 
 
 class LivePaperTradingService:
@@ -324,6 +399,7 @@ class LivePaperTradingService:
                 + self._state.realized_option_spread_pnl
                 + self._state.realized_directional_option_pnl
             ),
+            strategy_readiness=_strategy_readiness_summaries(self._state),
         )
         with self._publish_lock:
             self._published = snapshot

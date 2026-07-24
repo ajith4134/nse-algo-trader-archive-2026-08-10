@@ -118,3 +118,45 @@ class TestReadModelOpenPositions:
         assert len(as_json["open_positions"]) == 1
         assert as_json["open_positions"][0]["trading_symbol"] == "TESTCO"
         assert as_json["live_universe_status"]["cash_universe_size"] == 9272
+
+
+class TestStrategyReadinessGate:
+    def _state_with_cash_trades(self, n, win_every=3):
+        from nse_algo_trader.paper_trading.live_universe_paper_loop import ClosedPaperTrade
+        from nse_algo_trader.paper_trading.opening_range_breakout_paper_engine import (
+            PaperSessionOutcome,
+        )
+        from nse_algo_trader.strategy_engine import SignalDirection
+        state = LivePaperTradingService(object(), 1_000_000.0)._state
+        for i in range(n):
+            pnl = 200.0 if i % win_every else -100.0
+            state.closed_trades.append(ClosedPaperTrade(
+                STOCK, SignalDirection.LONG, 10, 100.0, 100.0 + pnl / 10, pnl,
+                PaperSessionOutcome.EXITED_TARGET,
+                datetime(2026, 7, 24, 10, 0, tzinfo=IST),
+                datetime(2026, 7, 24, 11, 0, tzinfo=IST),
+            ))
+        return state
+
+    def test_below_min_trades_reports_gathering(self):
+        from nse_algo_trader.dashboard.live_paper_trading_service import (
+            _strategy_readiness_summaries,
+        )
+        state = self._state_with_cash_trades(5)
+        orb = [s for s in _strategy_readiness_summaries(state) if s.strategy == "ORB cash"][0]
+        assert orb.trade_count == 5
+        assert orb.outcome == "gathering_trades"
+        assert orb.promoted is False
+
+    def test_enough_trades_runs_the_gate_and_scores(self):
+        from nse_algo_trader.dashboard.live_paper_trading_service import (
+            _strategy_readiness_summaries,
+        )
+        state = self._state_with_cash_trades(40)
+        orb = [s for s in _strategy_readiness_summaries(state) if s.strategy == "ORB cash"][0]
+        assert orb.trade_count == 40
+        assert orb.per_trade_sharpe_ratio is not None
+        assert orb.deflated_sharpe_ratio is not None
+        assert orb.outcome in (
+            "promote_to_live_candidate", "reject_deflated_sharpe_too_low",
+        )

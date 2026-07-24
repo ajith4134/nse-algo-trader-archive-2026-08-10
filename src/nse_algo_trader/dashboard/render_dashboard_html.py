@@ -249,6 +249,14 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
   </div>
 
   <div class="card">
+    <div class="head"><span class="bar"></span><h2>Strategy readiness — Deflated-Sharpe / CPCV gate</h2></div>
+    <div class="body">
+      <table class="labtbl" id="readyTbl"></table>
+      <p class="note" id="readynote"></p>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="head"><span class="bar"></span><h2>Layer roadmap</h2><span class="aside" id="roadaside"></span></div>
     <div class="body"><div class="rlist" id="roadmap"></div></div>
   </div>
@@ -424,6 +432,21 @@ function renderLive(snap){
   document.getElementById("labnote").innerHTML=
     (won===null?'':`<span class="verdict">✓ confident-win beats confident-loss</span> `)+
     "Directional signal on a small sample — <b>not a validated edge</b>. No strategy reaches live capital before the Deflated-Sharpe / CPCV gate + human sign-off.";
+  // --- strategy readiness (Deflated-Sharpe / CPCV promotion gate) ---
+  const rd=snap.strategy_readiness||[];
+  let rrows="<tr><th>Strategy</th><th>Trades</th><th>Sharpe</th><th>Deflated SR</th><th>Verdict</th></tr>";
+  if(!rd.length){ rrows+=`<tr><td colspan="5" style="color:var(--faint)">gathering trades…</td></tr>`; }
+  const verdictLabel={promote_to_live_candidate:"✓ promote candidate",reject_insufficient_trades:"gathering",reject_deflated_sharpe_too_low:"✗ not validated",gathering_trades:"gathering"};
+  rd.forEach(s=>{
+    const v=verdictLabel[s.outcome]||s.outcome;
+    const vc=s.promoted?'var(--profit)':(s.outcome==='reject_deflated_sharpe_too_low'?'var(--loss)':'var(--faint)');
+    rrows+=`<tr><td class="tablename">${s.strategy}</td><td>${s.trade_count}</td>`+
+      `<td>${s.per_trade_sharpe_ratio==null?'—':s.per_trade_sharpe_ratio.toFixed(2)}</td>`+
+      `<td>${s.deflated_sharpe_ratio==null?'—':s.deflated_sharpe_ratio.toFixed(3)}</td>`+
+      `<td style="color:${vc};font-weight:600">${v}</td></tr>`;
+  });
+  document.getElementById("readyTbl").innerHTML=rrows;
+  document.getElementById("readynote").innerHTML="Each strategy's realized per-trade returns run through CPCV → the Deflated-Sharpe gate (min 30 trades). A 'promote candidate' is a statistical readiness signal only — paper, not live capital.";
   document.getElementById("sub").textContent="live dashboard · updated "+snap.generated_at.slice(11,16)+(LIVE_API_KEY?" · auto-refresh 20s":"");
 }
 renderLive(SNAPSHOT);
