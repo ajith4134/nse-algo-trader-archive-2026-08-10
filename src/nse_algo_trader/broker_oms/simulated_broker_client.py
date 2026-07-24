@@ -15,6 +15,7 @@ from nse_algo_trader.broker_oms.order_types import (
     OrderLifecycleState,
     OrderSide,
     OrderType,
+    convert_option_stop_market_to_buffered_limit,
 )
 
 
@@ -62,6 +63,9 @@ class SimulatedBrokerClient:
         return self._net_position_by_token.get(instrument_token, 0)
 
     def place_order(self, order_intent: OrderIntent) -> OrderExecutionResult:
+        # Model the same exchange rule the live path applies (research/40):
+        # an option SL-M becomes a buffered SL-limit, so paper == live.
+        order_intent = convert_option_stop_market_to_buffered_limit(order_intent)
         simulated_order_id = f"SIM-{next(self._order_id_counter)}"
         token = order_intent.instrument.instrument_token
         known_price = self._last_known_price_by_token.get(token)

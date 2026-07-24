@@ -6,10 +6,10 @@ reports back. Both are identical across paper and live — the parity
 contract (`docs/PLAN.md` §1) lives in these types.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 
-from nse_algo_trader.universe_registry import Instrument
+from nse_algo_trader.universe_registry import Instrument, InstrumentKind
 
 
 class OrderSide(str, Enum):
@@ -112,3 +112,42 @@ class OrderExecutionResult:
     filled_quantity: int
     average_fill_price: float | None
     rejection_message: str | None = None
+
+
+# NSE has BLOCKED SL-M (stop-loss-market) for OPTIONS since 2021 (index
+# options included) to curb freak trades (research/40). A raw SL-M on an
+# option is rejected live. The standard workaround (Zerodha's own): send an
+# SL-limit whose limit price sits a buffer BEYOND the trigger in the fill
+# direction, so it fills like a market order. Cash/futures keep true SL-M.
+_OPTION_INSTRUMENT_KINDS = frozenset(
+    {InstrumentKind.INDEX_OPTION, InstrumentKind.STOCK_OPTION}
+)
+DEFAULT_OPTION_STOP_LIMIT_BUFFER_FRACTION = 0.05
+
+
+def convert_option_stop_market_to_buffered_limit(
+    order_intent: OrderIntent,
+    buffer_fraction: float = DEFAULT_OPTION_STOP_LIMIT_BUFFER_FRACTION,
+) -> OrderIntent:
+    """If (and only if) this is an SL-M on an option, return an equivalent
+    buffered SL-limit; otherwise return the intent unchanged. A SELL (long
+    exit) puts the limit BELOW the trigger; a BUY (short cover) ABOVE it —
+    the side that guarantees a fill once the trigger is hit."""
+    if (
+        order_intent.order_type is not OrderType.STOP_MARKET
+        or order_intent.instrument.kind not in _OPTION_INSTRUMENT_KINDS
+        or order_intent.trigger_price is None
+    ):
+        return order_intent
+    trigger = order_intent.trigger_price
+    if order_intent.side is OrderSide.SELL:
+        raw_limit = trigger * (1.0 - buffer_fraction)
+    else:
+        raw_limit = trigger * (1.0 + buffer_fraction)
+    tick = order_intent.instrument.tick_size or 0.05
+    buffered_limit = round(round(raw_limit / tick) * tick, 2)
+    return replace(
+        order_intent,
+        order_type=OrderType.STOP_LIMIT,
+        limit_price=buffered_limit,
+    )

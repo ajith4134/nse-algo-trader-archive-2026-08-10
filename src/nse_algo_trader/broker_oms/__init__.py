@@ -22,6 +22,7 @@ from nse_algo_trader.broker_oms.order_types import (
     OrderVariety,
     ProductType,
     TimeInForce,
+    convert_option_stop_market_to_buffered_limit,
 )
 from nse_algo_trader.broker_oms.signal_to_order_intents import (
     build_order_intent_for_opening_range_breakout,
@@ -39,6 +40,7 @@ __all__ = [
     "OrderRateLimiter",
     "OrderSide",
     "OrderType",
+    "convert_option_stop_market_to_buffered_limit",
     "OrderVariety",
     "ProductType",
     "TimeInForce",

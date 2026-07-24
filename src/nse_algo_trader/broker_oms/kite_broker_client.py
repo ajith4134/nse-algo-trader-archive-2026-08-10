@@ -18,6 +18,7 @@ from nse_algo_trader.broker_oms.order_types import (
     OrderLifecycleState,
     OrderSide,
     OrderType,
+    convert_option_stop_market_to_buffered_limit,
 )
 from nse_algo_trader.universe_registry import ExchangeSegment
 
@@ -46,6 +47,10 @@ class KiteBrokerClient:
 
     def place_order(self, order_intent: OrderIntent) -> OrderExecutionResult:
         self._order_rate_limiter.wait_for_order_slot()
+        # NSE blocks SL-M for options -> auto-convert to a buffered SL-limit
+        # (research/40) BEFORE building the Kite payload, or the exchange
+        # rejects it. No-op for cash/futures and non-SL-M orders.
+        order_intent = convert_option_stop_market_to_buffered_limit(order_intent)
         # Kite order_type strings are the enum values upper-cased (market ->
         # MARKET, sl -> SL, sl-m -> SL-M). price only for LIMIT/SL;
         # trigger_price only for SL/SL-M. Product stays MIS (intraday-only).
