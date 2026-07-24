@@ -302,6 +302,13 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-24g** — dataviz pass (skill) on the L10 panels: the Reflection
+  panel now shows calibration as a **bullet bar** (actual = fill, predicted =
+  tick) so the gap is seen geometrically, with a **binary signed** over-
+  confidence color (red/green/blue) — replacing a 3-way red/amber/green
+  magnitude scale whose red↔amber pair failed the palette validator's CVD +
+  normal-vision separation. Tripwire status colors (red/green + icon+label)
+  kept — already compliant. render-only change; no graph edge change.
 - **2026-07-24f** — Layer 10 slice 3: antibody auto-veto. `vetoed_mechanisms`
   (assumption_registry) → the service sets `state.vetoed_mechanisms` each pass
   → the L7 cash + option open paths skip refuted mechanisms (never place an

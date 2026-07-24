@@ -150,6 +150,10 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
   .tag.win{background:var(--profitsoft);color:var(--profit)} .tag.loss{background:var(--losssoft);color:var(--loss)} .tag.unc{background:var(--warnsoft);color:var(--warnc)}
   .wbar{height:7px;border-radius:4px;background:var(--line);overflow:hidden;min-width:70px}
   .wbar > i{display:block;height:100%;background:var(--profit);border-radius:4px}
+  /* calibration bullet: actual as fill, predicted as a tick — the gap is seen, not color-coded */
+  .calbar{position:relative;height:9px;border-radius:4px;background:var(--line);min-width:130px}
+  .calbar > i{position:absolute;left:0;top:0;height:100%;border-radius:4px}
+  .calbar > b{position:absolute;top:-3px;width:2px;height:15px;border-radius:1px;background:var(--text)}
   .verdict{display:inline-flex;align-items:center;gap:.4rem;font-size:.8rem;font-weight:600;padding:.4rem .7rem;border-radius:8px;background:var(--profitsoft);color:var(--profit)}
   .note{font-size:.8rem;color:var(--dim);margin:.9rem 0 0;line-height:1.5}
 
@@ -473,20 +477,26 @@ function renderLive(snap){
   // --- Reflection: per-mechanism predicted-vs-actual calibration (L10 memory) ---
   const rb=snap.reflection_board||[];
   document.getElementById("reflectaside").textContent=(snap.memory_experiment_count||0).toLocaleString()+" experiences";
-  let rbrows="<tr><th>Strategy</th><th>Mechanism</th><th>n</th><th>Predicted</th><th>Actual</th><th>Gap</th><th>Brier</th></tr>";
-  if(!rb.length){ rbrows+=`<tr><td colspan="7" style="color:var(--faint)">learning — no closed experiments yet</td></tr>`; }
+  // The gap is over-confidence when predicted >> actual (the danger). Binary
+  // signed status, not a 3-way magnitude scale (the red↔amber pair fails CVD
+  // separation; the bar shows the gap geometrically instead).
+  const calColor=g=>g>=0.15?'var(--loss)':(g<=-0.15?'var(--brand)':'var(--profit)');
+  let rbrows="<tr><th>Strategy</th><th>Mechanism</th><th>n</th><th>Calibration&nbsp;— predicted ▏ vs actual&nbsp;█</th><th>Gap</th><th>Brier</th></tr>";
+  if(!rb.length){ rbrows+=`<tr><td colspan="6" style="color:var(--faint)">learning — no closed experiments yet</td></tr>`; }
   rb.slice(0,12).forEach(r=>{
     const gap=r.predicted_win_rate-r.actual_win_rate;
-    const gc=Math.abs(gap)>=0.25?'var(--loss)':(Math.abs(gap)>=0.12?'var(--warnc)':'var(--profit)');
+    const pred=Math.round(r.predicted_win_rate*100), act=Math.round(r.actual_win_rate*100);
+    const c=calColor(gap);
+    const bar=`<div class="calbar" title="predicted ${pred}% · actual ${act}%">`+
+      `<i style="width:${act}%;background:${c}"></i><b style="left:${pred}%"></b></div>`;
     rbrows+=`<tr><td class="tablename">${r.strategy_tag.replace(/_/g," ")}</td>`+
       `<td style="max-width:22ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.mechanism_name}">${r.mechanism_name}</td>`+
-      `<td>${r.experiment_count}</td><td>${Math.round(r.predicted_win_rate*100)}%</td>`+
-      `<td>${Math.round(r.actual_win_rate*100)}%</td>`+
-      `<td style="color:${gc};font-weight:600">${gap>=0?'+':''}${Math.round(gap*100)}%</td>`+
+      `<td>${r.experiment_count}</td><td>${bar}</td>`+
+      `<td style="color:${c};font-weight:600">${gap>=0?'+':''}${Math.round(gap*100)}%</td>`+
       `<td>${r.mean_brier.toFixed(3)}</td></tr>`;
   });
   document.getElementById("reflectTbl").innerHTML=rbrows;
-  document.getElementById("reflectnote").innerHTML="Each closed §9 experiment (cash + options) becomes a memory node. <b>Gap</b> = predicted − actual win-rate; a large gap is a miscalibrated thesis the bot is learning to distrust.";
+  document.getElementById("reflectnote").innerHTML="Each closed §9 experiment (cash + options) is a memory node. The bar is the <b>actual</b> win-rate; the tick <b>▏</b> is what was <b>predicted</b>. A tick far to the RIGHT of the bar = over-confident thesis (red) — the bot learns to distrust it; tick left of the bar = under-confident (blue).";
   // --- Assumption tripwires (L10 slice 2) ---
   const tw=snap.assumption_tripwires||[];
   const statusOrder={violated:0,holding:1,insufficient_data:2};
