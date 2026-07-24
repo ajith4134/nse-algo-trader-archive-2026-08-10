@@ -57,3 +57,18 @@ def make_slippage_fill_adjuster(config: FillSlippageConfig = FillSlippageConfig(
     return lambda order_intent, reference_price: estimate_slipped_fill_price(
         order_intent, reference_price, config
     )
+
+
+def slipped_fill_price(
+    instrument,
+    side: OrderSide,
+    reference_price: float,
+    config: FillSlippageConfig = FillSlippageConfig(),
+) -> float:
+    """Slippage for a fill recorded straight into the ledger (the live loop's
+    cash path bypasses the broker's adjuster). Same model as the broker uses,
+    so paper P&L is not frictionless."""
+    # quantity is not used by the model (only instrument.kind + side matter).
+    return estimate_slipped_fill_price(
+        OrderIntent(instrument, side, 1, "slip"), reference_price, config
+    )

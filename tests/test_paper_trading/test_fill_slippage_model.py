@@ -78,3 +78,25 @@ class TestWiringIntoSimulatedBroker:
         broker.update_market_price(408065, 1000.0)
         result = broker.place_order(_buy(CASH))
         assert result.average_fill_price == pytest.approx(1000.3)
+
+
+def test_slipped_fill_price_helper_matches_model_direction():
+    """slipped_fill_price (ledger-path helper) is directional and matches
+    the broker adjuster: buys fill above, sells below the reference."""
+    from datetime import date
+    from nse_algo_trader.broker_oms import OrderSide
+    from nse_algo_trader.paper_trading.fill_slippage_model import slipped_fill_price
+    from nse_algo_trader.universe_registry import (
+        ExchangeSegment, Instrument, InstrumentKind, OptionRight,
+    )
+    cash = Instrument(1, "INFY", ExchangeSegment.NSE_CASH,
+                      InstrumentKind.CASH_EQUITY, 1, 0.05)
+    opt = Instrument(2, "NIFTY2673023600CE", ExchangeSegment.NSE_FO,
+                     InstrumentKind.INDEX_OPTION, 75, 0.05, "NIFTY", 23600.0,
+                     OptionRight.CALL, date(2026, 7, 30))
+    assert slipped_fill_price(cash, OrderSide.BUY, 1000.0) > 1000.0
+    assert slipped_fill_price(cash, OrderSide.SELL, 1000.0) < 1000.0
+    # a cheap option pays a much wider half-spread than liquid cash
+    cash_bps = slipped_fill_price(cash, OrderSide.BUY, 100.0) - 100.0
+    opt_bps = slipped_fill_price(opt, OrderSide.BUY, 100.0) - 100.0
+    assert opt_bps > cash_bps

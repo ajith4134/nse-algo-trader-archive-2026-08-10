@@ -34,6 +34,11 @@ from nse_algo_trader.market_data.market_data_types import BarInterval, PriceBar
 from nse_algo_trader.paper_trading.opening_range_breakout_paper_engine import (
     PaperSessionOutcome,
 )
+from nse_algo_trader.paper_trading.fill_slippage_model import (
+    FillSlippageConfig,
+    make_slippage_fill_adjuster,
+    slipped_fill_price,
+)
 from nse_algo_trader.paper_trading.paper_trading_ledger import PaperTradingLedger
 from nse_algo_trader.paper_trading.prediction_lab import (
     PredictionTableScoreboard,
@@ -107,9 +112,15 @@ class LiveUniversePaperState:
 
     ledger: PaperTradingLedger
     scoreboard: PredictionTableScoreboard
+    # Broker carries the slippage model so every fill routed through it
+    # (directional options, the L8 square-off) pays the spread; the cash path
+    # records straight to the ledger and applies `fill_slippage_config`.
     simulated_broker: SimulatedBrokerClient = field(
-        default_factory=SimulatedBrokerClient
+        default_factory=lambda: SimulatedBrokerClient(
+            fill_price_adjuster=make_slippage_fill_adjuster()
+        )
     )
+    fill_slippage_config: FillSlippageConfig = field(default_factory=FillSlippageConfig)
     open_positions: dict[int, OpenPaperPosition] = field(default_factory=dict)
     closed_trades: list[ClosedPaperTrade] = field(default_factory=list)
     seeded_cash_tokens: set[int] = field(default_factory=set)
@@ -172,6 +183,13 @@ def _open_position_from_signal(
     entry_side = (
         OrderSide.BUY if signal.direction is SignalDirection.LONG else OrderSide.SELL
     )
+    # Pay the spread on entry — the taker fills worse than the reference
+    # (research/41: the live loop was frictionless). Buys fill above, sells
+    # below; options pay a wider half-spread than cash.
+    entry_fill_price = slipped_fill_price(
+        signal.instrument, entry_side, signal.breakout_close_price,
+        state.fill_slippage_config,
+    )
     state.simulated_broker.update_market_price(
         signal.instrument.instrument_token, signal.breakout_close_price
     )
@@ -179,13 +197,13 @@ def _open_position_from_signal(
         signal.instrument.instrument_token,
         entry_side,
         quantity,
-        signal.breakout_close_price,
+        entry_fill_price,
     )
     state.open_positions[signal.instrument.instrument_token] = OpenPaperPosition(
         instrument=signal.instrument,
         direction=signal.direction,
         quantity=quantity,
-        entry_price=signal.breakout_close_price,
+        entry_price=entry_fill_price,
         stop_loss_price=signal.stop_loss_price,
         target_price=signal.target_price,
         opened_at=opened_at,
@@ -203,6 +221,11 @@ def _close_position(
 ) -> None:
     exit_side = (
         OrderSide.SELL if position.direction is SignalDirection.LONG else OrderSide.BUY
+    )
+    # Pay the spread on exit too (stops/targets fill at market near the level,
+    # not exactly on it) — no more optimistic frictionless exits (research/41).
+    exit_price = slipped_fill_price(
+        position.instrument, exit_side, exit_price, state.fill_slippage_config
     )
     recorded = state.ledger.record_fill(
         position.instrument.instrument_token, exit_side, position.quantity, exit_price
