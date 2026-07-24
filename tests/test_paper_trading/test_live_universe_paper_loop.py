@@ -258,3 +258,39 @@ class TestShadowArmRecovery:
                                              market_clock=NseMarketClock())
         assert report.newly_opened_count == 1     # the probe opened
         assert state.shadow_entry_count == 1
+
+
+class TestOpponentLedgerPositioningGate:
+    def _bearish_divergence_reading(self):
+        from nse_algo_trader.participant_positioning.opponent_ledger import (
+            OpponentLedgerReading,
+        )
+        return OpponentLedgerReading(
+            report_date_iso="2026-07-23", fii_index_futures_net=-1000,
+            fii_index_futures_long_short_ratio=0.5, client_index_futures_net=1000,
+            fii_vs_client_futures_divergence=True, fii_index_options_net_call_bias=0,
+            client_index_options_net_call_bias=0, fii_vs_client_options_divergence=False,
+            directional_lean="bearish", retail_on_other_side=True, headline="",
+        )
+
+    def test_long_breakout_deferred_when_institutions_oppose(self):
+        # institutions bearish + retail trapped long -> a LONG entry is deferred
+        feed = _FakeFeed(_bars_with_long_breakout_still_open(), {STOCK.instrument_token: 101.5})
+        state = _fresh_state()
+        state.market_positioning_bias = self._bearish_divergence_reading()
+        now = datetime(2026, 7, 24, 11, 0, tzinfo=IST)
+        report = run_live_universe_scan_pass(state, [STOCK], feed, RISK, now,
+                                             market_clock=NseMarketClock())
+        assert report.newly_opened_count == 0
+        assert state.positioning_deferred_count == 1
+        assert STOCK.instrument_token not in state.open_positions
+
+    def test_long_breakout_opens_when_positioning_neutral(self):
+        # control: no opposition -> the same breakout opens as normal
+        feed = _FakeFeed(_bars_with_long_breakout_still_open(), {STOCK.instrument_token: 101.5})
+        state = _fresh_state()  # market_positioning_bias is None -> permits
+        now = datetime(2026, 7, 24, 11, 0, tzinfo=IST)
+        report = run_live_universe_scan_pass(state, [STOCK], feed, RISK, now,
+                                             market_clock=NseMarketClock())
+        assert report.newly_opened_count == 1
+        assert state.positioning_deferred_count == 0

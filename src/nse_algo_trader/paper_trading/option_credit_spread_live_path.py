@@ -218,6 +218,10 @@ def try_open_option_position_for_underlying(
     )
     if state.entry_decision_for_mechanism(prediction_record.mechanism_name) == "veto":
         return False
+    if not state.positioning_permits_entry(
+        entry_is_bullish=bias is CreditSpreadBias.BULLISH_SELL_PUT_SPREAD
+    ):
+        return False  # opponent ledger: institutions on the other side today
 
     # Open atomically (hedge BUY first) on the sim broker with real prices.
     for leg in (signal.short_leg, signal.hedge_leg):
@@ -306,6 +310,10 @@ def _try_open_directional_option(
     )
     if state.entry_decision_for_mechanism(prediction_record.mechanism_name) == "veto":
         return False
+    if not state.positioning_permits_entry(
+        entry_is_bullish=signal.direction is SignalDirection.LONG
+    ):
+        return False  # opponent ledger: institutions on the other side today
 
     state.simulated_broker.update_market_price(atm.instrument_token, premium)
     from nse_algo_trader.broker_oms import OrderIntent, OrderSide

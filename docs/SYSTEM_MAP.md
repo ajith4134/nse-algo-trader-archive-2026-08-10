@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-24i**.
-- **99 Python modules across 14 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-24j**.
+- **100 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -302,6 +302,23 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-24j** — Opponent-ledger **slice 1: divergence → strategy bias** (the
+  ledger now affects DECISIONS, not just the panel). New file
+  `participant_positioning/market_positioning_bias.py`
+  (`institutional_positioning_opposes_entry(reading, entry_is_bullish)`; 100
+  modules). **New data-flow edge: `participant_positioning → paper_trading`** —
+  `LiveUniversePaperState.positioning_permits_entry(entry_is_bullish)` reads the
+  day's `market_positioning_bias` (an `OpponentLedgerReading`, set by the service)
+  and DEFERS a new entry (counting `positioning_deferred_count`) only in the strong
+  divergence case (FII lean against the entry while retail is trapped on that side).
+  Wired at all 4 entry sites (2 cash ORB/breakout, directional option, credit
+  spread) right after the antibody-veto check; existing positions untouched.
+  `positioning_deferred_count` publishes → read model → server → the Opponent-ledger
+  panel note. **Verified on REAL data (Rule F):** the real 23-Jul FII-bearish +
+  retail-long reading defers a LONG entry and permits a SHORT, in the actual loop
+  state; 8 tests (hermetic opposition rule + loop-integration defer/open + real
+  reading). 321 suite green. Backlog (Rule K): opponent slices 2 (volume) & 3
+  (FII-net trend) remain open.
 - **2026-07-24i** — Layer 10 §10: **opponent ledger** (participant-wise OI). New
   feature-package `participant_positioning/` (4 files → 99 modules / 14 features):
   `participant_positioning_source.py` (the DI seam — `ParticipantPositioningSource`

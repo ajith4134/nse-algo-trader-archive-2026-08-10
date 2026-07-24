@@ -229,3 +229,32 @@ lives only under tests/). 313 suite green. Unlike live ticks, this EOD source ha
 NO open-blocker — the real-data gate is fully met now.
 **Queued next:** participant-VOLUME file; multi-day FII-net trend (history walk);
 wire the divergence into strategy bias / assumption registry.
+
+### Opponent ledger slice 1 (2026-07-24) — divergence → strategy bias (wired into decisions)
+The core ledger (above) was display-only; slice 1 makes it **affect entries** — its
+primary consumer (Rule K), not just a panel.
+
+**`participant_positioning/market_positioning_bias.py`** — pure rule
+`institutional_positioning_opposes_entry(reading, entry_is_bullish) -> bool`. True
+ONLY in the strong divergence case: `reading.retail_on_other_side` AND the FII
+`directional_lean` is against the entry (bearish vs a bullish entry; bullish vs a
+bearish entry). Never forces a trade — only flags the reversal-trap side.
+
+**Data flow (Rule G):** service `_refresh_opponent_ledger` now also sets
+`state.market_positioning_bias = <OpponentLedgerReading>` daily → the loop's
+`LiveUniversePaperState.positioning_permits_entry(entry_is_bullish)` calls the rule
+and, when opposed, DEFERS the entry (`positioning_deferred_count`++) at all 4 entry
+sites (2 cash ORB/breakout with `direction is LONG`; directional option with
+`signal.direction is LONG`; credit spread with `bias is BULLISH_SELL_PUT_SPREAD`),
+right after the antibody-veto check. New edge **participant_positioning →
+paper_trading**. `positioning_deferred_count` → published snapshot → read model →
+server → the Opponent-ledger panel note ("N new entries deferred — institutions on
+the other side"). Existing open positions are never touched (like the veto).
+
+**Verified — REAL DATA (Rule F):** the real 23-Jul FII-bearish + retail-long reading
+defers a LONG entry and permits a SHORT in the actual loop state. 8 tests: hermetic
+opposition rule (bearish→opposes long not short; no-divergence/neutral/None permit) +
+loop-integration (opposed long deferred, neutral long opens) + a real-reading test.
+321 suite green.
+**Backlog (Rule K, docs/BACKLOG.md):** slice 2 = participant VOLUME file; slice 3 =
+multi-day FII-net trend (history walk). Both still open.

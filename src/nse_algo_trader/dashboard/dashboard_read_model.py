@@ -109,6 +109,7 @@ class DashboardSnapshot:
     vetoed_entry_count: int = 0
     shadow_entry_count: int = 0
     opponent_ledger: dict | None = None
+    positioning_deferred_count: int = 0
 
     def to_json_dict(self) -> dict:
         return {
@@ -140,6 +141,7 @@ class DashboardSnapshot:
             "vetoed_entry_count": self.vetoed_entry_count,
             "shadow_entry_count": self.shadow_entry_count,
             "opponent_ledger": self.opponent_ledger,
+            "positioning_deferred_count": self.positioning_deferred_count,
         }
 
 
@@ -166,6 +168,7 @@ def build_dashboard_snapshot(
     vetoed_entry_count: int = 0,
     shadow_entry_count: int = 0,
     opponent_ledger: dict | None = None,
+    positioning_deferred_count: int = 0,
 ) -> DashboardSnapshot:
     """When `precomputed_*` summaries are supplied (by the live service's
     writer thread, which is the sole mutator of the ledger/scoreboard),
@@ -261,6 +264,7 @@ def build_dashboard_snapshot(
         vetoed_entry_count=vetoed_entry_count,
         shadow_entry_count=shadow_entry_count,
         opponent_ledger=opponent_ledger,
+        positioning_deferred_count=positioning_deferred_count,
     )
 
 

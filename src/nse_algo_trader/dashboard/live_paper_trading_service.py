@@ -120,6 +120,7 @@ class LivePaperPublishedSnapshot:
     vetoed_entry_count: int = 0
     shadow_entry_count: int = 0
     opponent_ledger: dict | None = None  # OpponentLedgerReading as a dict
+    positioning_deferred_count: int = 0
 
     @property
     def open_position_count(self) -> int:
@@ -423,6 +424,9 @@ class LivePaperTradingService:
                         from dataclasses import asdict
 
                         self._opponent_ledger_reading = asdict(reading)
+                        # slice 1: the loop reads this to DEFER entries that
+                        # institutions oppose while retail is trapped on that side.
+                        self._state.market_positioning_bias = reading
                     return
                 probe_date -= timedelta(days=1)
         except Exception:
@@ -557,6 +561,7 @@ class LivePaperTradingService:
             vetoed_entry_count=self._state.vetoed_entry_count,
             shadow_entry_count=self._state.shadow_entry_count,
             opponent_ledger=self._opponent_ledger_reading,
+            positioning_deferred_count=self._state.positioning_deferred_count,
         )
         with self._publish_lock:
             self._published = snapshot

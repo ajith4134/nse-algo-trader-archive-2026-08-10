@@ -11,11 +11,9 @@ Status key: 🔴 not started · 🟡 in progress · 🟢 done (moved to Done) ·
 ---
 
 ## Opponent ledger (Layer 10 §10)
-- 🟡 **Slice 1 — divergence → strategy bias.** Feed the FII-vs-Client divergence +
-  FII directional lean into ENTRY decisions as an information-diet input
-  (currently display-only, 0 effect on trades). Done = a candidate entry opposed
-  by institutional positioning is deferred/dampened, wired into the loop +
-  assumption registry, verified on the real reading. *(task #22)*
+- 🟢 **Slice 1 — divergence → strategy bias.** DONE (2026-07-24): entries opposed
+  by institutional positioning (FII lean + retail-trapped divergence) are deferred
+  at all 4 entry sites; real-data verified (real reading defers a LONG). *(task #22)*
 - 🔴 **Slice 2 — participant VOLUME file.** Add `fao_participant_vol_DDMMYYYY.csv`
   alongside OI (same schema/adapter). Done = volume snapshot parsed + a
   volume-based signal surfaced, real-data verified.

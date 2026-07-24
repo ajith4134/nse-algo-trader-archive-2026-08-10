@@ -106,3 +106,38 @@ documented here per Rule G).
   read model + dashboard panel + real-data verify.
 - **Next (queued):** volume file, multi-day trend of FII net (needs history walk),
   feeding the divergence flag into strategy bias / assumption registry.
+
+---
+
+## Slice 1 (2026-07-24) — divergence → strategy bias (wired into decisions)
+The core ledger is display-only; this slice makes it **affect entries** as an
+information-diet input (Rule K: the ledger's PRIMARY consumer, not just a panel).
+
+**The bias rule (pure, `market_positioning_bias.py`):**
+`institutional_positioning_opposes_entry(reading, entry_is_bullish) -> bool`.
+Fires ONLY in the strong divergence case — `reading.retail_on_other_side` is True
+AND the FII directional lean is against the entry:
+- a **bullish** entry (cash LONG / long CE / bullish put-credit-spread) is opposed
+  when FII lean is **bearish** while retail is trapped long;
+- a **bearish** entry (cash SHORT / long PE / bearish call-credit-spread) is opposed
+  when FII lean is **bullish** while retail is trapped short.
+Honors "confirmation input, not a trigger": it never *forces* a trade, only
+**defers** a NEW entry on the side retail is trapped on against institutions. Rare
+by construction (needs divergence), and multi-day EOD data tilting intraday entries
+is exactly how practitioners use it.
+
+**Effect:** at each of the 4 entry sites (2 cash ORB/breakout, directional option,
+credit spread), after the antibody-veto check, the loop calls
+`state.positioning_permits_entry(entry_is_bullish=…)`; when opposed it skips the
+entry and increments `positioning_deferred_count`. Existing open positions are
+untouched (never abandons risk — like the veto).
+
+**Wiring (Rule G):** the service already fetches the daily reading; it now also
+sets `state.market_positioning_bias = <OpponentLedgerReading>` each day.
+`positioning_deferred_count` publishes → read model → server → the Opponent-ledger
+panel note ("N new entries deferred — institutions on the other side today").
+
+**Verify:** hermetic bias unit tests (opposed long/short deferred; aligned/neutral
+permitted; None permits) + a loop-integration test (a candidate that would open is
+deferred when positioning opposes) + a real-reading test (the real 23-Jul FII-bearish
++ retail-long reading defers a LONG entry). Real-data (Rule F) achievable now (EOD).

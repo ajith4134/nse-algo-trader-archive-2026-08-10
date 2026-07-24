@@ -139,6 +139,29 @@ class LiveUniversePaperState:
     shadow_probe_counter: dict = field(default_factory=dict)
     shadow_entry_count: int = 0
     seeded_cash_tokens: set[int] = field(default_factory=set)
+    # Opponent ledger (Layer 10 §10, slice 1): today's participant-positioning
+    # reading (an OpponentLedgerReading or None). Set by the service each day;
+    # the loop reads it only to DEFER new entries that institutions oppose while
+    # retail is trapped on that side — a multi-day confirmation input, never a
+    # trigger. Existing positions are never touched.
+    market_positioning_bias: object = None
+    positioning_deferred_count: int = 0
+
+    def positioning_permits_entry(self, entry_is_bullish: bool) -> bool:
+        """False when the opponent ledger says institutions are on the other
+        side of this entry (strong divergence) — the loop then defers it and
+        counts the deferral. True (permit) whenever there is no such opposition
+        or no reading yet."""
+        from nse_algo_trader.participant_positioning import (
+            institutional_positioning_opposes_entry,
+        )
+
+        if institutional_positioning_opposes_entry(
+            self.market_positioning_bias, entry_is_bullish
+        ):
+            self.positioning_deferred_count += 1
+            return False
+        return True
 
     def entry_decision_for_mechanism(self, mechanism_name: str) -> str:
         """'open' (not vetoed), 'shadow' (vetoed but this is the Kth probe — open
@@ -441,6 +464,10 @@ def _open_watched_breakout(state, watch, direction, ltp, risk_budget, now) -> bo
     )
     if state.entry_decision_for_mechanism(prediction_record.mechanism_name) == "veto":
         return False
+    if not state.positioning_permits_entry(
+        entry_is_bullish=direction is SignalDirection.LONG
+    ):
+        return False  # opponent ledger: institutions on the other side today
     _open_position_from_signal(
         state, signal, clamped_quantity, prediction_record, now
     )
@@ -490,6 +517,10 @@ def _seed_cash_instrument_from_orb(
     )
     if state.entry_decision_for_mechanism(prediction_record.mechanism_name) == "veto":
         return False  # antibody veto (a 1-in-N shadow probe opens for recovery)
+    if not state.positioning_permits_entry(
+        entry_is_bullish=signal.direction is SignalDirection.LONG
+    ):
+        return False  # opponent ledger: institutions on the other side today
     _open_position_from_signal(
         state, signal, clamped_quantity, prediction_record, signal.triggered_at
     )

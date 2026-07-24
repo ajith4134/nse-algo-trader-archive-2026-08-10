@@ -174,6 +174,7 @@ def build_dashboard_app() -> FastAPI:
             vetoed_entry_count=published.vetoed_entry_count,
             shadow_entry_count=published.shadow_entry_count,
             opponent_ledger=published.opponent_ledger,
+            positioning_deferred_count=published.positioning_deferred_count,
         )
 
     @app.get("/", response_class=HTMLResponse)
