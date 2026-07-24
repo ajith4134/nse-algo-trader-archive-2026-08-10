@@ -140,6 +140,7 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
   .optbl-n{font-size:.72rem;color:var(--faint)}
   .optbl-pnl{margin-left:auto;font-family:var(--mono);font-weight:700;font-size:.8rem}
   .optbl-more{font-size:.72rem;color:var(--faint);padding:.2rem .6rem .6rem}
+  .segbadge{display:inline-block;font-size:.58rem;font-weight:700;padding:.1em .4em;border-radius:4px;background:var(--line2);color:var(--faint);letter-spacing:.03em;vertical-align:middle}
   .tag.win{background:var(--profitsoft);color:var(--profit)} .tag.loss{background:var(--losssoft);color:var(--loss)} .tag.unc{background:var(--warnsoft);color:var(--warnc)}
   .wbar{height:7px;border-radius:4px;background:var(--line);overflow:hidden;min-width:70px}
   .wbar > i{display:block;height:100%;background:var(--profit);border-radius:4px}
@@ -220,9 +221,15 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
     <div class="head"><span class="bar"></span><h2>Open positions — live paper</h2><span class="aside" id="liveaside"></span></div>
     <div class="body">
       <div class="minikpis" id="livekpis"></div>
+      <div class="minikpis" id="segboards"></div>
       <div id="openTbl"></div>
       <p class="note" id="opennote"></p>
     </div>
+  </div>
+
+  <div class="card">
+    <div class="head"><span class="bar"></span><h2>Closed trades — today</h2><span class="aside" id="closedaside"></span></div>
+    <div class="body"><table class="labtbl" id="closedTbl"></table></div>
   </div>
 
   <div class="card">
@@ -335,6 +342,33 @@ function renderLive(snap){
       `<div class="minikpi"><div class="lab">Closed today</div><div class="v">${lu.closed_trade_count}</div></div>`+
       `<div class="minikpi"><div class="lab">Universe seeded</div><div class="v">${lu.seeded_count.toLocaleString()}/${lu.cash_universe_size.toLocaleString()}</div></div>`;
   }
+  // Per-segment boards (cash / index-option / stock-option) + combined.
+  const segLabel={cash:"NSE Cash",index_option:"Index Options",stock_option:"Stock Options"};
+  const boards=snap.segment_boards||[];
+  const combUnreal=ops.reduce((s,o)=>s+(o.unrealized_pnl||0),0);
+  let segHtml=boards.map(b=>{
+    const c=b.unrealized_pnl>=0?'var(--profit)':'var(--loss)';
+    return `<div class="minikpi"><div class="lab">${segLabel[b.segment]||b.segment}</div>`+
+      `<div class="v">${b.open_count} open</div>`+
+      `<div class="sub" style="color:${c}">${rupee(b.unrealized_pnl)}</div></div>`;
+  }).join("");
+  segHtml+=`<div class="minikpi"><div class="lab">Combined realized</div>`+
+    `<div class="v" style="color:${(snap.combined_realized_pnl||0)>=0?'var(--profit)':'var(--loss)'}">${rupee(snap.combined_realized_pnl||0)}</div>`+
+    `<div class="sub">+ ${rupee(combUnreal)} unreal</div></div>`;
+  document.getElementById("segboards").innerHTML=segHtml;
+  // Closed trades table
+  const seg3={cash:"cash",index_option:"index-opt",stock_option:"stock-opt"};
+  const closed=snap.closed_trades||[];
+  document.getElementById("closedaside").textContent=closed.length+" recent";
+  let crows="<tr><th>Segment</th><th>Symbol</th><th>Side</th><th>Outcome</th><th>Realized P&L</th></tr>";
+  if(!closed.length){ crows+=`<tr><td colspan="5" style="color:var(--faint)">no closed trades yet</td></tr>`; }
+  closed.slice(0,25).forEach(c=>{
+    const pc=c.realized_pnl>=0?'var(--profit)':'var(--loss)';
+    crows+=`<tr><td>${seg3[c.segment]||c.segment}</td><td class="tablename">${c.trading_symbol}</td>`+
+      `<td>${c.direction}</td><td>${c.outcome.replace(/_/g," ")}</td>`+
+      `<td style="color:${pc}">${rupee(c.realized_pnl)}</td></tr>`;
+  });
+  document.getElementById("closedTbl").innerHTML=crows;
   // Split the live open positions into the three §9 tables, each a broker-
   // style positions grid (Symbol/Side/Qty/Entry/LTP/P&L/Stop/Target).
   const tableMeta=[
@@ -355,8 +389,10 @@ function renderLive(snap){
     if(!rows.length){ body+=`<tr><td colspan="8" style="color:var(--faint)">— none —</td></tr>`; }
     rows.slice(0,25).forEach(o=>{
       const up=o.unrealized_pnl; const upc=up==null?'':(up>=0?'var(--profit)':'var(--loss)');
-      const sd=o.direction==="long"?'<span style="color:var(--profit)">BUY</span>':'<span style="color:var(--loss)">SELL</span>';
-      body+=`<tr><td class="tablename">${o.trading_symbol}</td><td>${sd}</td><td>${o.quantity}</td>`+
+      const sd=o.direction==="long"?'<span style="color:var(--profit)">BUY</span>':
+               (o.direction==="short"?'<span style="color:var(--loss)">SELL</span>':'<span class="segbadge">SPREAD</span>');
+      const segb=o.segment&&o.segment!=="cash"?`<span class="segbadge">${o.segment==="index_option"?"IDX":"STK"}</span> `:"";
+      body+=`<tr><td class="tablename">${segb}${o.trading_symbol}</td><td>${sd}</td><td>${o.quantity}</td>`+
         `<td>${o.entry_price}</td><td>${o.last_price==null?'—':o.last_price}</td>`+
         `<td style="color:${upc}">${up==null?'—':rupee(up)}</td>`+
         `<td>${o.stop_loss_price}</td><td>${o.target_price}</td></tr>`;

@@ -115,6 +115,8 @@ def build_dashboard_app() -> FastAPI:
                 stored_bar_count=0,
             )
         published = live_service.published_snapshot()
+        from dataclasses import asdict
+
         open_positions = [
             OpenPositionSummary(
                 trading_symbol=view.trading_symbol,
@@ -126,6 +128,7 @@ def build_dashboard_app() -> FastAPI:
                 last_price=view.last_price,
                 unrealized_pnl=view.unrealized_pnl,
                 assigned_table=view.assigned_table,
+                segment=view.segment,
             )
             for view in published.open_positions
         ]
@@ -153,6 +156,9 @@ def build_dashboard_app() -> FastAPI:
             precomputed_confident_win_beats_confident_loss=(
                 published.confident_win_beats_confident_loss
             ),
+            segment_boards=[asdict(b) for b in published.segment_boards],
+            closed_trades=[asdict(t) for t in published.recent_closed_trades],
+            combined_realized_pnl=published.combined_realized_pnl,
         )
 
     @app.get("/", response_class=HTMLResponse)

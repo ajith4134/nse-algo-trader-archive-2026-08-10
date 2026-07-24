@@ -52,6 +52,7 @@ class OpenPositionSummary:
     last_price: float | None
     unrealized_pnl: float | None
     assigned_table: str
+    segment: str = "cash"
 
 
 @dataclass(frozen=True)
@@ -83,6 +84,9 @@ class DashboardSnapshot:
     confident_win_beats_confident_loss: bool | None
     open_positions: list[OpenPositionSummary]
     live_universe_status: LiveUniverseStatus | None
+    segment_boards: list[dict] = field(default_factory=list)
+    closed_trades: list[dict] = field(default_factory=list)
+    combined_realized_pnl: float = 0.0
 
     def to_json_dict(self) -> dict:
         return {
@@ -103,6 +107,9 @@ class DashboardSnapshot:
                 if self.live_universe_status is not None
                 else None
             ),
+            "segment_boards": self.segment_boards,
+            "closed_trades": self.closed_trades,
+            "combined_realized_pnl": self.combined_realized_pnl,
         }
 
 
@@ -118,6 +125,9 @@ def build_dashboard_snapshot(
     precomputed_paper_trading: PaperTradingSummary | None = None,
     precomputed_prediction_tables: list[PredictionTableSummary] | None = None,
     precomputed_confident_win_beats_confident_loss: bool | None = None,
+    segment_boards: list[dict] | None = None,
+    closed_trades: list[dict] | None = None,
+    combined_realized_pnl: float = 0.0,
 ) -> DashboardSnapshot:
     """When `precomputed_*` summaries are supplied (by the live service's
     writer thread, which is the sole mutator of the ledger/scoreboard),
@@ -188,6 +198,9 @@ def build_dashboard_snapshot(
         confident_win_beats_confident_loss=confident_win_beats_confident_loss,
         open_positions=list(open_positions or []),
         live_universe_status=live_universe_status,
+        segment_boards=list(segment_boards or []),
+        closed_trades=list(closed_trades or []),
+        combined_realized_pnl=combined_realized_pnl,
     )
 
 

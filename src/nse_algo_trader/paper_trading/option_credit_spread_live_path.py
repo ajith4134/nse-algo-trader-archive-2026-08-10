@@ -121,6 +121,7 @@ def try_open_credit_spread_for_underlying(
     live_universe_feed,
     risk_budget: RiskBudgetConfig,
     now: datetime,
+    banned_underlying_symbols: frozenset = frozenset(),
 ) -> bool:
     """Regime-gate one underlying and, if RANGE_BOUND, open a defined-risk
     credit spread. Returns True if a spread was opened."""
@@ -149,7 +150,9 @@ def try_open_credit_spread_for_underlying(
     )
     if signal is None:
         return False
-    decision = evaluate_credit_spread_signal(signal, risk_budget)
+    decision = evaluate_credit_spread_signal(
+        signal, banned_underlying_symbols, risk_budget
+    )
     if not decision.approved:
         return False
 
@@ -168,7 +171,7 @@ def try_open_credit_spread_for_underlying(
         state.simulated_broker.update_market_price(leg.instrument.instrument_token, px)
     intents = build_order_intents_for_credit_spread(signal, lots)
     report = execute_multi_leg_order_atomically(intents, state.simulated_broker)
-    if not report.all_legs_filled:
+    if not report.all_legs_executed:
         return False
 
     lot_size = signal.short_leg.instrument.lot_size
@@ -217,6 +220,7 @@ def advance_option_credit_spread_pass(
     now: datetime,
     max_new_underlying_seeds_per_pass: int = 8,
     is_square_off_window: bool = False,
+    banned_underlying_symbols: frozenset = frozenset(),
 ) -> dict:
     """One options pass: manage open spreads, then either flatten all (15:15)
     or seed a bounded batch of un-seeded underlyings into new spreads."""
@@ -241,7 +245,7 @@ def advance_option_credit_spread_pass(
             if try_open_credit_spread_for_underlying(
                 state, underlying_symbol,
                 spot_by_underlying[underlying_symbol], option_ladder,
-                live_universe_feed, risk_budget, now,
+                live_universe_feed, risk_budget, now, banned_underlying_symbols,
             ):
                 opened += 1
         except Exception as spread_error:
