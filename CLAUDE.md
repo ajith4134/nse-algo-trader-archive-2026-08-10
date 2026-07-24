@@ -201,6 +201,34 @@ dependency-injection test seams + in-memory fakes + contract tests — see
   (verify before advancing), Rule I (if even the data shape is unknown, go
   acquire a real sample first).
 
+## Rule K — No silent skips: every deferral is tracked, surfaced, and cleared
+The user must NEVER have to point out something I promised and skipped. Any time
+I defer work — the moment I write or say "queued", "next", "named future
+consumer", "deferred", "TODO", "open blocker", "later slice", "follow-up", or
+otherwise promise something not done in this change — I MUST, in the same turn:
+1. **Record it** as a tracked task (TaskCreate) AND append it to
+   `docs/BACKLOG.md` under the owning feature, with: what it is, why deferred,
+   and what "done" looks like. Nothing deferred lives only in prose.
+2. **Grade the parent honestly.** A feature is **not "fully done" if its intended
+   PRIMARY consumer is still queued.** Display-only wiring (e.g. a dashboard
+   panel) does NOT fulfill a "feed into decisions / the loop" promise — that is
+   "functionally built, purpose-consumer QUEUED", not done. Say which one it is
+   at sign-off, out loud (pairs with Rule A sign-off and Rule G no-orphans).
+3. **Clear before diverging.** Before starting a NEW, unrelated feature, FIRST
+   read `docs/BACKLOG.md`; if the feature I just finished has unfulfilled queued
+   items, either (a) do them next, or (b) explicitly list them to the user and
+   get a decision to defer — never silently jump to unrelated work leaving
+   promises dangling.
+4. **Surface every sign-off.** End each slice by listing the still-open backlog
+   items for that feature, so the user sees the outstanding queue without asking.
+- Backlog items are closed in `docs/BACKLOG.md` (struck through / moved to a Done
+  section) only when actually delivered + verified, or when the user explicitly
+  drops them. This is the standing to-do memory across turns/sessions — treat it
+  as authoritative, and reconcile it with the live task list each session start.
+- Pairs with Rule A (sign off before advancing), Rule G (no orphans / named
+  consumer), Rule F/J (open real-data blockers are backlog items too), Rule H
+  (the map records structure; the backlog records promised-but-undone work).
+
 ## Non-negotiables carried through every layer
 - Intraday only. Every position auto-squares-off before close. No exceptions
   per-segment, ever, unless a future phase explicitly revisits this.
