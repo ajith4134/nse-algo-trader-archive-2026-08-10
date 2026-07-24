@@ -14,9 +14,9 @@ Status key: 🔴 not started · 🟡 in progress · 🟢 done (moved to Done) ·
 - 🟢 **Slice 1 — divergence → strategy bias.** DONE (2026-07-24): entries opposed
   by institutional positioning (FII lean + retail-trapped divergence) are deferred
   at all 4 entry sites; real-data verified (real reading defers a LONG). *(task #22)*
-- 🔴 **Slice 2 — participant VOLUME file.** Add `fao_participant_vol_DDMMYYYY.csv`
-  alongside OI (same schema/adapter). Done = volume snapshot parsed + a
-  volume-based signal surfaced, real-data verified.
+- 🟢 **Slice 2 — participant VOLUME file.** DONE (2026-07-24): volume_on() added;
+  FII churn (vol/OI) → participation_conviction, wired into the gate (suppress
+  defer on "low" conviction); real-data verified (live churn 0.354 → normal). *(task #23)*
 - 🔴 **Slice 3 — multi-day FII-net trend.** History walk over N trading days of
   participant OI to trend FII net (not just today's level). Done = an N-day FII
   net-trend signal derived + surfaced, real-data verified.

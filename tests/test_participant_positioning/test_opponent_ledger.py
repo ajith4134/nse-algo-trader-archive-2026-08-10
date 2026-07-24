@@ -20,7 +20,7 @@ from nse_algo_trader.participant_positioning import (
     read_opponent_ledger,
 )
 from nse_algo_trader.participant_positioning.nse_participant_positioning_source import (
-    parse_participant_oi_csv,
+    parse_participant_report_csv,
 )
 
 from .in_memory_participant_positioning_source import (
@@ -121,7 +121,7 @@ class TestOpponentLedgerHermetic:
 @pytest.mark.skipif(not _REAL_SAMPLE.exists(), reason="real NSE sample absent")
 class TestOpponentLedgerOnRealNseData:
     def test_parses_real_nse_file_and_derives_expected_signals(self):
-        snapshot = parse_participant_oi_csv(
+        snapshot = parse_participant_report_csv(
             _REAL_SAMPLE.read_text(), date(2026, 7, 23)
         )
         # all five NSE rows present
@@ -140,3 +140,41 @@ class TestOpponentLedgerOnRealNseData:
         assert reading.directional_lean == "bearish"
         # FII net short while Client net long -> the retail-on-other-side tell
         assert reading.retail_on_other_side is True
+
+
+_REAL_VOL = Path(__file__).parent / "real_nse_participant_vol_23072026.csv"
+
+
+class TestParticipationConviction:
+    def test_no_volume_snapshot_leaves_conviction_none(self):
+        reading = read_opponent_ledger(
+            _snapshot(_row("FII", 300, 100), _row("Client", 100, 300))
+        )
+        assert reading.participation_conviction is None
+        assert reading.fii_index_futures_churn is None
+
+    def test_high_churn_reads_high_conviction(self):
+        # FII OI 100+100=200; volume 150+150=300 -> churn 1.5 -> high
+        oi = _snapshot(_row("FII", 100, 100), _row("Client", 100, 100))
+        vol = _snapshot(_row("FII", 150, 150), _row("Client", 100, 100))
+        reading = read_opponent_ledger(oi, vol)
+        assert reading.fii_index_futures_churn == 1.5
+        assert reading.participation_conviction == "high"
+
+    def test_low_churn_reads_low_conviction(self):
+        # FII OI 1000+1000=2000; volume 100+100=200 -> churn 0.1 -> low
+        oi = _snapshot(_row("FII", 1000, 1000), _row("Client", 100, 900))
+        vol = _snapshot(_row("FII", 100, 100), _row("Client", 100, 100))
+        reading = read_opponent_ledger(oi, vol)
+        assert reading.fii_index_futures_churn == 0.1
+        assert reading.participation_conviction == "low"
+
+    @pytest.mark.skipif(not _REAL_VOL.exists(), reason="real vol sample absent")
+    def test_real_volume_gives_normal_conviction(self):
+        oi = parse_participant_report_csv(_REAL_SAMPLE.read_text(), date(2026, 7, 23))
+        vol = parse_participant_report_csv(_REAL_VOL.read_text(), date(2026, 7, 23))
+        reading = read_opponent_ledger(oi, vol)
+        # real 23-Jul: FII index-fut churn 0.35 -> normal; backed divergence
+        assert reading.fii_index_futures_churn == 0.354
+        assert reading.participation_conviction == "normal"
+        assert reading.fii_volume_share is not None

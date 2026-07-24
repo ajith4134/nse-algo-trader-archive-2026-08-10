@@ -547,9 +547,11 @@ function renderLive(snap){
       `<td style="color:${netColor(opp.client_index_options_net_call_bias)}">${sgn(opp.client_index_options_net_call_bias)}</td></tr>`;
     document.getElementById("oppTbl").innerHTML=rows;
     const trap=opp.retail_on_other_side?` <b style="color:var(--warnc)">⚠ Retail leaning the OTHER way</b> — reversal-trap watch.`:"";
+    const convColor={high:'var(--profit)',normal:'var(--dim)',low:'var(--faint)'};
+    const conv=opp.participation_conviction?` <span style="color:${convColor[opp.participation_conviction]||'var(--dim)'}">FII activity: <b>${opp.participation_conviction}</b> conviction (churn ${opp.fii_index_futures_churn!=null?opp.fii_index_futures_churn.toFixed(2):'n/a'}${opp.fii_volume_share!=null?', '+Math.round(opp.fii_volume_share*100)+'% of index-fut volume':''}).</span>`:"";
     const pdc=snap.positioning_deferred_count||0;
     const deferred=pdc?` <b style="color:var(--warnc)">${pdc.toLocaleString()} new entr${pdc===1?'y':'ies'} deferred</b> (institutions on the other side).`:"";
-    document.getElementById("oppnote").innerHTML=opp.headline+trap+deferred+" <span style=\"color:var(--dim)\">NSE participant-wise OI · a multi-day confirmation input, not an intraday trigger.</span>";
+    document.getElementById("oppnote").innerHTML=opp.headline+trap+conv+deferred+" <span style=\"color:var(--dim)\">NSE participant-wise OI + volume · a multi-day confirmation input, not an intraday trigger.</span>";
   }
   document.getElementById("sub").textContent="live dashboard · updated "+snap.generated_at.slice(11,16)+(LIVE_API_KEY?" · auto-refresh 20s":"");
 }

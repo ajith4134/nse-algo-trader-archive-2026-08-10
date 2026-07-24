@@ -11,7 +11,7 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-24j**.
+  true to what is actually on the server. Last regenerated: **2026-07-24k**.
 - **100 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
@@ -302,6 +302,20 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-24k** — Opponent-ledger **slice 2: participant VOLUME → conviction**
+  (no new files; edits only, 100 modules). Added the `fao_participant_vol` report:
+  `ParticipantPositioningSource` protocol gains `volume_on(date)`; the real adapter
+  parametrizes the archive URL by `kind` ('oi'|'vol') and adds `volume_on`; the
+  parser is generic (renamed `parse_participant_oi_csv → parse_participant_report_csv`
+  — identical schema). `read_opponent_ledger(oi, volume=None)` now derives FII
+  index-futures **churn** (volume÷OI), **participation_conviction** (high ≥0.60 ·
+  normal ≥0.30 · low <0.30), and FII volume share. **Wired into DECISIONS (Rule K):**
+  the positioning gate suppresses the defer when conviction == "low" (only defer a
+  volume-backed divergence; None conviction preserves slice-1 behaviour). Service
+  fetches vol alongside OI; conviction + share surface on the Opponent-ledger panel.
+  **Verified on REAL data (Rule F):** live NSE volume fetch → real FII churn 0.354 →
+  "normal", 28.3% vol share; the 23-Jul divergence is volume-backed. 327 suite green
+  (+6). Backlog (Rule K): slice 3 (multi-day FII-net trend) remains open.
 - **2026-07-24j** — Opponent-ledger **slice 1: divergence → strategy bias** (the
   ledger now affects DECISIONS, not just the panel). New file
   `participant_positioning/market_positioning_bias.py`

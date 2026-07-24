@@ -258,3 +258,28 @@ loop-integration (opposed long deferred, neutral long opens) + a real-reading te
 321 suite green.
 **Backlog (Rule K, docs/BACKLOG.md):** slice 2 = participant VOLUME file; slice 3 =
 multi-day FII-net trend (history walk). Both still open.
+
+### Opponent ledger slice 2 (2026-07-24) — participant VOLUME → conviction (wired into decisions)
+OI is positions HELD; the volume report is contracts TRADED today. Volume tells us
+whether today's divergence is **backed by active FII trading** or is thin/stale — a
+conviction qualifier that makes the slice-1 gate smarter.
+
+**Source:** `ParticipantPositioningSource.volume_on(date)` (real adapter fetches
+`fao_participant_vol_DDMMYYYY.csv` — same host/UA/schema as OI; parser renamed
+`parse_participant_report_csv`, generic). **Signal:** FII index-futures **churn** =
+volume ÷ OI; `participation_conviction` tiers high ≥0.60 / normal ≥0.30 / low <0.30
+(grounded in real 23-Jul churn: FII 0.35, Client 0.48, Pro 0.73), plus FII volume
+share. Computed in `read_opponent_ledger(oi, volume=None)`.
+
+**Data flow (Rule G):** service `_refresh_opponent_ledger` fetches vol alongside OI
+→ `read_opponent_ledger(oi, vol)` → conviction on the reading → the gate
+(`institutional_positioning_opposes_entry`) **suppresses the defer when conviction
+== "low"** (only defer a volume-backed divergence; None conviction = slice-1
+behaviour). conviction + share → panel note.
+
+**Verified — REAL DATA (Rule F):** live NSE volume fetch → real FII churn 0.354 →
+"normal" conviction, 28.3% of index-fut volume; the 23-Jul divergence is
+volume-backed so the LONG-defer stands. 6 tests (churn/conviction derivation, real
+volume file, gate suppression on low conviction). 327 suite green. Slice-1 tests
+stay green (None conviction still defers).
+**Backlog (Rule K):** slice 3 = multi-day FII-net trend (history walk) — open.

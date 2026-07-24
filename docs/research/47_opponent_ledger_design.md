@@ -141,3 +141,38 @@ panel note ("N new entries deferred — institutions on the other side today").
 permitted; None permits) + a loop-integration test (a candidate that would open is
 deferred when positioning opposes) + a real-reading test (the real 23-Jul FII-bearish
 + retail-long reading defers a LONG entry). Real-data (Rule F) achievable now (EOD).
+
+---
+
+## Slice 2 (2026-07-24) — participant VOLUME file → conviction (wired into decisions)
+OI is a *stock* (positions held); the volume file is the *flow* (contracts traded
+today). Volume tells us whether today's positioning divergence is **backed by
+active trading** or is stale carryover — a conviction qualifier that makes the
+slice-1 gate smarter (don't defer on a thin, unconvincing divergence).
+
+**Data (already acquired, research/47 §2):** `fao_participant_vol_DDMMYYYY.csv`,
+same host / UA / 15-col schema / 404-on-holiday as OI. Same parser (contract
+counts either way). Reuse the adapter with a `kind` parameter.
+
+**Signal — FII index-futures churn = volume ÷ OI (a standard derivatives metric):**
+how much of their open book a party turned over today. Real 23-Jul values:
+FII 0.35, Client 0.48, Pro 0.73. Conviction tiers on FII futures churn:
+`high ≥ 0.60 · normal ≥ 0.30 · low < 0.30`. Also derive FII share of total
+index-futures volume (who is driving today's flow).
+
+**Primary consumer (Rule K — not display-only):** the positioning gate
+(`institutional_positioning_opposes_entry`) now suppresses the defer when
+`participation_conviction == "low"` — i.e. only defer an entry when the divergence
+is volume-backed. No volume data (None) → slice-1 behaviour preserved (defer). On
+real 23-Jul, FII churn 0.35 → "normal" → the LONG-defer stands (coherent).
+
+**Files/changes:** `ParticipantPositioningSource` protocol gains
+`volume_on(date) -> Snapshot|None`; the real adapter parametrizes the URL by kind
+and adds `volume_on`; `read_opponent_ledger(oi, volume=None)` computes
+`fii_index_futures_volume`, `fii_futures_churn`, `participation_conviction`,
+`fii_volume_share`; the service fetches volume alongside OI; the panel shows the
+conviction + FII volume share.
+
+**Verify:** hermetic churn/conviction derivation + gate-suppression-on-low; a real
+`fao_participant_vol` fetch (EOD, market-closed OK) → real churn 0.35 → "normal";
+slice-1 tests stay green (None conviction still defers).

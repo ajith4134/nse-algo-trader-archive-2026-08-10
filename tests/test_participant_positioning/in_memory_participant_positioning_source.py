@@ -18,11 +18,19 @@ class InMemoryParticipantPositioningSource:
     (mimicking NSE's 404-on-holiday behaviour)."""
 
     def __init__(
-        self, snapshots_by_date: dict[date, ParticipantPositioningSnapshot]
+        self,
+        snapshots_by_date: dict[date, ParticipantPositioningSnapshot],
+        volume_by_date: dict[date, ParticipantPositioningSnapshot] | None = None,
     ) -> None:
         self._snapshots_by_date = dict(snapshots_by_date)
+        self._volume_by_date = dict(volume_by_date or {})
 
     def positioning_on(
         self, trade_date: date
     ) -> ParticipantPositioningSnapshot | None:
         return self._snapshots_by_date.get(trade_date)
+
+    def volume_on(
+        self, trade_date: date
+    ) -> ParticipantPositioningSnapshot | None:
+        return self._volume_by_date.get(trade_date)

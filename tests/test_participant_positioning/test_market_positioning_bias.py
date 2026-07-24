@@ -5,6 +5,7 @@ REAL DATA (Rule F): the real 23-Jul-2026 reading (FII bearish + retail long)
 opposes a LONG entry.
 """
 
+from dataclasses import replace
 from datetime import date
 
 from nse_algo_trader.participant_positioning import (
@@ -12,7 +13,7 @@ from nse_algo_trader.participant_positioning import (
     read_opponent_ledger,
 )
 from nse_algo_trader.participant_positioning.nse_participant_positioning_source import (
-    parse_participant_oi_csv,
+    parse_participant_report_csv,
 )
 from nse_algo_trader.participant_positioning.opponent_ledger import (
     OpponentLedgerReading,
@@ -73,7 +74,7 @@ class TestPositioningBiasOnRealNseReading:
 
             pytest.skip("real NSE sample absent")
         reading = read_opponent_ledger(
-            parse_participant_oi_csv(_REAL_SAMPLE.read_text(), date(2026, 7, 23))
+            parse_participant_report_csv(_REAL_SAMPLE.read_text(), date(2026, 7, 23))
         )
         # real reading: FII bearish, Client long -> retail on the other side
         assert reading.directional_lean == "bearish"
@@ -82,3 +83,16 @@ class TestPositioningBiasOnRealNseReading:
         assert not institutional_positioning_opposes_entry(
             reading, entry_is_bullish=False
         )
+
+
+class TestConvictionGatesTheDefer:
+    def test_low_conviction_divergence_does_not_oppose(self):
+        # inject low conviction -> the thin divergence no longer defers
+        r = replace(_reading("bearish", retail_on_other_side=True),
+                    participation_conviction="low")
+        assert not institutional_positioning_opposes_entry(r, entry_is_bullish=True)
+
+    def test_normal_conviction_divergence_still_opposes(self):
+        r = replace(_reading("bearish", retail_on_other_side=True),
+                    participation_conviction="normal")
+        assert institutional_positioning_opposes_entry(r, entry_is_bullish=True)

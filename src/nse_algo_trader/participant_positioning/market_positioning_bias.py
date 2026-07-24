@@ -22,6 +22,12 @@ def institutional_positioning_opposes_entry(
     both cases only when `retail_on_other_side` confirms the divergence."""
     if reading is None or not getattr(reading, "retail_on_other_side", False):
         return False
+    # Slice 2: only act on a divergence the volume report shows is backed by
+    # active FII trading. A "low"-conviction (thin/stale) divergence is not
+    # enough to defer an entry. None conviction (no volume report) → defer as in
+    # slice 1 (the divergence stands on the OI signal alone).
+    if getattr(reading, "participation_conviction", None) == "low":
+        return False
     lean = getattr(reading, "directional_lean", "neutral")
     if entry_is_bullish and lean == "bearish":
         return True

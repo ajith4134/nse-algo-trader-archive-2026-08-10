@@ -419,7 +419,12 @@ class LivePaperTradingService:
                     probe_date
                 )
                 if snapshot is not None:
-                    reading = read_opponent_ledger(snapshot)
+                    # slice 2: pair the OI report with the same-day VOLUME report
+                    # so the reading carries a participation-conviction qualifier.
+                    volume_snapshot = self._participant_positioning_source.volume_on(
+                        probe_date
+                    )
+                    reading = read_opponent_ledger(snapshot, volume_snapshot)
                     if reading is not None:
                         from dataclasses import asdict
 

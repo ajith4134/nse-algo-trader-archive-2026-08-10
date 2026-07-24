@@ -87,8 +87,16 @@ class ParticipantPositioningSnapshot:
 class ParticipantPositioningSource(Protocol):
     """Anything that can supply a day's participant positioning — the real NSE
     archive fetcher in production, an in-memory fake in tests. Returns None
-    when no report exists for that date (holiday / not yet published)."""
+    when no report exists for that date (holiday / not yet published).
+
+    `positioning_on` serves the OPEN-INTEREST report (positions held);
+    `volume_on` serves the same-schema TRADING-VOLUME report (contracts traded
+    that day) used to gauge how actively a party is trading its book."""
 
     def positioning_on(
+        self, trade_date: date
+    ) -> ParticipantPositioningSnapshot | None: ...
+
+    def volume_on(
         self, trade_date: date
     ) -> ParticipantPositioningSnapshot | None: ...

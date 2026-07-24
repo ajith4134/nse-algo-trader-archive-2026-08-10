@@ -29,9 +29,10 @@ from nse_algo_trader.participant_positioning.participant_positioning_source impo
     ParticipantPositioningSnapshot,
 )
 
-_NSE_PARTICIPANT_OI_URL = (
-    "https://nsearchives.nseindia.com/content/nsccl/fao_participant_oi_{ddmmyyyy}.csv"
-)
+_NSE_PARTICIPANT_REPORT_URL = (
+    "https://nsearchives.nseindia.com/content/nsccl/"
+    "fao_participant_{kind}_{ddmmyyyy}.csv"
+)  # kind: "oi" (open interest) | "vol" (trading volume) — identical schema
 # A real browser UA is the whole anti-bot handshake for the archives host.
 _BROWSER_USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -60,9 +61,14 @@ def _nse_archive_date_token(trade_date: date) -> str:
     return trade_date.strftime("%d%m%Y")
 
 
-def _download_participant_oi_csv_text(trade_date: date, timeout_seconds: float):
-    """Return the raw CSV text, or None on HTTP 404 (no report that day)."""
-    url = _NSE_PARTICIPANT_OI_URL.format(ddmmyyyy=_nse_archive_date_token(trade_date))
+def _download_participant_csv_text(
+    kind: str, trade_date: date, timeout_seconds: float
+):
+    """Return the raw CSV text for the OI ('oi') or volume ('vol') report, or
+    None on HTTP 404 (no report that day)."""
+    url = _NSE_PARTICIPANT_REPORT_URL.format(
+        kind=kind, ddmmyyyy=_nse_archive_date_token(trade_date)
+    )
     request = urllib.request.Request(url, headers={"User-Agent": _BROWSER_USER_AGENT})
     try:
         with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
@@ -73,10 +79,11 @@ def _download_participant_oi_csv_text(trade_date: date, timeout_seconds: float):
         raise
 
 
-def parse_participant_oi_csv(
+def parse_participant_report_csv(
     csv_text: str, report_date: date
 ) -> ParticipantPositioningSnapshot:
-    """Parse the real NSE participant-OI CSV bytes into a typed snapshot.
+    """Parse the real NSE participant CSV bytes (OI or volume — identical
+    schema) into a typed snapshot.
 
     Layout (verified): row 1 is a single preamble line, row 2 is the header
     (some columns have trailing spaces), rows 3-7 are Client/DII/FII/Pro/TOTAL.
@@ -90,7 +97,7 @@ def parse_participant_oi_csv(
     for required in ("Client Type", *_NUMERIC_COLUMN_ORDER):
         if required not in column_index:
             raise ValueError(
-                f"NSE participant-OI header missing column {required!r}; "
+                f"NSE participant header missing column {required!r}; "
                 f"got {header!r} — file format may have changed."
             )
 
@@ -123,7 +130,7 @@ def parse_participant_oi_csv(
         total_row.total_long_contracts != total_row.total_short_contracts
     ):
         raise ValueError(
-            "NSE participant-OI checksum failed: TOTAL long "
+            "NSE participant checksum failed: TOTAL long "
             f"{total_row.total_long_contracts} != short "
             f"{total_row.total_short_contracts} — corrupt or changed file."
         )
@@ -132,18 +139,27 @@ def parse_participant_oi_csv(
 
 class NseParticipantPositioningSource:
     """Production `ParticipantPositioningSource`: fetches and parses the NSE
-    archived participant-wise OI report for a date. Returns None on a holiday
-    / not-yet-published date (HTTP 404)."""
+    archived participant-wise open-interest ('oi') and trading-volume ('vol')
+    reports for a date. Returns None on a holiday / not-yet-published date
+    (HTTP 404)."""
 
     def __init__(self, timeout_seconds: float = 30.0) -> None:
         self._timeout_seconds = timeout_seconds
 
-    def positioning_on(
-        self, trade_date: date
-    ) -> ParticipantPositioningSnapshot | None:
-        csv_text = _download_participant_oi_csv_text(
-            trade_date, self._timeout_seconds
+    def _fetch(self, kind: str, trade_date: date):
+        csv_text = _download_participant_csv_text(
+            kind, trade_date, self._timeout_seconds
         )
         if csv_text is None:
             return None
-        return parse_participant_oi_csv(csv_text, trade_date)
+        return parse_participant_report_csv(csv_text, trade_date)
+
+    def positioning_on(
+        self, trade_date: date
+    ) -> ParticipantPositioningSnapshot | None:
+        return self._fetch("oi", trade_date)
+
+    def volume_on(
+        self, trade_date: date
+    ) -> ParticipantPositioningSnapshot | None:
+        return self._fetch("vol", trade_date)
