@@ -240,8 +240,9 @@ flowchart LR
 - `dashboard_read_model.py` — assembles `DashboardSnapshot` (+ `OpenPositionSummary`, `SegmentBoard`, `StrategyReadinessSummary`).
 - `monitoring_alerts.py` — time-gated alerts (open intraday=INFO, after-15:15=CRITICAL).
 - `project_status_data.py` — layer roadmap + 16-trunk concept tree (static).
-- `render_dashboard_html.py` — snapshot → standalone interactive HTML (3 §9 tables, scrollable; segment boards; closed trades; 20s poll).
-- `dashboard_server.py` — FastAPI (`/`, `/api/snapshot`, `/api/config`, capability-token gated).
+- `render_dashboard_html.py` — snapshot → standalone interactive HTML (3 §9 tables, scrollable; segment boards; closed trades; 20s poll; a "🗺️ System Map" header link → `/map`).
+- `render_system_map_html.py` — renders THIS map (`docs/SYSTEM_MAP.md`) as its own page at `/map` (marked + mermaid, client-side); `render_system_map_html`, `load_system_map_markdown`.
+- `dashboard_server.py` — FastAPI (`/`, `/map`, `/api/snapshot`, `/api/config`, capability-token gated).
 - IN: everything (reads L1–L8 via the service) + `trading_control_config.json`. OUT: HTML/JSON → operator browser; `POST /api/config` writes the config store.
 - Internal flow:
 ```mermaid
@@ -284,6 +285,9 @@ login → `kite_access_token.json` → consumed by the feed + broker clients.
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-24b** — Added `dashboard/render_system_map_html.py`: this map is
+  now browsable IN the dashboard at `/map` (linked from the main page header),
+  rendering these Mermaid diagrams client-side.
 - **2026-07-24** — Map created from the live AST import graph (89 modules,
   12 features). Captures the live universe paper loop (cash + options +
   directional), the §9 lab, promotion gates, the market-clock router +

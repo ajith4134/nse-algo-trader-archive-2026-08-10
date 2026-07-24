@@ -76,6 +76,9 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
     display:grid;place-items:center;color:#fff;font-weight:800;font-size:1.1rem;box-shadow:var(--shadow)}
   .logo h1{margin:0;font-size:1.15rem;font-weight:700;letter-spacing:-.01em}
   .logo .sub{font-size:.72rem;color:var(--faint);font-family:var(--mono);letter-spacing:.04em}
+  .maplink{text-decoration:none;color:var(--accent);font-weight:600;font-size:.82rem;
+    padding:.42em .8em;border:1px solid var(--line2);border-radius:999px;white-space:nowrap}
+  .maplink:hover{border-color:var(--accent)}
   .modebadge{display:inline-flex;align-items:center;gap:.45rem;font-family:var(--mono);font-size:.72rem;
     font-weight:700;padding:.42em .7em;border-radius:999px;letter-spacing:.05em}
   .modebadge.paper{background:var(--profitsoft);color:var(--profit)}
@@ -193,7 +196,10 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
       <div class="mark">N</div>
       <div><h1>NSE Algo Trader</h1><div class="sub" id="sub"></div></div>
     </div>
-    <span class="modebadge paper" id="modebadge"><span class="dot"></span><span id="modetext">PAPER</span></span>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:.7rem">
+      <a id="maplink" class="maplink" href="#">🗺️ System Map</a>
+      <span class="modebadge paper" id="modebadge"><span class="dot"></span><span id="modetext">PAPER</span></span>
+    </div>
   </header>
 
   <div class="alerts" id="alerts"></div>
@@ -271,6 +277,7 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
 <script>
 const SNAPSHOT = /*__DASHBOARD_SNAPSHOT_JSON__*/;
 const LIVE_API_KEY = /*__LIVE_API_KEY__*/;
+document.getElementById("maplink").href = LIVE_API_KEY ? ("/map?key="+encodeURIComponent(LIVE_API_KEY)) : "/map";
 const rupee = n => "₹" + Math.round(n).toLocaleString("en-IN");
 const rupeeShort = n => { const a=Math.abs(n);
   if(a>=1e7) return "₹"+(n/1e7).toFixed(2)+"Cr"; if(a>=1e5) return "₹"+(n/1e5).toFixed(2)+"L";

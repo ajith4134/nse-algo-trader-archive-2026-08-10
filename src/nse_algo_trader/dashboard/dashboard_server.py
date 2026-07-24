@@ -28,6 +28,10 @@ from nse_algo_trader.dashboard.live_paper_trading_service import (
     LivePaperTradingService,
 )
 from nse_algo_trader.dashboard.render_dashboard_html import render_dashboard_html
+from nse_algo_trader.dashboard.render_system_map_html import (
+    load_system_map_markdown,
+    render_system_map_html,
+)
 from nse_algo_trader.dashboard.trading_control_config import (
     TradingControlConfig,
     load_trading_control_config,
@@ -169,6 +173,13 @@ def build_dashboard_app() -> FastAPI:
     def dashboard_page(request: Request):
         _require_key(request)
         return render_dashboard_html(_current_snapshot(), live_api_key=access_token)
+
+    @app.get("/map", response_class=HTMLResponse)
+    def system_map_page(request: Request):
+        _require_key(request)
+        return render_system_map_html(
+            load_system_map_markdown(), live_api_key=access_token
+        )
 
     @app.get("/api/snapshot")
     def snapshot_json(request: Request):
