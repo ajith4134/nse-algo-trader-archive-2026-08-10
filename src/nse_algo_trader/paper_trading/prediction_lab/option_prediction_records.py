@@ -16,9 +16,11 @@ from datetime import date
 
 from nse_algo_trader.paper_trading.prediction_lab.adx_confidence_prediction import (
     _ADX_PROBABILITY_CENTER,
-    _CONFIDENT_LOSS_PROBABILITY,
-    _CONFIDENT_WIN_PROBABILITY,
     _win_probability_from_adx,
+)
+from nse_algo_trader.paper_trading.prediction_lab.mechanism_recalibration import (
+    CONFIDENT_LOSS_PROBABILITY,
+    CONFIDENT_WIN_PROBABILITY,
 )
 from nse_algo_trader.paper_trading.prediction_lab.prediction_record import (
     NamedPredictionReason,
@@ -30,9 +32,9 @@ from nse_algo_trader.strategy_engine import SignalDirection
 
 
 def _table_outcome_exit(win_probability: float):
-    if win_probability >= _CONFIDENT_WIN_PROBABILITY:
+    if win_probability >= CONFIDENT_WIN_PROBABILITY:
         return PredictionLabeledTable.CONFIDENT_WIN, PredictedTradeOutcome.WIN, "target"
-    if win_probability <= _CONFIDENT_LOSS_PROBABILITY:
+    if win_probability <= CONFIDENT_LOSS_PROBABILITY:
         return PredictionLabeledTable.CONFIDENT_LOSS, PredictedTradeOutcome.LOSS, "stop"
     is_win = win_probability >= 0.5
     return (

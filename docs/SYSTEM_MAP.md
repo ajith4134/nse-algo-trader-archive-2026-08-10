@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-24o**.
-- **102 Python modules across 14 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-24p**.
+- **103 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -302,6 +302,25 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-24p** — **Mechanism recalibration** (Layer 10 → §9 feedback; act on the
+  Brier diagnosis; research/51; 103 modules). New file
+  `prediction_lab/mechanism_recalibration.py`: `assign_table_and_outcome` (the
+  confident-win/loss/uncertain band logic, now the SINGLE source of truth — the ADX
+  builder was refactored to use it, so recalibration and the base model can't
+  diverge) + `recalibrate_prediction_record(record, offset_by_mechanism)` (additive
+  bias-correct win_probability, re-derive table/outcome, keep mechanism identity;
+  **identity at cold start**). New `memory_reflection.learn_mechanism_recalibrations`
+  → `(offset_by_mechanism = actual−predicted per cohort, no_edge = resolution≈0
+  mechanisms)`. **Wiring (Rule G):** the service computes both each pass and sets
+  `state.recalibration_offset_by_mechanism` + folds no-edge into
+  `state.vetoed_mechanisms`; the loop calls `state.apply_recalibration(record)` at all
+  4 entry sites right after building each prediction record → the recorded/scored
+  prediction carries corrected confidence + table. **Verified on REAL data (Rule F):**
+  learned offsets from the real 213-experience board — post-breakout-trend −0.72 (raw
+  0.84 → 0.12, near its real 0.09; demoted from CONFIDENT_WIN), long-ATM-option −0.35,
+  false-breakout +0.12; no-edge set empty (matches the decomposition). 351 suite green
+  (+3; cold-start identity keeps all existing §9 tests unchanged). **Closes the last
+  actionable Layer-10 §10/reflection consumer.**
 - **2026-07-24o** — **Graph substrate decision + SQLite multi-hop** (research/50; no
   new files, 102 modules). **Graphiti/Neo4j REJECTED** (verified live): it is an
   LLM-text-extraction temporal-KG needing a graph-DB server + mandatory LLM key

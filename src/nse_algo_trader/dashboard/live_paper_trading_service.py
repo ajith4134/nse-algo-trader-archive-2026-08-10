@@ -396,9 +396,17 @@ class LivePaperTradingService:
                 )
             # Refresh the antibody veto set (Layer 10 slice 3): mechanisms the
             # memory has statistically refuted stop taking new entries.
-            from nse_algo_trader.memory_reflection import vetoed_mechanisms
+            from nse_algo_trader.memory_reflection import (
+                learn_mechanism_recalibrations,
+                vetoed_mechanisms,
+            )
 
-            self._state.vetoed_mechanisms = vetoed_mechanisms(self._experience_memory)
+            vetoed = vetoed_mechanisms(self._experience_memory)
+            # research/51: learn win-probability bias offsets + hard-veto no-edge
+            # (resolution≈0) mechanisms — the memory acting on its own diagnosis.
+            offsets, no_edge = learn_mechanism_recalibrations(self._experience_memory)
+            self._state.recalibration_offset_by_mechanism = offsets
+            self._state.vetoed_mechanisms = vetoed | no_edge
         except Exception:
             pass
 

@@ -14,9 +14,13 @@ measures how wrong it is (Brier) so later layers can recalibrate.
 import math
 from datetime import date
 
+from nse_algo_trader.paper_trading.prediction_lab.mechanism_recalibration import (
+    CONFIDENT_LOSS_PROBABILITY,
+    CONFIDENT_WIN_PROBABILITY,
+    assign_table_and_outcome,
+)
 from nse_algo_trader.paper_trading.prediction_lab.prediction_record import (
     NamedPredictionReason,
-    PredictedTradeOutcome,
     PredictionLabeledTable,
     TradePredictionRecord,
 )
@@ -28,14 +32,23 @@ from nse_algo_trader.strategy_engine import (
 # ADX logistic: centered between the 20/25 regime bands, moderate slope.
 _ADX_PROBABILITY_CENTER = 22.5
 _ADX_PROBABILITY_SLOPE = 0.18
-_CONFIDENT_WIN_PROBABILITY = 0.60
-_CONFIDENT_LOSS_PROBABILITY = 0.40
 
 
 def _win_probability_from_adx(adx_value: float) -> float:
     return 1.0 / (
         1.0 + math.exp(-_ADX_PROBABILITY_SLOPE * (adx_value - _ADX_PROBABILITY_CENTER))
     )
+
+
+def _mechanism_name_for(win_probability: float) -> str:
+    """The mechanism IDENTITY the base ADX model attempts — the named thesis, by
+    confidence band. Kept stable under recalibration (the identity is what the
+    model believed; recalibration only corrects the probability/table)."""
+    if win_probability >= CONFIDENT_WIN_PROBABILITY:
+        return "post-breakout trend continuation (ADX trending)"
+    if win_probability <= CONFIDENT_LOSS_PROBABILITY:
+        return "false breakout into range-bound chop (ADX below trend band)"
+    return "indeterminate regime — outcome informative either way"
 
 
 def build_orb_prediction_record(
@@ -46,31 +59,13 @@ def build_orb_prediction_record(
     calendar_context: str = "normal",
 ) -> TradePredictionRecord:
     win_probability = _win_probability_from_adx(adx_value)
-
-    if win_probability >= _CONFIDENT_WIN_PROBABILITY:
-        assigned_table = PredictionLabeledTable.CONFIDENT_WIN
-        predicted_outcome = PredictedTradeOutcome.WIN
-        mechanism_name = "post-breakout trend continuation (ADX trending)"
-        predicted_exit_cause = "target"
-        expected_reward_multiple = target_reward_multiple
-    elif win_probability <= _CONFIDENT_LOSS_PROBABILITY:
-        assigned_table = PredictionLabeledTable.CONFIDENT_LOSS
-        predicted_outcome = PredictedTradeOutcome.LOSS
-        mechanism_name = "false breakout into range-bound chop (ADX below trend band)"
-        predicted_exit_cause = "stop"
-        expected_reward_multiple = -1.0
-    else:
-        assigned_table = PredictionLabeledTable.UNCERTAIN
-        predicted_outcome = (
-            PredictedTradeOutcome.WIN
-            if win_probability >= 0.5
-            else PredictedTradeOutcome.LOSS
-        )
-        mechanism_name = "indeterminate regime — outcome informative either way"
-        predicted_exit_cause = "target" if win_probability >= 0.5 else "stop"
-        expected_reward_multiple = (
-            target_reward_multiple if win_probability >= 0.5 else -1.0
-        )
+    mechanism_name = _mechanism_name_for(win_probability)
+    (
+        assigned_table,
+        predicted_outcome,
+        predicted_exit_cause,
+        expected_reward_multiple,
+    ) = assign_table_and_outcome(win_probability, target_reward_multiple)
 
     reasons = (
         NamedPredictionReason(

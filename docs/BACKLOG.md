@@ -43,11 +43,11 @@ Status key: 🔴 not started · 🟡 in progress · 🟢 done (moved to Done) ·
   (2026-07-24): vendored (briertools rejected — no Murphy fn, 6 deps, no license);
   reliability_decomposition() + diagnosis fed into the antibody's tripwire detail;
   real-data verified over 213 experiences. *(task #26)*
-- 🔴 **Auto-recalibration consumer (queued, Rule K).** Use the decomposition to
-  RECALIBRATE win_probability for a high-reliability/good-resolution mechanism
-  (biased but discriminates) vs hard-veto a resolution≈0 (no-edge) one — turns the
-  diagnosis into an action. Done = win_prob adjusted or mechanism retired by the
-  reliability read, verified on real experiments.
+- 🟢 **Auto-recalibration consumer.** DONE (2026-07-24): learn_mechanism_recalibrations
+  → per-mechanism bias offset applied to win_probability at all 4 entry sites (demotes
+  over-confident theses; re-derives table) + no-edge (resolution≈0) hard-veto.
+  Real-data verified (post-breakout-trend −0.72 → 0.84 recalibrates to 0.12).
+  *(task #27)*
 
 ## Open real-data blockers (Rule F/J — sim-verified, real pass pending)
 - ⛔ **Shadow-arm recovery (slice 4) live pass.** Functionally verified via sim

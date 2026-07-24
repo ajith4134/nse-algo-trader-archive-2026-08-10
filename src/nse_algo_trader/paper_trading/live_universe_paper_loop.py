@@ -146,6 +146,26 @@ class LiveUniversePaperState:
     # trigger. Existing positions are never touched.
     market_positioning_bias: object = None
     positioning_deferred_count: int = 0
+    # research/51: per-mechanism additive win-probability bias offset learned by
+    # the memory (set by the service). Applied to every prediction record before
+    # recording — empty at cold start (identity), so it is safe unconditionally.
+    recalibration_offset_by_mechanism: dict = field(default_factory=dict)
+    recalibrated_entry_count: int = 0
+
+    def apply_recalibration(self, prediction_record):
+        """Bias-correct a freshly-built prediction record with the memory-learned
+        per-mechanism offset (research/51). Identity at cold start (empty map);
+        counts a record whose win-probability actually moved."""
+        from nse_algo_trader.paper_trading.prediction_lab.mechanism_recalibration import (  # noqa: E501
+            recalibrate_prediction_record,
+        )
+
+        recalibrated = recalibrate_prediction_record(
+            prediction_record, self.recalibration_offset_by_mechanism
+        )
+        if recalibrated.win_probability != prediction_record.win_probability:
+            self.recalibrated_entry_count += 1
+        return recalibrated
 
     def positioning_permits_entry(self, entry_is_bullish: bool) -> bool:
         """False when the opponent ledger says institutions are on the other
@@ -462,6 +482,7 @@ def _open_watched_breakout(state, watch, direction, ltp, risk_budget, now) -> bo
         signal=signal, adx_value=watch.regime_adx, session_date=now.date(),
         target_reward_multiple=watch.target_risk_reward_ratio,
     )
+    prediction_record = state.apply_recalibration(prediction_record)
     if state.entry_decision_for_mechanism(prediction_record.mechanism_name) == "veto":
         return False
     if not state.positioning_permits_entry(
@@ -515,6 +536,7 @@ def _seed_cash_instrument_from_orb(
         session_date=session_bars[0].timestamp.date(),
         target_reward_multiple=strategy_config.target_risk_reward_ratio,
     )
+    prediction_record = state.apply_recalibration(prediction_record)
     if state.entry_decision_for_mechanism(prediction_record.mechanism_name) == "veto":
         return False  # antibody veto (a 1-in-N shadow probe opens for recovery)
     if not state.positioning_permits_entry(

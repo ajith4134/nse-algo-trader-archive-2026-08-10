@@ -27,6 +27,7 @@ from nse_algo_trader.memory_reflection.assumption_registry import (
     AssumptionStatus,
     AssumptionVerdict,
     evaluate_trading_assumptions,
+    learn_mechanism_recalibrations,
     vetoed_mechanisms,
 )
 from nse_algo_trader.memory_reflection.sqlite_experience_memory import (
@@ -39,6 +40,7 @@ __all__ = [
     "AssumptionStatus",
     "AssumptionVerdict",
     "evaluate_trading_assumptions",
+    "learn_mechanism_recalibrations",
     "vetoed_mechanisms",
     "BrierDecomposition",
     "murphy_brier_decomposition",

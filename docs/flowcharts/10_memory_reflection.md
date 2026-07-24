@@ -399,3 +399,33 @@ the verdict). 348 suite green.
 **Queued (Rule K, docs/BACKLOG.md):** regime-transition fragility + cross-regime
 co-failure clusters — need multi-regime data (real data is single-regime "normal"
 today); the LAG / recursive-CTE substrate built here is the vehicle.
+
+### Mechanism recalibration (2026-07-24) — the memory acts on its own diagnosis
+The final Layer-10 reflection consumer: turn the calibration diagnosis into an ACTION
+(research/51). The §9 ADX model is deliberately un-calibrated; the memory now bias-
+corrects it.
+
+**`prediction_lab/mechanism_recalibration.py`:** `assign_table_and_outcome` (the
+confident-win/loss/uncertain bands — extracted as the single source of truth; the ADX
+builder now calls it so the two can't diverge) + `recalibrate_prediction_record(record,
+offset_by_mechanism)` — additive bias-correct win_probability, re-derive table/outcome,
+keep mechanism identity; **empty offsets = identity (cold-start safe)**.
+
+**`memory_reflection.learn_mechanism_recalibrations(memory)`** → `(offset_by_mechanism,
+no_edge_mechanisms)`: offset = actual − predicted win-rate per cohort (≥ minimum_samples,
+recency-windowed); no_edge = reliability_decomposition rows diagnosed resolution≈0.
+
+**Data flow (Rule G):** service (writer thread) computes both each pass → sets
+`state.recalibration_offset_by_mechanism` and folds `no_edge` into
+`state.vetoed_mechanisms`. The loop calls `state.apply_recalibration(prediction_record)`
+at all 4 entry sites (2 cash ORB/breakout, directional option, credit spread) right
+after building the record → the recorded/scored prediction carries the corrected
+confidence + table (an over-confident thesis is demoted CONFIDENT_WIN→UNCERTAIN/LOSS),
+and no-edge mechanisms are vetoed. Closed feedback loop: predict → record → measure
+(Brier/log/decomposition) → **recalibrate the next prediction**.
+
+**Verified — REAL DATA (Rule F):** offsets learned from the real 213-experience board —
+post-breakout-trend −0.72 (raw 0.84 → 0.12, near its real 0.09; demoted), long-ATM-option
+−0.35, false-breakout +0.12; no-edge empty (consistent with all-recalibratable
+decomposition). 3 tests (offset demotes + preserves mechanism identity, empty=identity,
+clamp); cold-start identity keeps all §9 tests green. 351 suite green.

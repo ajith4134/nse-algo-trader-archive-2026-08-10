@@ -216,6 +216,7 @@ def try_open_option_position_for_underlying(
     prediction_record = build_credit_spread_prediction_record(
         signal.short_leg.instrument, bias.value, adx_value, now.date()
     )
+    prediction_record = state.apply_recalibration(prediction_record)
     if state.entry_decision_for_mechanism(prediction_record.mechanism_name) == "veto":
         return False
     if not state.positioning_permits_entry(
@@ -308,6 +309,7 @@ def _try_open_directional_option(
         atm, signal.direction.value, adx_value, now.date(),
         OpeningRangeBreakoutConfig().target_risk_reward_ratio,
     )
+    prediction_record = state.apply_recalibration(prediction_record)
     if state.entry_decision_for_mechanism(prediction_record.mechanism_name) == "veto":
         return False
     if not state.positioning_permits_entry(

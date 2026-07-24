@@ -55,6 +55,9 @@ class AssumptionConfig:
     # than Brier, so it catches a confident bad thesis the binomial z can miss at
     # smaller n. ORed with the z-test (only ever ADDS trips).
     confidently_wrong_log_score: float = 1.0
+    # research/51: only recalibrate a mechanism whose calibration bias
+    # |actual − predicted| is at least this — ignore trivial offsets.
+    recalibration_min_offset: float = 0.05
 
 
 def _overconfidence_z(actual_rate: float, predicted_rate: float, n: int) -> float:
@@ -149,6 +152,36 @@ def vetoed_mechanisms(
         if _calibration_is_tripped(row, config):
             vetoed.add(row.mechanism_name)
     return vetoed
+
+
+def learn_mechanism_recalibrations(
+    experience_memory, config: AssumptionConfig = AssumptionConfig()
+) -> tuple[dict[str, float], set[str]]:
+    """Turn the calibration diagnosis into an ACTION (research/51). Returns
+    `(offset_by_mechanism, no_edge_mechanisms)`:
+    - `offset_by_mechanism`: an additive bias correction (actual − predicted
+      win-rate) per mechanism with enough history — the §9 pipeline shifts future
+      win-probabilities by this so a biased-but-discriminating thesis is
+      recorded at its real base rate (resolution preserved).
+    - `no_edge_mechanisms`: mechanisms the Brier decomposition finds have
+      resolution ≈ 0 (no discriminating edge) — recalibration can't help, so they
+      are hard-vetoed by the caller."""
+    offset_by_mechanism: dict[str, float] = {}
+    for row in experience_memory.calibration_board(
+        minimum_experiments=config.minimum_samples,
+        recency_window=config.veto_recency_window,
+    ):
+        offset = row.actual_win_rate - row.predicted_win_rate
+        if abs(offset) >= config.recalibration_min_offset:
+            offset_by_mechanism[row.mechanism_name] = offset
+    no_edge_mechanisms = {
+        r.mechanism_name
+        for r in experience_memory.reliability_decomposition(
+            minimum_experiments=config.minimum_samples
+        )
+        if "no discriminating edge" in r.diagnosis
+    }
+    return offset_by_mechanism, no_edge_mechanisms
 
 
 def _calibration_verdict(row, config, scope, diagnosis=None) -> AssumptionVerdict:
