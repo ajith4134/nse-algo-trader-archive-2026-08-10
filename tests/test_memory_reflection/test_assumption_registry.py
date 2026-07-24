@@ -97,3 +97,29 @@ class TestAntibodyVeto:
         assert "badthesis" in vetoed
         assert "goodthesis" not in vetoed
         mem.close()
+
+
+class TestRecencyWindowRecovery:
+    def test_veto_lifts_when_recent_window_recovers(self, tmp_path):
+        from datetime import timedelta
+        from nse_algo_trader.memory_reflection import vetoed_mechanisms
+        mem = _memory(tmp_path)
+        base = datetime(2026, 7, 24, 10, 0, tzinfo=IST)
+        # 30 OLD over-confident (predicted 85%, all lose) -> tripped
+        for i in range(30):
+            e = _exp(i, mechanism="trend", predicted_win_prob=0.85, won=False, ret=-0.01)
+            mem.record_closed_experiment(e._replace(occurred_at=base+timedelta(minutes=i))
+                                         if hasattr(e, "_replace") else e)
+        assert "trend" in vetoed_mechanisms(mem)
+        # 40 RECENT calibrated (predicted 85%, ~85% win) fill the recency window
+        for i in range(40):
+            occ = base + timedelta(hours=3, minutes=i)
+            mem.record_closed_experiment(ClosedExperiment(
+                f"trend:r{i}", occ, occ.date(), "orb", "trend", "normal",
+                2000+i, "cash_equity", "confident_win", "long", "win", 0.85,
+                "win" if i % 20 else "loss", i % 20 != 0, 0.1,
+                1.0 if i % 20 else -1.0, 0.01, "target",
+                "exited_target" if i % 20 else "exited_stop", "kc"))
+        # all-time still shows the bad history; the recency-window veto lifts
+        assert vetoed_mechanisms(mem) == set()   # recovered
+        mem.close()

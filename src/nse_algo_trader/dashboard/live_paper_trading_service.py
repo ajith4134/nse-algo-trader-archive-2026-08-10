@@ -118,6 +118,7 @@ class LivePaperPublishedSnapshot:
     assumption_verdicts: tuple = ()  # tuple[AssumptionVerdict, ...]
     vetoed_mechanism_count: int = 0
     vetoed_entry_count: int = 0
+    shadow_entry_count: int = 0
 
     @property
     def open_position_count(self) -> int:
@@ -507,6 +508,7 @@ class LivePaperTradingService:
             assumption_verdicts=self._memory_assumption_verdicts(),
             vetoed_mechanism_count=len(self._state.vetoed_mechanisms),
             vetoed_entry_count=self._state.vetoed_entry_count,
+            shadow_entry_count=self._state.shadow_entry_count,
         )
         with self._publish_lock:
             self._published = snapshot

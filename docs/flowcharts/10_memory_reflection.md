@@ -130,3 +130,52 @@ one. 302 suite green.
 **Queued next:** a shadow-arm so a small trickle of vetoed-mechanism trades
 still record experiences (recovery/exploration, avoids permanent lock-out);
 opponent ledger (needs participant-wise OI — acquire per Rule I).
+
+## Slice 4 (2026-07-24) — Shadow-arm recovery (no permanent lock-out)
+Slice 3 could veto a mechanism forever: once vetoed it took no entries, so it
+could never generate the fresh evidence needed to earn its way back. Slice 4
+closes that with two coupled changes.
+
+**(a) Recency-window veto — the veto can lift.**
+`experience_memory.calibration_board(..., recency_window: int|None)` now scores
+only a mechanism's most-recent N experiments. In SQLite:
+`ROW_NUMBER() OVER (PARTITION BY mechanism_name ORDER BY occurred_at DESC) AS rn
+... WHERE rn <= ?`. `assumption_registry.vetoed_mechanisms` judges on this
+window (`AssumptionConfig.veto_recency_window = 40`), so a mechanism that was
+refuted on old trades but has recovered on its recent trades **auto-un-vetoes**
+— the all-time board still keeps the full history for display.
+
+**(b) Shadow probes — a trickle of evidence keeps flowing.**
+`LiveUniversePaperState.entry_decision_for_mechanism(name) -> "open"|"shadow"|
+"veto"`. Not vetoed → `open`. Vetoed → every 8th entry (`_SHADOW_PROBE_EVERY`)
+returns `shadow` (a real position opens, counted in `shadow_entry_count`), the
+other 7 return `veto` (blocked, `vetoed_entry_count`). So a vetoed mechanism
+still records ~1/8 of its would-be experiences, giving the recency window
+something to recover on. The 6 veto call sites (4 cash ORB/breakout, 2 option
+directional/spread) switched from `is_mechanism_vetoed` to
+`entry_decision_for_mechanism(...) == "veto"`.
+
+**Data flow:** predict → record → refute → veto (with 1/8 shadow probes) →
+recent evidence recovers → veto lifts. `shadow_entry_count` is published
+through the snapshot → read model → server → the antibody note ("N shadow
+probes kept alive to allow recovery").
+
+**Files touched:** `memory_reflection/experience_memory.py`,
+`memory_reflection/sqlite_experience_memory.py`,
+`memory_reflection/assumption_registry.py`,
+`paper_trading/live_universe_paper_loop.py`,
+`paper_trading/option_credit_spread_live_path.py`,
+`dashboard/live_paper_trading_service.py`, `dashboard/dashboard_read_model.py`,
+`dashboard/dashboard_server.py`, `dashboard/render_dashboard_html.py`.
+Design: `docs/research/46_shadow_arm_recovery_design.md`.
+
+**Verified — functionally (sim harness, Rule J):** 305 suite green, incl.
+`entry_decision_for_mechanism` (not-vetoed→open; vetoed→veto ×7 then shadow on
+the 8th; probe opens a real position) and recency-window recovery (30 old
+losses veto `trend`; 40 recovered recent experiences lift it while the all-time
+board keeps the loss history). **Real-data pass is an OPEN BLOCKER** — live
+shadow-probe counts / a real refute→recover cycle over a market session need an
+open market (Rule F); sim verifies function only, not the real-data sign-off.
+**Queued next:** opponent ledger (needs participant-wise OI — acquire per
+Rule I); Graphiti/Neo4j substrate swap-up; borrow python-prediction-scorer
+proper scoring rules (research/44).

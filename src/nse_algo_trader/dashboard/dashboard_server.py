@@ -172,6 +172,7 @@ def build_dashboard_app() -> FastAPI:
             assumption_tripwires=[asdict(v) for v in published.assumption_verdicts],
             vetoed_mechanism_count=published.vetoed_mechanism_count,
             vetoed_entry_count=published.vetoed_entry_count,
+            shadow_entry_count=published.shadow_entry_count,
         )
 
     @app.get("/", response_class=HTMLResponse)

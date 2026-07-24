@@ -231,3 +231,30 @@ class TestAntibodyVeto:
         report = run_live_universe_scan_pass(state, [STOCK], feed, RISK, now,
                                              market_clock=NseMarketClock())
         assert report.newly_opened_count == 1        # control: it does open
+
+
+class TestShadowArmRecovery:
+    def test_entry_decision_opens_shadow_probe_every_Nth_vetoed_entry(self):
+        state = _fresh_state()
+        state.vetoed_mechanisms = {"badthesis"}
+        decisions = [state.entry_decision_for_mechanism("badthesis") for _ in range(16)]
+        # not vetoed -> always open
+        assert state.entry_decision_for_mechanism("goodthesis") == "open"
+        # 1 in 8 is a shadow probe; the rest vetoed
+        assert decisions.count("shadow") == 2   # entries 8 and 16
+        assert decisions.count("veto") == 14
+        assert state.shadow_entry_count == 2
+        assert state.vetoed_entry_count == 14
+
+    def test_shadow_probe_still_opens_a_position(self):
+        # a vetoed mechanism's 8th entry is a probe -> a real position opens
+        feed = _FakeFeed(_bars_with_long_breakout_still_open(), {STOCK.instrument_token: 101.5})
+        state = _fresh_state()
+        state.vetoed_mechanisms = {"post-breakout trend continuation (ADX trending)"}
+        # pre-load the counter so the next vetoed entry is the Kth probe
+        state.shadow_probe_counter["post-breakout trend continuation (ADX trending)"] = 7
+        now = datetime(2026, 7, 24, 11, 0, tzinfo=IST)
+        report = run_live_universe_scan_pass(state, [STOCK], feed, RISK, now,
+                                             market_clock=NseMarketClock())
+        assert report.newly_opened_count == 1     # the probe opened
+        assert state.shadow_entry_count == 1

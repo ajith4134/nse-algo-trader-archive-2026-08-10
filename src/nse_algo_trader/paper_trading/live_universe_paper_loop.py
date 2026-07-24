@@ -65,6 +65,8 @@ from nse_algo_trader.strategy_engine import (
 from nse_algo_trader.universe_registry import Instrument
 
 _FORCED_SQUARE_OFF_TIME_IST = time(15, 15)
+# Shadow-arm recovery (slice 4): 1 in N vetoed entries opens as a probe.
+_SHADOW_PROBE_EVERY = 8
 
 
 @dataclass
@@ -131,10 +133,26 @@ class LiveUniversePaperState:
     # the loop never imports Layer 10 (just reads this plain set).
     vetoed_mechanisms: set = field(default_factory=set)
     vetoed_entry_count: int = 0
+    # Shadow-arm recovery (slice 4): a vetoed mechanism still opens a small
+    # deterministic trickle of probe trades so fresh evidence keeps flowing —
+    # the recency-window veto can then lift if the mechanism recovers.
+    shadow_probe_counter: dict = field(default_factory=dict)
+    shadow_entry_count: int = 0
     seeded_cash_tokens: set[int] = field(default_factory=set)
 
-    def is_mechanism_vetoed(self, mechanism_name: str) -> bool:
-        return mechanism_name in self.vetoed_mechanisms
+    def entry_decision_for_mechanism(self, mechanism_name: str) -> str:
+        """'open' (not vetoed), 'shadow' (vetoed but this is the Kth probe — open
+        anyway to gather recovery evidence), or 'veto' (skip). Slice 3 + 4."""
+        if mechanism_name not in self.vetoed_mechanisms:
+            return "open"
+        self.shadow_probe_counter[mechanism_name] = (
+            self.shadow_probe_counter.get(mechanism_name, 0) + 1
+        )
+        if self.shadow_probe_counter[mechanism_name] % _SHADOW_PROBE_EVERY == 0:
+            self.shadow_entry_count += 1
+            return "shadow"
+        self.vetoed_entry_count += 1
+        return "veto"
     # Positions Layer 8 could NOT flatten (surfaced CRITICAL, never dropped).
     unflattened_square_off_positions: list[OpenPaperPosition] = field(
         default_factory=list
@@ -421,8 +439,7 @@ def _open_watched_breakout(state, watch, direction, ltp, risk_budget, now) -> bo
         signal=signal, adx_value=watch.regime_adx, session_date=now.date(),
         target_reward_multiple=watch.target_risk_reward_ratio,
     )
-    if state.is_mechanism_vetoed(prediction_record.mechanism_name):
-        state.vetoed_entry_count += 1
+    if state.entry_decision_for_mechanism(prediction_record.mechanism_name) == "veto":
         return False
     _open_position_from_signal(
         state, signal, clamped_quantity, prediction_record, now
@@ -471,9 +488,8 @@ def _seed_cash_instrument_from_orb(
         session_date=session_bars[0].timestamp.date(),
         target_reward_multiple=strategy_config.target_risk_reward_ratio,
     )
-    if state.is_mechanism_vetoed(prediction_record.mechanism_name):
-        state.vetoed_entry_count += 1  # antibody: refuted thesis, don't re-bet it
-        return False
+    if state.entry_decision_for_mechanism(prediction_record.mechanism_name) == "veto":
+        return False  # antibody veto (a 1-in-N shadow probe opens for recovery)
     _open_position_from_signal(
         state, signal, clamped_quantity, prediction_record, signal.triggered_at
     )

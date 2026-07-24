@@ -46,6 +46,9 @@ class AssumptionConfig:
     significance_z: float = 1.64
     # mean per-trade return below this (with enough samples) trips the edge wire
     negative_edge_return_floor: float = -0.02
+    # slice 4: the veto looks only at each mechanism's most-recent N experiments,
+    # so fresh shadow-probe evidence can lift it (recovery). None = all-time.
+    veto_recency_window: int | None = 40
 
 
 def _overconfidence_z(actual_rate: float, predicted_rate: float, n: int) -> float:
@@ -92,7 +95,8 @@ def vetoed_mechanisms(
     set of mechanism names for the trading loop to gate on."""
     vetoed: set[str] = set()
     for row in experience_memory.calibration_board(
-        minimum_experiments=config.minimum_samples
+        minimum_experiments=config.minimum_samples,
+        recency_window=config.veto_recency_window,
     ):
         z = _overconfidence_z(
             row.actual_win_rate, row.predicted_win_rate, row.experiment_count

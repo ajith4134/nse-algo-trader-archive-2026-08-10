@@ -107,6 +107,7 @@ class DashboardSnapshot:
     assumption_tripwires: list[dict] = field(default_factory=list)
     vetoed_mechanism_count: int = 0
     vetoed_entry_count: int = 0
+    shadow_entry_count: int = 0
 
     def to_json_dict(self) -> dict:
         return {
@@ -136,6 +137,7 @@ class DashboardSnapshot:
             "assumption_tripwires": self.assumption_tripwires,
             "vetoed_mechanism_count": self.vetoed_mechanism_count,
             "vetoed_entry_count": self.vetoed_entry_count,
+            "shadow_entry_count": self.shadow_entry_count,
         }
 
 
@@ -160,6 +162,7 @@ def build_dashboard_snapshot(
     assumption_tripwires: list[dict] | None = None,
     vetoed_mechanism_count: int = 0,
     vetoed_entry_count: int = 0,
+    shadow_entry_count: int = 0,
 ) -> DashboardSnapshot:
     """When `precomputed_*` summaries are supplied (by the live service's
     writer thread, which is the sole mutator of the ledger/scoreboard),
@@ -253,6 +256,7 @@ def build_dashboard_snapshot(
         assumption_tripwires=list(assumption_tripwires or []),
         vetoed_mechanism_count=vetoed_mechanism_count,
         vetoed_entry_count=vetoed_entry_count,
+        shadow_entry_count=shadow_entry_count,
     )
 
 

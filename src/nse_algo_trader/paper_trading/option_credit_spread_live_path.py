@@ -216,8 +216,7 @@ def try_open_option_position_for_underlying(
     prediction_record = build_credit_spread_prediction_record(
         signal.short_leg.instrument, bias.value, adx_value, now.date()
     )
-    if state.is_mechanism_vetoed(prediction_record.mechanism_name):
-        state.vetoed_entry_count += 1
+    if state.entry_decision_for_mechanism(prediction_record.mechanism_name) == "veto":
         return False
 
     # Open atomically (hedge BUY first) on the sim broker with real prices.
@@ -305,8 +304,7 @@ def _try_open_directional_option(
         atm, signal.direction.value, adx_value, now.date(),
         OpeningRangeBreakoutConfig().target_risk_reward_ratio,
     )
-    if state.is_mechanism_vetoed(prediction_record.mechanism_name):
-        state.vetoed_entry_count += 1
+    if state.entry_decision_for_mechanism(prediction_record.mechanism_name) == "veto":
         return False
 
     state.simulated_broker.update_market_price(atm.instrument_token, premium)

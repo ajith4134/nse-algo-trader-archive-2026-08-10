@@ -513,8 +513,9 @@ function renderLive(snap){
       `<td style="color:var(--dim);font-size:.8rem">${v.detail}</td></tr>`;
   });
   document.getElementById("tripTbl").innerHTML=twrows;
-  const vmc=snap.vetoed_mechanism_count||0, vec=snap.vetoed_entry_count||0;
-  const antibody=vmc?`<b style="color:var(--loss)">Antibody active:</b> ${vmc} mechanism${vmc>1?'s':''} auto-vetoed · ${vec.toLocaleString()} new entr${vec===1?'y':'ies'} blocked. `:"";
+  const vmc=snap.vetoed_mechanism_count||0, vec=snap.vetoed_entry_count||0, sec=snap.shadow_entry_count||0;
+  const shadow=sec?` <span style="color:var(--dim)">+ ${sec.toLocaleString()} shadow probe${sec===1?'':'s'} kept alive to allow recovery.</span>`:"";
+  const antibody=vmc?`<b style="color:var(--loss)">Antibody active:</b> ${vmc} mechanism${vmc>1?'s':''} auto-vetoed · ${vec.toLocaleString()} new entr${vec===1?'y':'ies'} blocked.${shadow} `:"";
   document.getElementById("tripnote").innerHTML=antibody+"Significance-tested (min 12 trades). A tripped thesis is statistically refuted by the memory — the bot then <b>vetoes new entries</b> on that mechanism (Layer 10 antibody feedback).";
   document.getElementById("sub").textContent="live dashboard · updated "+snap.generated_at.slice(11,16)+(LIVE_API_KEY?" · auto-refresh 20s":"");
 }

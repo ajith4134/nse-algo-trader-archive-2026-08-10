@@ -11,7 +11,7 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-24e**.
+  true to what is actually on the server. Last regenerated: **2026-07-24h**.
 - **95 Python modules across 13 features** (packages under
   `src/nse_algo_trader/`).
 
@@ -302,6 +302,21 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-24h** — Layer 10 slice 4: **shadow-arm recovery** (no new files;
+  methods/fields on existing modules). `experience_memory.calibration_board`
+  gained a `recency_window` param (SQLite `ROW_NUMBER() OVER (PARTITION BY
+  mechanism ORDER BY occurred_at DESC)`); `assumption_registry.vetoed_mechanisms`
+  now judges on the recent window (`AssumptionConfig.veto_recency_window=40`), so
+  a refuted mechanism auto-un-vetoes once its recent evidence recovers — no
+  permanent lock-out. `live_universe_paper_loop.LiveUniversePaperState` gained
+  `entry_decision_for_mechanism()` returning `open`/`shadow`/`veto`: 1-in-8
+  (`_SHADOW_PROBE_EVERY`) vetoed entries open as **shadow probes** to keep
+  evidence flowing. 6 veto call sites (4 cash-loop, 2 options) switched from
+  `is_mechanism_vetoed` → `entry_decision_for_mechanism(...) == "veto"`.
+  `shadow_entry_count` wired through published snapshot → read model → server →
+  render (antibody note). Functionally verified (sim harness, Rule J): refute →
+  veto-with-probes → recency recovery lifts veto; real-data pass (live probe
+  counts over a session) is an OPEN BLOCKER (market closed). No graph edge change.
 - **2026-07-24g** — dataviz pass (skill) on the L10 panels: the Reflection
   panel now shows calibration as a **bullet bar** (actual = fill, predicted =
   tick) so the gap is seen geometrically, with a **binary signed** over-

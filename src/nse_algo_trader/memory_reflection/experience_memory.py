@@ -133,7 +133,10 @@ class ExperienceMemory(Protocol):
     ) -> list[ReflectionDiffRow]: ...
 
     def calibration_board(
-        self, minimum_experiments: int = 1, limit: int = 20
+        self,
+        minimum_experiments: int = 1,
+        limit: int = 20,
+        recency_window: int | None = None,
     ) -> list[CalibrationBoardRow]: ...
 
 

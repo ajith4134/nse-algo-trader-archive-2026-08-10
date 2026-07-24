@@ -190,20 +190,37 @@ class SqliteExperienceMemory:
         return rows
 
     def calibration_board(
-        self, minimum_experiments: int = 1, limit: int = 20
+        self,
+        minimum_experiments: int = 1,
+        limit: int = 20,
+        recency_window: int | None = None,
     ) -> list[CalibrationBoardRow]:
         """Per (strategy × mechanism): predicted vs actual win-rate + Brier —
         the reflection surface. Ordered by the calibration gap (predicted −
-        actual) descending, so the most over-confident theses surface first."""
+        actual) descending, so the most over-confident theses surface first.
+
+        `recency_window` (slice 4): when set, aggregate only each mechanism's
+        LAST N experiments (by occurred_at) — so fresh shadow-probe evidence can
+        lift a veto (recovery). None = all-time (the Reflection display)."""
+        if recency_window is None:
+            source = "experience_nodes"
+            params: tuple = (minimum_experiments, limit)
+        else:
+            source = (
+                "(SELECT *, ROW_NUMBER() OVER (PARTITION BY mechanism_name "
+                "ORDER BY occurred_at DESC) AS rn FROM experience_nodes) "
+                "WHERE rn <= ?"
+            )
+            params = (recency_window, minimum_experiments, limit)
         cursor = self._connection.execute(
             "SELECT strategy_tag, mechanism_name, COUNT(*) AS n, "
             "AVG(win_probability) AS pred, "
             "AVG(CASE WHEN actual_outcome='win' THEN 1.0 ELSE 0.0 END) AS act, "
             "AVG(brier_contribution) AS brier, "
             "AVG(realized_return_fraction) AS ret "
-            "FROM experience_nodes GROUP BY strategy_tag, mechanism_name "
+            f"FROM {source} GROUP BY strategy_tag, mechanism_name "
             "HAVING n >= ? ORDER BY (pred - act) DESC LIMIT ?",
-            (minimum_experiments, limit),
+            params,
         )
         return [
             CalibrationBoardRow(
