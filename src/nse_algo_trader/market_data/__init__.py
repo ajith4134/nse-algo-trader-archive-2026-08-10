@@ -16,6 +16,9 @@ from nse_algo_trader.market_data.kite_live_tick_stream_source import (
     KiteLiveTickStreamSource,
     parse_kite_ticker_payload,
 )
+from nse_algo_trader.market_data.kite_live_universe_feed import (
+    KiteLiveUniverseFeed,
+)
 from nse_algo_trader.market_data.market_data_sqlite_store import (
     DealDisclosureKind,
     MarketDataSqliteStore,
@@ -31,6 +34,7 @@ __all__ = [
     "DealDisclosureKind",
     "HistoricalBarSource",
     "KiteHistoricalBarSource",
+    "KiteLiveUniverseFeed",
     "KiteLiveTickStreamSource",
     "LiveTickStreamSource",
     "MarketDataSqliteStore",

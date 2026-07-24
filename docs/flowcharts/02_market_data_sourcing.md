@@ -355,3 +355,28 @@ saved and reloaded **identical** through the store. DB size: ~6.2 MB/day.
 - **Participant-wise derivatives OI** (FII/DII/Pro/Client daily
   positions, NSE report) — required by the §10 Opponent Ledger; add as
   a sixth official-report ingest when Layer 10 reaches that feature.
+
+## Live universe feed (added 2026-07-24) — the open-session data source
+New file `kite_live_universe_feed.py` (`KiteLiveUniverseFeed`) is the
+live-session data source the market-clock-gated router serves when the
+market is open (PLAN §1.4). Two access patterns, sized to Kite limits:
+- `latest_price_by_token(instruments) -> dict[token, float]` — batched
+  `ltp()` (≤400/call) for the WHOLE universe each scan interval. Cash maps
+  to `NSE:<sym>`, options to `NFO:<sym>`; missing quotes are absent (never
+  zero-filled).
+- `todays_session_bars(instrument, as_of, interval) -> list[PriceBar]` —
+  today's candles 09:15→now for one instrument (delegates to
+  `KiteHistoricalBarSource`), giving ORB the real opening range. Used to
+  seed an instrument, not polled universe-wide.
+- `stream_bars()` shim so the router can hold it as `_live_bar_source`;
+  the universe loop uses the two methods above at universe granularity.
+
+**Rule-F live verification (2026-07-24, open session):** batched LTP priced
+**3,714 instruments (800 cash + 2,915 options) in 0.4s**; INFY today's
+5-min bars 09:15→10:50 (20 bars), opening range high=1042.6/low=1023.0.
+Router confirmed: LIVE when the feed is attached and the market is open,
+REPLAY when no feed — the seamless handoff gate (research/26) now works.
+4 unit tests (`test_kite_live_universe_feed.py`).
+
+**Named future consumer (Rule G):** the live universe paper loop (slice 3,
+research/38) attaches this as the router's live source and consumes it.
