@@ -27,22 +27,22 @@ Last updated: **2026-07-25**.
 | 1 Honest clock (day-walker + firewall + provenance) | 🟢 |
 | 2 Point-in-time universe + corp-action adjust | 🟢 |
 | 3 Prequential learning + provenance-separable memory | 🟢 |
-| 4 Fidelity climb: Breeze 1s 🟢 · multi-broker fleet 1m 🟡 (opt-in default-off, #14) · P4b depth recorder 🟡 built, ⛔ real capture (market) · depth consumers 🔴 |
+| 4 Fidelity climb: Breeze 1s 🟢 (autonomous default-on, non-blocking bg build — #14) · multi-broker fleet 1m 🟢 built, 🟡 auto-activation opt-in until focus bounded · P4b depth recorder 🟡 built, ⛔ real capture (market) · depth consumers 🔴 |
 | 5 ADVANCED: 5a curriculum 🟢 · 5b regime axis 🟢 · 5c-i champion-challenger 🟢 · 5c-i.b auto-reeval 🟢 · 5c-ii market-impact 🟢 · 5c-iii per-regime champion 🟢 · VPIN 🔴 · OFI/queue fills ⛔ (depth) |
 
 ## Cross-cutting / operational
 - 🟢 Multi-broker adapters: Upstox, Angel One real-data verified; failover + gap-fill; fleet-in-loop (opt-in).
 - ⏸ **Groww** (₹499/mo API sub) · ⏸ **Fyers** (creds) — paused by user until they provide.
 - 🔴 **#13** dashboard panels for new features (multi-broker, curriculum, champion-challenger, market-impact, regime memory) — built ≠ displayed.
-- 🔴 **#14** make high-fidelity replay prebuild incremental → re-enable autonomous Breeze-1s/fleet replay by default (today opt-in to keep startup fast).
+- 🟢 **#14** high-fidelity replay prebuild non-blocking (background swap) → autonomous Breeze-1s replay back ON by default; fleet auto-activation still opt-in until its focus is bounded (low-pri follow-up).
 - ⛔ **Market-gated:** P4b depth capture, shadow-arm live pass (need an open session).
 
 ## TOP REMAINING BIG-ROCKS (whole-plan priority order — re-pick from here, don't tunnel)
-1. **#13** — surface ALL features on the dashboard (systematic registry + coverage audit; research/91).
-2. **#14** — incremental high-fidelity replay prebuild (restore fleet/Breeze auto-replay by default).
-3. **§53 slice-5 finish** — VPIN; then depth-gated items when P4b depth accrues.
-4. **Layer 11 (LLM/agentic AI)** — the big net-new area, once L10 validation accrues (runtime/market-gated).
-5. **Market/creds-gated & paused** — P4b depth capture, shadow-arm (open market); Groww/Fyers (user).
+1. **#13** — surface ALL features on the dashboard (systematic registry + coverage audit; research/91). ← NEXT
+2. **§53 slice-5 finish** — VPIN; then depth-gated items when P4b depth accrues.
+3. **Layer 11 (LLM/agentic AI)** — the big net-new area, once L10 validation accrues (runtime/market-gated).
+4. **Market/creds-gated & paused** — P4b depth capture, shadow-arm (open market); Groww/Fyers (user).
+5. Small follow-ups: bound the fleet replay focus so fleet auto-replay can be default-on too.
 
 ## How to use this (Rule M)
 - **Session start:** read this + BACKLOG; say where we are in the WHOLE plan.

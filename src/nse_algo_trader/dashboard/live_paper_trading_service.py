@@ -220,7 +220,7 @@ class LivePaperTradingService:
         autonomous_breeze_replay_call_budget=5000,
         multi_broker_replay_source_builder=None,
         multi_broker_replay_focus_size=200,
-        enable_autonomous_high_fidelity_replay=False,
+        enable_autonomous_high_fidelity_replay=True,
         enable_multi_broker_fleet_replay=False,
         champion_challenger_candidate_grid=None,
         champion_challenger_min_sessions=10,
@@ -295,6 +295,10 @@ class LivePaperTradingService:
         self._replay_feed = None  # market-CLOSED replay half (built in start())
         self._replay_timestamps: list = []
         self._replay_cursor = 0
+        # task #14: the (feed, timestamps, cursor) triple is swapped atomically under this
+        # lock when the background high-fidelity builder upgrades the store-5m feed.
+        self._replay_feed_lock = threading.Lock()
+        self._high_fidelity_replay_builder_thread = None
         self._clock = NseMarketClock()
         self._square_off_schedule = IntradaySquareOffSchedule()
         self._max_new_option_seeds_per_pass = max_new_option_seeds_per_pass
@@ -360,13 +364,21 @@ class LivePaperTradingService:
         self._writer_thread.start()
 
     def _build_replay_feed_from_store(self) -> None:
-        """Pre-load stored intraday bars (main thread — no cross-thread SQLite)
-        into a ReplayUniverseFeed so the loop can run on replay when the market
-        is closed. Only cash instruments in the tradable universe are replayed;
-        the feed is empty (and replay simply idles) until bars accumulate."""
+        """Build the FAST store-5m replay feed immediately so the service is live in seconds
+        (main thread — no cross-thread SQLite). If a high-fidelity config is active, upgrade
+        to it in a BACKGROUND thread (task #14) so its heavy network prebuild never blocks
+        startup or the loop; the store-5m feed serves until the swap completes."""
+        self._build_store_5m_replay_feed()
         if self._high_fidelity_replay is not None:
-            self._build_high_fidelity_replay_feed()  # §53 P4a-wire (Breeze 1s)
-            return
+            self._high_fidelity_replay_builder_thread = threading.Thread(
+                target=self._build_high_fidelity_replay_feed_and_swap,
+                name="hi-fidelity-replay-builder", daemon=True,
+            )
+            self._high_fidelity_replay_builder_thread.start()
+
+    def _build_store_5m_replay_feed(self) -> None:
+        """The stored-5-minute-bar replay feed over the tradable cash universe
+        (survivorship-free per bar date). Fast + local — the always-available default."""
         from nse_algo_trader.market_data import BarInterval
         from nse_algo_trader.paper_trading.historical_archive_replay_planner import (
             HistoricalArchiveReplayPlanner,
@@ -407,20 +419,23 @@ class LivePaperTradingService:
             )
         finally:
             store.close()
-        self._replay_feed = ReplayUniverseFeed(
+        feed = ReplayUniverseFeed(
             bars_by_token,
             corporate_action_adjustment_engine=(
                 self._build_corporate_action_adjustment_engine(bars_by_token)
             ),
         )
-        self._replay_timestamps = self._replay_feed.stored_session_timestamps()
-        self._replay_cursor = 0
+        with self._replay_feed_lock:
+            self._replay_feed = feed
+            self._replay_timestamps = feed.stored_session_timestamps()
+            self._replay_cursor = 0
 
-    def _build_high_fidelity_replay_feed(self) -> None:
-        """§53 slice 4 P4a-wire: build the market-closed replay feed from the
-        injected higher-fidelity source (Breeze 1-second) for the config's focus
-        instruments over one session (09:15–15:30 IST), instead of the stored
-        5-minute bars. Same `ReplayUniverseFeed` the loop already consumes."""
+    def _build_high_fidelity_replay_feed_and_swap(self) -> None:
+        """§53 P4a-wire + task #14: build the market-closed replay feed from the injected
+        higher-fidelity source (Breeze 1-second / multi-broker 1-minute) for the config's
+        focus instruments over one session, then ATOMICALLY SWAP it in for the store-5m feed.
+        Runs in a background thread so the heavy network fetch never blocks startup/the loop;
+        best-effort — any failure leaves the store-5m feed in place (no regression)."""
         from zoneinfo import ZoneInfo
 
         from nse_algo_trader.paper_trading.historical_source_replay_feed_builder import (  # noqa: E501
@@ -430,23 +445,33 @@ class LivePaperTradingService:
             ReplayUniverseFeed,
         )
 
-        config = self._high_fidelity_replay
-        ist = ZoneInfo("Asia/Kolkata")
-        session_open = datetime(
-            config.session_date.year, config.session_date.month,
-            config.session_date.day, 9, 15, tzinfo=ist,
-        )
-        session_close = datetime(
-            config.session_date.year, config.session_date.month,
-            config.session_date.day, 15, 30, tzinfo=ist,
-        )
-        bars_by_token = build_replay_bars_by_token_from_source(
-            config.bar_source, config.focus_instruments,
-            config.bar_interval, session_open, session_close,
-        )
-        self._replay_feed = ReplayUniverseFeed(bars_by_token)
-        self._replay_timestamps = self._replay_feed.stored_session_timestamps()
-        self._replay_cursor = 0
+        try:
+            config = self._high_fidelity_replay
+            ist = ZoneInfo("Asia/Kolkata")
+            session_open = datetime(
+                config.session_date.year, config.session_date.month,
+                config.session_date.day, 9, 15, tzinfo=ist,
+            )
+            session_close = datetime(
+                config.session_date.year, config.session_date.month,
+                config.session_date.day, 15, 30, tzinfo=ist,
+            )
+            bars_by_token = build_replay_bars_by_token_from_source(
+                config.bar_source, config.focus_instruments,
+                config.bar_interval, session_open, session_close,
+            )
+            if not bars_by_token:
+                return  # nothing fetched → keep the store-5m feed
+            feed = ReplayUniverseFeed(bars_by_token)
+            timestamps = feed.stored_session_timestamps()
+            with self._replay_feed_lock:  # atomic swap; store-5m served until here
+                self._replay_feed = feed
+                self._replay_timestamps = timestamps
+                self._replay_cursor = 0
+            print(f"[replay] upgraded to high-fidelity feed "
+                  f"({config.bar_interval.value}, {len(bars_by_token)} instruments)", flush=True)
+        except Exception:
+            pass  # keep the store-5m feed on any failure (no regression)
 
     def _maybe_activate_autonomous_breeze_replay(self) -> None:
         """§53 slice 4 task #7: when a valid daily Breeze session token is stored,
@@ -802,15 +827,23 @@ class LivePaperTradingService:
         timestamp (looping) and run the loop against the replay feed with that
         timestamp as 'now'. A new replay day resets the per-session seeded
         state so each replayed day is a fresh session."""
-        replay_now = self._replay_timestamps[self._replay_cursor]
-        previous_index = (self._replay_cursor - 1) % len(self._replay_timestamps)
-        previous_now = self._replay_timestamps[previous_index]
+        # Read the (feed, timestamps, cursor) triple + advance the cursor under the lock so a
+        # background high-fidelity SWAP (task #14) never leaves the cursor indexing a stale
+        # (possibly shorter) timestamp list.
+        with self._replay_feed_lock:
+            feed = self._replay_feed
+            timestamps = self._replay_timestamps
+            if not timestamps:
+                return
+            cursor = self._replay_cursor % len(timestamps)
+            replay_now = timestamps[cursor]
+            previous_now = timestamps[(cursor - 1) % len(timestamps)]
+            self._replay_cursor = (cursor + 1) % len(timestamps)
         if replay_now.date() != previous_now.date():
             self._state.seeded_cash_tokens.clear()
             self._state.watched_opening_ranges.clear()
-        self._replay_cursor = (self._replay_cursor + 1) % len(self._replay_timestamps)
-        self._replay_feed.set_replay_as_of(replay_now)
-        self._feed = self._replay_feed
+        feed.set_replay_as_of(replay_now)
+        self._feed = feed
         self._advance_one_pass(replay_now, replay_mode=True)
 
     def _champion_orb_config(self):

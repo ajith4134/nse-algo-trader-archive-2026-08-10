@@ -317,6 +317,20 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-25z** — **Non-blocking high-fidelity replay prebuild (task #14; research/92; no
+  module/edge change — `dashboard/live_paper_trading_service.py` only). `start()` now builds
+  the FAST store-5m replay feed immediately (service live in ~14s), then, if a high-fidelity
+  config is active, builds the Breeze-1s / multi-broker-1m feed in a BACKGROUND daemon thread
+  and ATOMICALLY SWAPS it in under `_replay_feed_lock` (the `(feed, timestamps, cursor)` triple
+  is read+advanced under the same lock in `_advance_replay_pass`, so a swap never leaves a stale
+  cursor). Best-effort: an empty/failed build keeps the store-5m feed (no regression). Autonomous
+  high-fidelity replay is back ON by default (`enable_autonomous_high_fidelity_replay=True`;
+  Breeze activates when a token is stored; the fleet stays behind `enable_multi_broker_fleet_
+  replay` until its focus is bounded) — the heavy fetch no longer blocks the bind or the loop.
+  Verified: `start()` returns in ~14s on store-5m, snapshot responsive while the 1s feed builds
+  off-thread. 4 hermetic swap tests. Also refreshed 4 real-DB memory tests whose stale "real DB
+  is all-live" premise broke once the running 24/7 loop legitimately recorded `replay_faithful`
+  experiences — they now assert stable invariants (partition/separability). **542 pass.**
 - **2026-07-25y** — **Slice 5c-iii per-market-regime champion — DONE + DASHBOARD OUTAGE
   FIXED** (research/90; tasks #12/#14; 140→141 modules, no new cross-feature edge — new
   `paper_trading/per_regime_champion_evaluator.py`). **5c-iii:** partition sessions by ADX

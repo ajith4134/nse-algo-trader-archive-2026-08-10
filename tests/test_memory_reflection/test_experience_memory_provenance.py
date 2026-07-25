@@ -127,36 +127,38 @@ def test_real_memory_db_calibration_board_is_provenance_separable_on_a_copy(tmp_
     memory = SqliteExperienceMemory(db_file_path=copy_path)
 
     # All real experiences are live → the replay-only board is empty, and the
-    # live-only board equals the pooled board (nothing to separate out yet).
-    pooled_keys = {
-        (r.strategy_tag, r.mechanism_name, r.experiment_count)
-        for r in memory.calibration_board(minimum_experiments=3)
-    }
+    # Snapshot the live board (the real DB may ALREADY hold replay rows — the running
+    # 24/7 loop legitimately records replay_faithful experiences; we assert separability
+    # invariants, not that the real DB is replay-free).
     live_keys_before = {
         (r.strategy_tag, r.mechanism_name, r.experiment_count)
         for r in memory.calibration_board(minimum_experiments=3, data_provenance="live")
     }
-    assert live_keys_before == pooled_keys
-    assert memory.calibration_board(minimum_experiments=3, data_provenance="replay_faithful") == []
 
-    # Inject replayed experiences: they surface ONLY in the replay board and
-    # leave the real live calibration byte-for-byte unchanged (no leakage).
+    # Inject replayed experiences under a UNIQUE mechanism (so the count is unambiguous
+    # even if replay rows already exist): they surface ONLY in the replay board and leave
+    # the live calibration byte-for-byte unchanged (no leakage).
     for i in range(3):
         memory.record_closed_experiment(
             replace(
-                _experiment(f"replay-real-{i}", "replay_faithful"),
+                _experiment(f"sep-probe-{i}", "replay_faithful"),
+                mechanism_name="separability_probe",
                 actual_outcome="loss", prediction_was_correct=False,
             )
         )
     replay_after = memory.calibration_board(
         minimum_experiments=3, data_provenance="replay_faithful"
     )
-    assert any(r.mechanism_name == "breakout" and r.experiment_count == 3 for r in replay_after)
+    assert any(
+        r.mechanism_name == "separability_probe" and r.experiment_count == 3
+        for r in replay_after
+    )
+    live_after = memory.calibration_board(minimum_experiments=3, data_provenance="live")
     live_keys_after = {
-        (r.strategy_tag, r.mechanism_name, r.experiment_count)
-        for r in memory.calibration_board(minimum_experiments=3, data_provenance="live")
+        (r.strategy_tag, r.mechanism_name, r.experiment_count) for r in live_after
     }
-    assert live_keys_after == live_keys_before
+    assert live_keys_after == live_keys_before  # live board unchanged by replay injection
+    assert all(r.mechanism_name != "separability_probe" for r in live_after)  # no leakage
 
 
 def test_real_memory_db_migrates_and_reads_all_live_on_a_copy(tmp_path):
@@ -167,10 +169,14 @@ def test_real_memory_db_migrates_and_reads_all_live_on_a_copy(tmp_path):
     shutil.copy(_REAL_MEMORY_DB, copy_path)
     memory = SqliteExperienceMemory(db_file_path=copy_path)
     by_provenance = memory.experiment_count_by_provenance()
-    # Every pre-existing real experience was a live one → all 'live' post-migration.
+    # Migration holds: every row carries a valid provenance, the pre-watermark history is
+    # present as 'live', and the only provenances are the known ones. (The real DB may now
+    # also hold 'replay_faithful' rows — the running 24/7 replay loop records them — so we
+    # assert the migration invariant, not that the DB is replay-free.)
     assert sum(by_provenance.values()) == memory.experiment_count()
     assert memory.experiment_count() > 100  # the real accumulated history
-    assert set(by_provenance) == {"live"}
+    assert "live" in by_provenance
+    assert set(by_provenance) <= {"live", "replay_faithful"}
 
 
 def test_prequential_forecast_score_punishes_confident_wrong(tmp_path):
@@ -233,8 +239,10 @@ def test_real_db_prequential_forecast_score_on_a_copy(tmp_path):
     live = mem.prequential_forecast_score(data_provenance="live")
     replay = mem.prequential_forecast_score(data_provenance="replay_faithful")
     assert overall.experiment_count == mem.experiment_count()
-    assert live.experiment_count == overall.experiment_count  # all real rows are live
-    assert replay.experiment_count == 0 and replay.mean_log_loss_bits is None
+    # live + replay partition the pooled stream (the real DB now legitimately holds both —
+    # the 24/7 loop records replay_faithful rows). Assert the partition, not "all live".
+    assert live.experiment_count + replay.experiment_count == overall.experiment_count
+    assert live.experiment_count > 0  # the real accumulated live history
     assert overall.mean_log_loss_bits > 0 and 0.0 <= overall.mean_brier <= 1.0
     # Independent Brier recompute from the raw rows matches the scorer.
     rows = sqlite3.connect(str(copy_path)).execute(

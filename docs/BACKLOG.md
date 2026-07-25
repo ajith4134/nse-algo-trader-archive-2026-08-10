@@ -376,11 +376,17 @@ when the build starts:
   high-fidelity replay is OPT-IN behind `enable_autonomous_high_fidelity_replay` (default OFF)
   → fast store-5m startup (~13s → live view: 293 experiences, calibration, tripwires, opponent
   ledger). `/`, `/map`, `/api/snapshot` all HTTP 200 verified.
-- 🔴 **task #14 — make the high-fidelity replay prebuild incremental/lazy** so autonomous
-  Breeze-1s / fleet-1m replay can be re-enabled by default without a slow startup (today it is
-  opt-in default-off). Also re-grades task #5 (#20 fleet-in-loop) / task #7 (Breeze autonomous):
-  built + verified but now DEFAULT-OFF pending this fix — the failover/gap-fill source (#20)
-  and the fleet builder are unchanged, only the always-on auto-activation is gated.
+- 🟢 **task #14 — non-blocking high-fidelity replay prebuild — DONE, verified (2026-07-25,
+  research/92).** `start()` builds the fast store-5m feed immediately (service live ~14s) then
+  builds the Breeze-1s / fleet-1m feed in a BACKGROUND daemon thread and atomically swaps it in
+  under `_replay_feed_lock`; best-effort keeps store-5m on failure. Autonomous high-fidelity
+  replay is back ON by default (`enable_autonomous_high_fidelity_replay=True`; Breeze on stored
+  token; **fleet still behind `enable_multi_broker_fleet_replay` default-off** until its focus
+  is bounded — a small follow-up). Verified: bind fast, `/`+`/map` 200, snapshot responsive
+  while the 1s feed builds off-thread. 4 hermetic swap tests. task #5/#7 (Breeze/fleet
+  auto-replay) restored to default (Breeze on; fleet opt-in).
+  - 🔵 **Bound the fleet replay focus** (e.g. small default) so the multi-broker 1m fleet can
+    also be default-on, not just Breeze. Low priority.
 - 🔴 **task #13 — dashboard PANELS for the new §53/ADVANCED features** (multi-broker sourcing/
   fleet/failover status, replay fidelity tier + regime curriculum coverage, champion-challenger
   + champion config global/per-regime, market-impact fills, market-regime memory calibration).
