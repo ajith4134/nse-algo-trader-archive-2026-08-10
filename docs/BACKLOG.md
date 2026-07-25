@@ -399,4 +399,21 @@ vendor SDK) — BUILT + hermetic-verified.
   (OpenAPIScripMaster) + `generateSession` session builder~~ **DONE**. Only Groww
   options resolver (instrument CSV) + subscription/token-refresh left — blocked on the
   Groww API subscription. *(task #22)*
-- 🔴 **Kite (paid) more + multi-broker aggregation/failover** across all adapters. *(task #20)*
+- 🟢 **Multi-broker FAILOVER source — DONE, Rule-F VERIFIED (2026-07-25, research/84).**
+  `multi_broker_historical_bar_source.MultiBrokerHistoricalBarSource` (implements
+  `HistoricalBarSource`; ordered failover on raise/empty, first-non-empty wins,
+  all-fail→[], `on_source_attempt` observer). Real pass across live Upstox+Angel:
+  primary serves; broken-primary→Angel serves 375 real bars; reversed order respected.
+  491 tests pass. *(task #20)*
+  - 🔴 **Slice-2 — gap-fill AGGREGATION (queued):** fill a primary's missing
+    timestamps in the window from lower-priority sources (each bar stays wholly from
+    one feed). Needs its own real-data pass (a session with a broker-specific gap the
+    other covers). Done = gap-filled bars verified across two real sources. *(task #20)*
+  - 🔴 **Composition-root autonomous FLEET wiring (queued — purpose-consumer, Rule K):**
+    the failover source is built + verified but nothing yet WIRES an ordered real
+    fleet (Fyers→Upstox→Angel→Breeze→Kite) into the autonomous replay path
+    (`_maybe_activate_autonomous_breeze_replay` / `HighFidelityReplayConfig.bar_source`).
+    Until wired, resilience isn't in the loop — display/standalone only, NOT done for
+    the "resilient loop" promise. Done = the service's replay source is the multi-broker
+    source, order applied per Rule L, verified. *(task #20)*
+- 🔴 **Kite (paid) deeper history** — richer Kite historical wiring across intervals. *(task #20)*
