@@ -364,8 +364,14 @@ when the build starts:
     service regime-aware `_champion_orb_config` selection + global+per-regime auto-re-eval.
     Real pass: 12 trending / 6 range / 5 indecisive; per-regime decisions coherent. 538 pass.
     *(task #12)*
-  - 🔴 **5c+ (deeper ADVANCED, not started):** microstructure features (OFI/VPIN — OFI
-    depends on P4b depth; VPIN buildable now). *(task TBD)*
+  - 🟢 **VPIN order-flow toxicity — DONE, Rule-F VERIFIED (2026-07-25, research/94).**
+    `market_data/vpin_order_flow_toxicity` (BVC + equal-volume buckets + VPIN, vendored-from-
+    formula) surfaced via the feature registry (7th coverage row). Real pass: 23/23 sessions
+    scored, VPIN 0.127–0.362. 556 tests pass. *(task #16)*
+    - 🔴 **VPIN entry-gate consumer (queued — Rule K):** high VPIN (toxic flow) → defer /
+      size-down entries at the entry sites (like the opponent-ledger defer). Computed+surfaced
+      now; this is the decision-consumer that makes it wired-into-decisions, not display-only.
+  - 🔴 **5c+ (deeper ADVANCED, not started):** microstructure OFI (depends on P4b depth — market-gated; VPIN DONE above). *(task TBD)*
 
 ## 24/7 simulation verification (2026-07-25) — CONFIRMED WORKING
 - 🟢 **The market-closed 24/7 replay + live simulation is verified working end-to-end.** Real

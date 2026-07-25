@@ -28,17 +28,17 @@ Last updated: **2026-07-25**.
 | 2 Point-in-time universe + corp-action adjust | 🟢 |
 | 3 Prequential learning + provenance-separable memory | 🟢 |
 | 4 Fidelity climb: Breeze 1s 🟢 (autonomous default-on, non-blocking bg build — #14) · multi-broker fleet 1m 🟢 built, 🟡 auto-activation opt-in until focus bounded · P4b depth recorder 🟡 built, ⛔ real capture (market) · depth consumers 🔴 |
-| 5 ADVANCED: 5a curriculum 🟢 · 5b regime axis 🟢 · 5c-i champion-challenger 🟢 · 5c-i.b auto-reeval 🟢 · 5c-ii market-impact 🟢 · 5c-iii per-regime champion 🟢 · VPIN 🔴 · OFI/queue fills ⛔ (depth) |
+| 5 ADVANCED: 5a curriculum 🟢 · 5b regime axis 🟢 · 5c-i champion-challenger 🟢 · 5c-i.b auto-reeval 🟢 · 5c-ii market-impact 🟢 · 5c-iii per-regime champion 🟢 · VPIN 🟢 · OFI/queue fills ⛔ (depth) |
 
 ## Cross-cutting / operational
 - 🟢 Multi-broker adapters: Upstox, Angel One real-data verified; failover + gap-fill; fleet-in-loop (opt-in).
 - ⏸ **Groww** (₹499/mo API sub) · ⏸ **Fyers** (creds) — paused by user until they provide.
-- 🔴 **#13** dashboard panels for new features (multi-broker, curriculum, champion-challenger, market-impact, regime memory) — built ≠ displayed.
+- 🟢 **#13** dashboard Feature-coverage panel (Rule N) — all features surfaced (incl. VPIN) + coverage audit; closed trades from persisted memory.
 - 🟢 **#14** high-fidelity replay prebuild non-blocking (background swap) → autonomous Breeze-1s replay back ON by default; fleet auto-activation still opt-in until its focus is bounded (low-pri follow-up).
 - ⛔ **Market-gated:** P4b depth capture, shadow-arm live pass (need an open session).
 
 ## TOP REMAINING BIG-ROCKS (whole-plan priority order — re-pick from here, don't tunnel)
-1. **§53 slice-5 finish** — VPIN microstructure feature; then depth-gated items when P4b depth accrues. ← NEXT
+1. **§53 slice-5** — VPIN 🟢 DONE; only depth-gated OFI/queue fills remain (market-gated). §53 ADVANCED code-complete.
 2. **Layer 11 (LLM/agentic AI)** — the big net-new area, once L10 validation accrues (runtime/market-gated).
 3. **Market/creds-gated & paused** — P4b depth capture, shadow-arm (open market); Groww/Fyers (user).
 4. Small follow-ups: bound the fleet replay focus (fleet auto-replay default-on); per-feature dashboard drill-downs.

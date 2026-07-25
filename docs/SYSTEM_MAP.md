@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-25aa**.
-- **142 Python modules across 14 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-25ac**.
+- **143 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -317,6 +317,17 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-25ac** — **VPIN order-flow toxicity — last code-buildable §53 ADVANCED item
+  (research/94; 142→143 modules, no new cross-feature edge — new `market_data/
+  vpin_order_flow_toxicity.py` imports only `market_data_types`). Bulk-Volume-Classification
+  (Φ of standardized close-to-close change) → equal-volume buckets → VPIN = mean |Vbuy−Vsell|/
+  Vbucket ∈ [0,1] (Easley-LdP-O'Hara 2012, vendored-from-formula; OSS ports surveyed — small/
+  tick-oriented/untested). **Surfaced via the feature registry (Rule N)** as a 7th coverage
+  row ("Order-flow toxicity (VPIN)", computed on the benchmark's latest session). **Rule-F
+  PASS** (`scripts/verify_vpin_realdata.py`): 23/23 real sessions scored, VPIN 0.127–0.362
+  (mean 0.228). 7 hermetic tests (toxic>balanced, bucketing, edges). **556 pass.** Entry-gate
+  consumer (high VPIN → defer/size-down entries) QUEUED (Rule K) — computed+surfaced now,
+  decision-consumer next.
 - **2026-07-25ab** — **Closed-trades panel sourced from PERSISTED memory (research/93; no
   module/edge change — `memory_reflection` + `dashboard` edits). The "Closed trades" panel
   read the process-local `_state.closed_trades` (reset every restart → showed ~3), so the

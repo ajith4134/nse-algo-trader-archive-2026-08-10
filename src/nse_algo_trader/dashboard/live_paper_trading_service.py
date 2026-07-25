@@ -1024,6 +1024,43 @@ class LivePaperTradingService:
             )
         _add(_regime_memory)
 
+        # 7. Order-flow toxicity (VPIN) — computed on the benchmark's latest stored session.
+        def _vpin():
+            from datetime import timedelta
+
+            from nse_algo_trader.market_data import BarInterval
+            from nse_algo_trader.market_data.vpin_order_flow_toxicity import compute_vpin
+
+            reading = None
+            store = MarketDataSqliteStore()
+            try:
+                token = self._curriculum_benchmark_token(store)
+                if token is not None:
+                    row = store._connection.execute(
+                        "SELECT MAX(date(bar_timestamp)) FROM price_bars "
+                        "WHERE bar_interval='5m' AND instrument_token=?", (token,)).fetchone()
+                    if row and row[0]:
+                        d = datetime.fromisoformat(row[0]).date()
+                        day = datetime(d.year, d.month, d.day, tzinfo=_INDIA_MARKET_TIMEZONE)
+                        bars = store.load_price_bars(token, BarInterval.MINUTE_5, day, day + timedelta(days=1))
+                        reading = compute_vpin(bars, bucket_count=10)
+            finally:
+                store.close()
+            if reading is None or reading.vpin is None:
+                return DashboardFeatureSurface(
+                    key="order_flow_toxicity", title="Order-flow toxicity (VPIN)",
+                    status="gathering", metrics=(("VPIN", "—"),), note="")
+            level = "elevated" if reading.vpin >= 0.4 else ("moderate" if reading.vpin >= 0.2 else "calm")
+            return DashboardFeatureSurface(
+                key="order_flow_toxicity", title="Order-flow toxicity (VPIN)",
+                status="active",
+                metrics=(("VPIN", f"{reading.vpin:.3f} ({level})"),
+                         ("buckets", str(reading.bucket_count))),
+                note="Bulk-volume-classified order-flow toxicity (Easley-LdP-O'Hara). "
+                     "Entry-gate consumption queued.",
+            )
+        _add(_vpin)
+
         # Return ALL manifest features in order — a placeholder 'not yet surfaced' row for
         # any that failed to build, so the coverage panel always lists every feature.
         return tuple(FeatureCoverageReport(surfaces=tuple(surfaces)).rows_in_manifest_order())

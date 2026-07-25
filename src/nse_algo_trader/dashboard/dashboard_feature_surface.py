@@ -46,6 +46,7 @@ FEATURE_SURFACE_MANIFEST: tuple[tuple[str, str], ...] = (
     ("champion_challenger", "Champion-challenger strategy config (global + per-regime)"),
     ("market_impact_fills", "Market-impact fill model"),
     ("market_regime_memory", "Market-regime memory calibration"),
+    ("order_flow_toxicity", "Order-flow toxicity (VPIN)"),
 )
 
 MANIFEST_KEYS: frozenset[str] = frozenset(k for k, _ in FEATURE_SURFACE_MANIFEST)
