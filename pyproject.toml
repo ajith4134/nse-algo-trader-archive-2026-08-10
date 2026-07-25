@@ -8,6 +8,10 @@ dependencies = [
     "requests>=2.31",
     "python-dotenv>=1.0",
     "pyotp>=2.9",
+    # ICICI Direct Breeze — 1-second historical source (§53 slice 4). Only the
+    # composition root / verification script imports breeze_connect (its import
+    # does network I/O); the adapter takes an injected client and never imports it.
+    "breeze-connect>=1.0.69",
 ]
 
 [project.optional-dependencies]

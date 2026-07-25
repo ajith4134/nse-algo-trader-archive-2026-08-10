@@ -45,6 +45,12 @@ class KiteHistoricalBarSource:
         from_datetime: datetime,
         to_datetime: datetime,
     ) -> list[PriceBar]:
+        if bar_interval not in KITE_INTERVAL_NAME_BY_BAR_INTERVAL:
+            raise ValueError(
+                f"Kite does not serve {bar_interval.value} candles — use the "
+                f"Breeze source for sub-minute (1s) fidelity (supported: "
+                f"{sorted(i.value for i in KITE_INTERVAL_NAME_BY_BAR_INTERVAL)})"
+            )
         include_open_interest = instrument.kind in _OPTION_INSTRUMENT_KINDS
         raw_kite_candles = self._kite_client.historical_data(
             instrument.instrument_token,

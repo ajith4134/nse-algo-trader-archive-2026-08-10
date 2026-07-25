@@ -17,6 +17,7 @@ class BarInterval(str, Enum):
     broker API's interval strings (e.g. Kite calls MINUTE_5 "5minute").
     """
 
+    SECOND_1 = "1s"  # sub-minute fidelity (ICICI Breeze v2; not offered by Kite)
     MINUTE_1 = "1m"
     MINUTE_3 = "3m"
     MINUTE_5 = "5m"

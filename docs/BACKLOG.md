@@ -198,8 +198,21 @@ when the build starts:
   / Brier 0.252; independent Brier recompute matches. 414 tests pass. **⇒ slice 3b
   COMPLETE.** (Per-BAR finer-than-per-trade scoring — the River-accumulator
   use-case — remains a future item only if per-step predictions are ever emitted.)
-- 🔴 **Slice 4 — fidelity climb**: ICICI Breeze 1-second source + start
-  recording our own live depth forward (the only path to L2/L3).
+- **Slice 4 — fidelity climb** (research/66):
+  - 🟡 **P4a — Breeze 1-second historical source.** BUILT + hermetically verified
+    (2026-07-25): `market_data/breeze_historical_bar_source.py` behind the
+    `HistoricalBarSource` seam (injected client, chunking+de-dup, cash+option
+    addressing), `BarInterval.SECOND_1`, `breeze-connect` acquired (MIT). 420 tests
+    pass. **⛔ Rule-F real-data pass OPEN** — needs a daily Breeze session token
+    (manual TOTP login); run `scripts/verify_breeze_1s_realdata.py <apisession>`
+    (creds in `.env`). *(task #3)*
+  - 🔴 **P4a-wire (PRIMARY consumer, queued):** wire Breeze in as the replay
+    router's fidelity source (bar-only → 1s) so the loop actually consumes it.
+    Until then P4a is "built + hermetic-verified, purpose-consumer queued" (Rule K).
+  - 🔴 **P4b — live-depth recorder:** record L2 order-book depth forward (the only
+    path to historical depth).
+  - 🔴 **Breeze session-token daily refresh** (auth layer, like Kite's) + an
+    ICICI-stock-code ↔ NSE-symbol mapping if the real-data pass shows mismatches.
 - 🔴 **Slice 5+ — ADVANCED**: microstructure features, queue/impact fills,
   deficit-driven curriculum (unblocks the Layer-10 regime queries),
   parallel multi-day → champion-challenger.

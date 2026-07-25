@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-24r**.
-- **111 Python modules across 14 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-25d**.
+- **112 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -170,7 +170,8 @@ Each block: purpose · files (role) · what flows IN/OUT · internal file→file
 - `market_data_types.py` — `PriceBar`, `BarInterval`, `MarketTick`.
 - `nse_corporate_action_source.py` — real NSE split/bonus records via `nselib` + the `subject`→price-factor parser (`CorporateAction`, `CorporateActionType`); feeds the replay continuity engine (§53 P3).
 - `broker_data_source_protocols.py` — `HistoricalBarSource` / `LiveTickStreamSource` protocols.
-- `kite_historical_bar_source.py` — Kite candles → `PriceBar`.
+- `kite_historical_bar_source.py` — Kite candles → `PriceBar` (minute…day; raises on sub-minute).
+- `breeze_historical_bar_source.py` — **ICICI Breeze v2 → `PriceBar` at 1-second** fidelity (§53 slice 4 P4a): `BreezeHistoricalBarSource` (injected authenticated client — never imports `breeze_connect`, whose import does network I/O), chunks >1000-candle pulls + de-dupes, cash + option addressing. New `BarInterval.SECOND_1`. Named consumer: the replay router fidelity upgrade (queued, P4a-wire).
 - `kite_live_tick_stream_source.py` — KiteTicker adapter (orphaned; superseded by the polling feed).
 - `kite_live_universe_feed.py` — **the live-session feed**: batched-LTP breadth + `recent_intraday_bars` depth; `KiteLiveUniverseFeed`.
 - `market_data_sqlite_store.py` — persists/loads bars + all 5 report types; `MarketDataSqliteStore`.
@@ -304,6 +305,26 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-25d** — **§53 slice 4 P4a — Breeze 1-second historical source**
+  (111→112 modules; no new cross-feature edge — `market_data` still imports only
+  `universe_registry`; research/66). New `market_data/
+  breeze_historical_bar_source.py`: `BreezeHistoricalBarSource` implements the
+  `HistoricalBarSource` protocol against ICICI Breeze's **v2** endpoint for
+  **1-second** OHLCV+OI — the fidelity climb above bar-only replay. Takes an
+  INJECTED authenticated client (never imports `breeze_connect`, whose import fires
+  network I/O + socketio — keeps the adapter hermetic); chunks >1000-candle pulls
+  and de-dupes boundaries; cash (`NSE`/`cash`) + option (`NFO`/`options`/expiry/
+  right/strike) addressing; overridable `stock_code` resolver. New
+  `BarInterval.SECOND_1`; `KiteHistoricalBarSource` now raises a clear error on
+  sub-minute. Acquired `breeze-connect` (MIT, Rule I) → pyproject dep. **Verified
+  hermetically (Rule J):** 6 tests with an injected fake — interval map, cash+option
+  addressing, chunk windows + boundary de-dup (2500×1s → 3 calls, 2500 unique),
+  parsing, empty-envelope, unsupported-interval error. 420 tests pass (+6).
+  **Rule-F real-data pass is an OPEN BLOCKER:** needs a daily Breeze session token
+  from a manual TOTP login — `scripts/verify_breeze_1s_realdata.py` is ready; the
+  user runs it (creds already in `.env`). Queued: P4a-wire (router uses Breeze for
+  1s replay — the PRIMARY consumer), P4b (live-depth recorder), daily session
+  refresh, ICICI stock-code mapping if real data shows mismatches.
 - **2026-07-25c** — **§53 slice 3b-ii — dense prequential forecast scorer** (no new
   files; 111 modules, no new cross-feature edge; research/65). New
   `ExperienceMemory.prequential_forecast_score(data_provenance=None) ->
