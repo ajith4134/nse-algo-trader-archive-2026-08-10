@@ -336,10 +336,12 @@ P4b) or license NSE. Net-new actionable wins now tracked:
   `HistoricalBarSource` seam (injected client, never imports `fyers_apiv3`; ≤100/366-
   day chunking; cash `NSE:{sym}-EQ`); the deep FREE minute source (cash+F&O+OI, ~9y),
   plugs into `build_replay_bars_by_token_from_source`. 449 tests pass. *(task #11)*
-  - ⛔ **Rule-F real-data pass OPEN** — needs the user's Fyers creds (client_id +
-    secret + redirect), a daily token, and an ISOLATED `fyers-apiv3` install (its
-    pinned deps risk colliding with the suite). Then pull real multi-year RELIANCE
-    minute bars + assert. *(task #11)*
+  - ⛔ **Rule-F real-data pass OPEN — ⏸ PAUSED BY USER (2026-07-25)** pending Fyers
+    creds (user will provide later; needs client_id + secret + redirect, a daily token,
+    and an ISOLATED `fyers-apiv3` install — its pinned deps risk colliding with the
+    suite). Then pull real multi-year RELIANCE minute bars + assert, and add Fyers to
+    `_build_available_broker_fleet_source`. Do NOT pursue until the user supplies creds.
+    *(task #11)*
   - 🔴 **Fyers options symbol-master resolver** — format option symbols from
     `public.fyers.in/sym_details/NSE_FO` (monthly/weekly month codes); default
     resolver raises for options until injected. *(task #14)*
@@ -379,7 +381,9 @@ vendor SDK) — BUILT + hermetic-verified.
   forbidden"`; the token authenticates but the account has **no API entitlement**.
   Done = activate the **Groww Trading API subscription (₹499/mo, research/80)**, then
   re-probe + real-data pass. Adapter is built + hermetic; nothing more codeable until
-  the subscription is live. *(task #19)*
+  the subscription is live. **⏸ PAUSED BY USER (2026-07-25)** — do NOT pursue until the
+  user activates the subscription; then add Groww to `_build_available_broker_fleet_
+  source`. *(task #19)*
 - 🟢 **Angel One** (`angel_one_historical_bar_source` + `angel_one_symbol_token_resolver`
   + `broker_sessions/angel_one_smartapi_session`) — ONE_MINUTE…ONE_DAY, **no historical
   OI**. **DONE — Rule-F VERIFIED (2026-07-25):** `scripts/verify_angel_one_realdata.py`
