@@ -215,6 +215,9 @@ class LivePaperTradingService:
         max_new_option_seeds_per_pass: int = 25,
         participant_positioning_source=None,
         high_fidelity_replay=None,
+        breeze_session_token_store=None,
+        breeze_historical_source_builder=None,
+        autonomous_breeze_replay_call_budget=5000,
     ) -> None:
         self._kite_client = authenticated_kite_client
         # §53 slice 4 P4a-wire: optional HighFidelityReplayConfig — when injected,
@@ -222,6 +225,12 @@ class LivePaperTradingService:
         # 1-second) for a bounded focus set instead of the stored 5-minute bars.
         # None (default) keeps the store path exactly as before (no regression).
         self._high_fidelity_replay = high_fidelity_replay
+        # §53 slice 4 task #7: autonomous self-activation seams (default real). When
+        # no explicit high_fidelity_replay is passed AND a valid Breeze session
+        # token is stored, start() builds a rate-limited 1s config itself.
+        self._breeze_session_token_store = breeze_session_token_store
+        self._breeze_historical_source_builder = breeze_historical_source_builder
+        self._autonomous_breeze_replay_call_budget = autonomous_breeze_replay_call_budget
         # Layer 10 §10 opponent ledger — real NSE archive fetcher by default;
         # injectable (DI seam) so tests pass an in-memory fake. Fetched once per
         # trade date in the writer thread and cached.
@@ -289,6 +298,8 @@ class LivePaperTradingService:
             ),
         )
         self._banned_underlying_symbols = self._load_fo_ban_list()
+        if self._high_fidelity_replay is None:
+            self._maybe_activate_autonomous_breeze_replay()  # §53 task #7
         self._build_replay_feed_from_store()  # market-CLOSED replay data
         self._running = True
         self._writer_thread = threading.Thread(
@@ -384,6 +395,62 @@ class LivePaperTradingService:
         self._replay_feed = ReplayUniverseFeed(bars_by_token)
         self._replay_timestamps = self._replay_feed.stored_session_timestamps()
         self._replay_cursor = 0
+
+    def _maybe_activate_autonomous_breeze_replay(self) -> None:
+        """§53 slice 4 task #7: when a valid daily Breeze session token is stored,
+        self-build a rate-limited 1-second `HighFidelityReplayConfig` so the loop
+        runs 1s replay UNATTENDED. Best-effort — no token / no creds / network
+        error leaves `high_fidelity_replay` None → the store-5m path, so the
+        always-on service always starts."""
+        from datetime import timedelta
+        from zoneinfo import ZoneInfo
+
+        from nse_algo_trader.market_data import BarInterval
+        from nse_algo_trader.broker_sessions.breeze_session_token_store import (
+            BreezeSessionTokenFileStore,
+        )
+        from nse_algo_trader.paper_trading.breeze_replay_focus_planner import (
+            plan_breeze_replay_focus,
+        )
+        from nse_algo_trader.paper_trading.historical_source_replay_feed_builder import (  # noqa: E501
+            HighFidelityReplayConfig,
+        )
+        from nse_algo_trader.paper_trading.historical_trading_day_walker import (
+            HistoricalTradingDayWalker,
+        )
+
+        try:
+            token_store = (
+                self._breeze_session_token_store or BreezeSessionTokenFileStore()
+            )
+            token_record = token_store.load_if_still_valid()
+            if token_record is None:
+                return  # no fresh manual token -> stay on store-5m replay
+            source_builder = (
+                self._breeze_historical_source_builder
+                or _build_authenticated_breeze_historical_source
+            )
+            bar_source = source_builder(token_record.session_token)
+            session_date = HistoricalTradingDayWalker(
+                self._clock
+            ).most_recent_trading_day_on_or_before(
+                datetime.now(ZoneInfo("Asia/Kolkata")).date() - timedelta(days=1)
+            )
+            focus_instruments = plan_breeze_replay_focus(
+                self._cash_universe,
+                self._autonomous_breeze_replay_call_budget,
+                BarInterval.SECOND_1,
+            )
+            if not focus_instruments:
+                return
+            self._high_fidelity_replay = HighFidelityReplayConfig(
+                bar_source=bar_source,
+                focus_instruments=focus_instruments,
+                session_date=session_date,
+                bar_interval=BarInterval.SECOND_1,
+            )
+        except Exception:
+            self._high_fidelity_replay = None  # never break startup
 
     @staticmethod
     def _build_corporate_action_adjustment_engine(bars_by_token):
@@ -966,3 +1033,33 @@ class LivePaperTradingService:
     def published_snapshot(self) -> LivePaperPublishedSnapshot:
         with self._publish_lock:
             return self._published
+
+
+def _build_authenticated_breeze_historical_source(session_token: str):
+    """§53 task #7 default source builder: compose a real authenticated Breeze
+    1-second source — creds → client (#6a) → ICICI stock-code resolver (#6b) →
+    adapter. Network + the `breeze_connect` import happen ONLY here, so the rest of
+    the service (and tests, which inject a fake builder) stay import-clean."""
+    from nse_algo_trader.broker_credentials.broker_api_credentials_loader import (
+        BrokerName,
+        load_broker_api_credentials,
+        load_env_file_into_environ,
+    )
+    from nse_algo_trader.broker_sessions.breeze_authenticated_client_builder import (
+        build_authenticated_breeze_client,
+    )
+    from nse_algo_trader.market_data.breeze_historical_bar_source import (
+        BreezeHistoricalBarSource,
+    )
+    from nse_algo_trader.market_data.icici_security_master_stock_code_resolver import (
+        IciciSecurityMasterStockCodeResolver,
+        download_icici_nse_scrip_master_text,
+    )
+
+    load_env_file_into_environ()
+    credentials = load_broker_api_credentials(BrokerName.ICICI_BREEZE)
+    client = build_authenticated_breeze_client(credentials, session_token)
+    resolver = IciciSecurityMasterStockCodeResolver.from_nse_scrip_master_text(
+        download_icici_nse_scrip_master_text()
+    )
+    return BreezeHistoricalBarSource(client, stock_code_resolver=resolver)

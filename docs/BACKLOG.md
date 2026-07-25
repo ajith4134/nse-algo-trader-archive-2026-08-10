@@ -213,11 +213,18 @@ when the build starts:
     **1-second** bars for a focus set instead of the stored 5-minute bars (default
     None = no change). Rule-F: 600 real Breeze 1s ITC bars built into a real
     `ReplayUniverseFeed`. 422 tests pass. P4a's fidelity now reaches the loop.
-  - 🔴 **P4a-wire-autonomous (queued):** the always-on service AUTONOMOUSLY picking
-    a focus set + session and auto-refreshing the Breeze session to run 1s replay
-    unattended. Needs task #6 (session refresh) + a rate-limit-aware focus scheduler
-    (5000 calls/day caps 1s to a bounded set). Until then the seam runs via explicit
-    injection / the real-data script, not the unattended loop. *(task #7)*
+  - 🟢 **P4a-wire-autonomous — DONE (2026-07-25, real-data verified).** New
+    `breeze_replay_focus_planner` (budget-caps 1s focus to Breeze's 5000/day) + the
+    service's `_maybe_activate_autonomous_breeze_replay()`: on start, a valid stored
+    Breeze token (#6a) self-builds a rate-limited `HighFidelityReplayConfig` (source
+    via #6a client + #6b resolver; session = day-walker most-recent-≤-yesterday);
+    best-effort → store-5m path when no token. Rule-F: from a stored real token the
+    service self-served **21,952 ITC + 17,193 RELIANCE real 1s bars** unattended. 435
+    tests pass. *(task #7)* Set the daily token → the loop runs 1s replay itself.
+  - 🔵 **Focus RANKING refinement (queued):** the focus is currently "first N of the
+    cash universe (option-underlyings-first), budget-capped". A liquidity/actively-
+    watched ranking (replay the names the loop actually trades) would spend the 1s
+    budget better. *(task #8)*
   - 🔴 **P4b — live-depth recorder:** record L2 order-book depth forward (the only
     path to historical depth).
   - 🟢 **Breeze session store + ICICI stock-code map — DONE (2026-07-25, real-data
