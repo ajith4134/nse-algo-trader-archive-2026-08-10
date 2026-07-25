@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-25h**.
-- **122 Python modules across 14 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-25j**.
+- **123 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -173,6 +173,7 @@ Each block: purpose · files (role) · what flows IN/OUT · internal file→file
 - `broker_data_source_protocols.py` — `HistoricalBarSource` / `LiveTickStreamSource` protocols.
 - `kite_historical_bar_source.py` — Kite candles → `PriceBar` (minute…day; raises on sub-minute).
 - `breeze_historical_bar_source.py` — **ICICI Breeze v2 → `PriceBar` at 1-second** fidelity (§53 slice 4 P4a): `BreezeHistoricalBarSource` (injected authenticated client — never imports `breeze_connect`, whose import does network I/O), chunks >1000-candle pulls + de-dupes, cash + option addressing. New `BarInterval.SECOND_1`. WIRED into replay via `paper_trading/historical_source_replay_feed_builder` (P4a-wire).
+- `fyers_historical_bar_source.py` — **Fyers deep FREE minute history** (cash+F&O+OI, ~9y since 2017; task #11): `FyersHistoricalBarSource` on the same `HistoricalBarSource` seam, injected client (never imports `fyers_apiv3`), ≤100/366-day chunking; the deep-minute complement to Breeze's 1-second. `SECOND_1` unsupported (Fyers min = 5s).
 - `icici_security_master_stock_code_resolver.py` — **NSE symbol → ICICI stock_code** (§53 #6b): parses ICICI's real `NSEScripMaster.txt` (`ExchangeCode`→`ShortName`, EQ), injected as the Breeze adapter's `stock_code_resolver` (RELIANCE→`RELIND`); pure parser + separate network download.
 - **Order-book DEPTH (§53 P4b — recorded forward, the only path to historical depth):** `market_depth_types.py` (`MarketDepthLevel`/`MarketDepthSnapshot`) · `broker_data_source_protocols.MarketDepthSource` (seam) · `kite_market_depth_source.py` (Kite `quote()` depth → snapshots) · `market_depth_snapshot_store.py` (own `market_depth.sqlite3`). Consumed by `paper_trading/live_market_depth_recorder`.
 - `kite_live_tick_stream_source.py` — KiteTicker adapter (orphaned; superseded by the polling feed).
@@ -308,6 +309,22 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-25j** — **Fyers deep-history adapter** (task #11; research/77 top win +
+  research/78; 122→123 modules, no new cross-feature edge). New `market_data/
+  fyers_historical_bar_source.py`: `FyersHistoricalBarSource` implements the
+  `HistoricalBarSource` seam against Fyers' `history()` — the deep, FREE **minute**
+  source (cash + F&O + OI, since ~Jul-2017 ~9y), deeper than Breeze's ~3y (Breeze
+  stays the 1-second source; Fyers' finest is 5s, so `SECOND_1` raises). Injected
+  client — **never imports `fyers_apiv3`** (hard-pins requests/aiohttp → collision
+  risk; install isolated only for the real-data pass). Chunks ≤100-day (minute) /
+  ≤366-day (daily) windows, de-dupes, cash symbol `NSE:{sym}-EQ` (options raise
+  until a symbol-master resolver is injected). Plugs directly into
+  `build_replay_bars_by_token_from_source` (same seam) → deep minute backfill is one
+  call away. **Hermetic (Rule J):** 7 tests with an injected fake — resolution map,
+  cash symbol/oi_flag, chunk windows+dedupe, OHLCV+OI parse, SECOND_1/option errors,
+  non-ok envelope. 449 pass (+7). **Rule-F OPEN BLOCKER:** needs the user's Fyers
+  creds + daily token + an isolated `fyers-apiv3` install. Queued: Fyers options
+  symbol-master resolver + session store.
 - **2026-07-25i** — **§53 slice 4 task #8 — liquidity-ranked Breeze replay focus**
   (no new files; 122 modules, no new edge). `breeze_replay_focus_planner.
   rank_instruments_by_liquidity(instruments, turnover_lakhs_by_symbol)` orders the

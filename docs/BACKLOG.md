@@ -331,9 +331,19 @@ sweeps: research/71 tick · 72 depth · 73/74 intraday · 75 corp-actions/ISIN/d
 · 76 index membership; consolidated 77) confirmed microstructure (tick + L2/L3
 depth) is genuinely not free for an individual → record-forward (done: Breeze 1s +
 P4b) or license NSE. Net-new actionable wins now tracked:
-- 🔵 **Fyers free History API adapter** — cash + F&O + OI, ~9y since Jul-2017,
-  deeper + free vs Breeze's ~3y. `FyersHistoricalBarSource` behind the existing
-  seam. *(task #11)*
+- 🟡 **Fyers free History API adapter — BUILT + hermetic-verified (2026-07-25,
+  research/78).** `market_data/fyers_historical_bar_source.py` on the
+  `HistoricalBarSource` seam (injected client, never imports `fyers_apiv3`; ≤100/366-
+  day chunking; cash `NSE:{sym}-EQ`); the deep FREE minute source (cash+F&O+OI, ~9y),
+  plugs into `build_replay_bars_by_token_from_source`. 449 tests pass. *(task #11)*
+  - ⛔ **Rule-F real-data pass OPEN** — needs the user's Fyers creds (client_id +
+    secret + redirect), a daily token, and an ISOLATED `fyers-apiv3` install (its
+    pinned deps risk colliding with the suite). Then pull real multi-year RELIANCE
+    minute bars + assert. *(task #11)*
+  - 🔴 **Fyers options symbol-master resolver** — format option symbols from
+    `public.fyers.in/sym_details/NSE_FO` (monthly/weekly month codes); default
+    resolver raises for options until injected. *(task #14)*
+  - 🔴 **Fyers session-token store** (like Breeze #6a) + isolated dependency group. *(task #15)*
 - 🔵 **HuggingFace 2022+ NSE 1-min seed** (MIT) — bulk backfill of the bars store;
   verify provenance first. *(task #12)*
 - 🔵 **BSE + Kaggle delisted cross-sources** — BSE ListofScripData (status=delisted)
