@@ -220,6 +220,8 @@ class LivePaperTradingService:
         autonomous_breeze_replay_call_budget=5000,
         multi_broker_replay_source_builder=None,
         multi_broker_replay_focus_size=200,
+        enable_autonomous_high_fidelity_replay=False,
+        enable_multi_broker_fleet_replay=False,
         champion_challenger_candidate_grid=None,
         champion_challenger_min_sessions=10,
         champion_configuration_store_path=None,
@@ -245,6 +247,8 @@ class LivePaperTradingService:
         # DI seam (default = the real fleet builder); focus_size bounds the pull.
         self._multi_broker_replay_source_builder = multi_broker_replay_source_builder
         self._multi_broker_replay_focus_size = multi_broker_replay_focus_size
+        self._enable_autonomous_high_fidelity_replay = enable_autonomous_high_fidelity_replay
+        self._enable_multi_broker_fleet_replay = enable_multi_broker_fleet_replay
         # §53 slice 5a: deficit-driven replay curriculum — how many recent calendar days
         # to scan for stored sessions to classify + balance regime coverage across.
         self._curriculum_lookback_days = 60
@@ -252,9 +256,10 @@ class LivePaperTradingService:
         # each closed experience is tagged with the ADX regime of its session without
         # re-classifying every drain pass. Populated lazily from the bar store.
         self._market_regime_cache_by_date: dict = {}
-        # §53 slice 5c-i: the champion ORB config (promoted by the champion-challenger
-        # tournament), loaded once from its store; None until first read.
-        self._champion_orb_config_cache = None
+        # §53 slice 5c-i/5c-iii: the champion ORB config per market regime (promoted by the
+        # champion-challenger tournament), cached lazily by regime key; "global" for the
+        # regime-agnostic fallback.
+        self._champion_orb_config_by_regime: dict = {}
         # §53 slice 5c-i.b: autonomous champion-challenger re-evaluation — runs the
         # tournament at most once/day over the stored sessions and promotes via the store.
         self._champion_challenger_candidate_grid = champion_challenger_candidate_grid
@@ -337,10 +342,16 @@ class LivePaperTradingService:
         )
         self._banned_underlying_symbols = self._load_fo_ban_list()
         self._populate_average_daily_quantities()  # §53 slice 5c-ii (market-impact fills)
-        if self._high_fidelity_replay is None:
-            self._maybe_activate_autonomous_breeze_replay()  # §53 task #7 (Breeze 1s)
-        if self._high_fidelity_replay is None:
-            self._maybe_activate_autonomous_multi_broker_replay()  # task #20 (fleet 1m)
+        # Autonomous HIGH-FIDELITY replay (Breeze 1s and/or multi-broker 1m) is OPT-IN
+        # (default OFF): building its feed fetches many instruments over the network
+        # SYNCHRONOUSLY in start(), which takes minutes and once blocked the dashboard
+        # (task #14 — make the prebuild incremental/lazy to re-enable by default). Default
+        # OFF keeps startup fast on the store-5m path so the live view is available in ~2s.
+        if self._enable_autonomous_high_fidelity_replay:
+            if self._high_fidelity_replay is None:
+                self._maybe_activate_autonomous_breeze_replay()  # §53 task #7 (Breeze 1s)
+            if self._high_fidelity_replay is None and self._enable_multi_broker_fleet_replay:
+                self._maybe_activate_autonomous_multi_broker_replay()  # task #20 (fleet 1m)
         self._build_replay_feed_from_store()  # market-CLOSED replay data
         self._running = True
         self._writer_thread = threading.Thread(
@@ -803,21 +814,25 @@ class LivePaperTradingService:
         self._advance_one_pass(replay_now, replay_mode=True)
 
     def _champion_orb_config(self):
-        """The ORB config the loop trades with — the champion promoted by the
-        champion-challenger tournament (§53 slice 5c-i), or the built-in default when none
-        has been promoted. Loaded once and cached; best-effort (a bad file → default)."""
-        if self._champion_orb_config_cache is None:
+        """The ORB config the loop trades with — the champion for the CURRENT session's
+        market regime (§53 slice 5c-iii), falling back to the global champion, then the
+        built-in default. Cached per regime; best-effort (a bad file → default)."""
+        regime = self._current_session_market_regime()
+        # "unknown" (store-5m multi-date replay / unclassifiable) → the global champion.
+        regime_key = None if regime == "unknown" else regime
+        cache_key = regime_key or "global"
+        if cache_key not in self._champion_orb_config_by_regime:
             try:
-                self._champion_orb_config_cache = (
-                    self._champion_store().load_champion_or_default()
+                self._champion_orb_config_by_regime[cache_key] = (
+                    self._champion_store().load_champion_or_default(market_regime=regime_key)
                 )
             except Exception:
                 from nse_algo_trader.strategy_engine.opening_range_breakout_strategy import (  # noqa: E501
                     OpeningRangeBreakoutConfig,
                 )
 
-                self._champion_orb_config_cache = OpeningRangeBreakoutConfig()
-        return self._champion_orb_config_cache
+                self._champion_orb_config_by_regime[cache_key] = OpeningRangeBreakoutConfig()
+        return self._champion_orb_config_by_regime[cache_key]
 
     def _populate_average_daily_quantities(self) -> None:
         """§53 slice 5c-ii: fill `state.average_daily_quantity_by_token` with each token's
@@ -852,10 +867,12 @@ class LivePaperTradingService:
         return ChampionConfigurationStore()
 
     def _maybe_reevaluate_champion_challenger(self, now) -> None:
-        """§53 slice 5c-i.b: at most once/day, run the champion-challenger tournament over
-        the stored real sessions; if a challenger clears the Deflated-Sharpe gate, persist
-        it as the new champion and refresh the live cache so the loop trades it. Best-effort
-        — any failure leaves the incumbent champion untouched and never disturbs the loop."""
+        """§53 slice 5c-i.b + 5c-iii: at most once/day, run the champion-challenger
+        tournament over the stored real sessions — a GLOBAL tournament (all sessions) plus a
+        PER-MARKET-REGIME tournament (sessions partitioned by their ADX regime). Each gated
+        promotion is persisted (global or per regime) and refreshes the live cache. Best-
+        effort — any failure leaves the incumbent champions untouched and never disturbs the
+        loop."""
         from nse_algo_trader.paper_trading.champion_challenger_reevaluation_scheduler import (  # noqa: E501
             DEFAULT_ORB_CHALLENGER_GRID,
             is_reevaluation_due,
@@ -868,28 +885,62 @@ class LivePaperTradingService:
             from nse_algo_trader.paper_trading.champion_challenger_orb_evaluator import (
                 evaluate_champion_vs_challengers,
             )
+            from nse_algo_trader.paper_trading.per_regime_champion_evaluator import (
+                evaluate_per_regime_champions,
+            )
 
-            sessions = self._load_stored_benchmark_sessions()
-            if len(sessions) < self._champion_challenger_min_sessions:
+            labelled = self._load_stored_benchmark_sessions_labelled()
+            if len(labelled) < self._champion_challenger_min_sessions:
                 self._champion_challenger_last_run_date = today  # not enough data yet
                 return
             store = self._champion_store()
-            champion = store.load_champion_or_default()
             grid = (
                 self._champion_challenger_candidate_grid
                 if self._champion_challenger_candidate_grid is not None
                 else DEFAULT_ORB_CHALLENGER_GRID
             )
-            decision = evaluate_champion_vs_challengers(champion, grid, sessions)
-            if decision.champion_replaced:
-                store.save_champion(decision.winning_config)
-                self._champion_orb_config_cache = decision.winning_config
-                print(f"[champion-challenger] promoted new champion: {decision.promotion_reason} "
-                      f"(DSR={decision.promotion_deflated_sharpe:.3f})", flush=True)
+
+            # GLOBAL champion (all sessions).
+            global_sessions = [(bars, instrument) for bars, instrument, _ in labelled]
+            global_decision = evaluate_champion_vs_challengers(
+                store.load_champion_or_default(), grid, global_sessions
+            )
+            if global_decision.champion_replaced:
+                store.save_champion(global_decision.winning_config)
+                self._champion_orb_config_by_regime["global"] = global_decision.winning_config
+                print("[champion-challenger] promoted GLOBAL champion: "
+                      f"{global_decision.promotion_reason}", flush=True)
+
+            # PER-REGIME champions.
+            regimes = {regime for _, _, regime in labelled}
+            champion_by_regime = {
+                regime: store.load_champion_or_default(market_regime=regime)
+                for regime in regimes
+            }
+            for regime, decision in evaluate_per_regime_champions(
+                labelled, champion_by_regime, grid
+            ).items():
+                if decision.champion_replaced:
+                    store.save_champion(decision.winning_config, market_regime=regime)
+                    self._champion_orb_config_by_regime[regime] = decision.winning_config
+                    print(f"[champion-challenger] promoted {regime} champion: "
+                          f"{decision.promotion_reason}", flush=True)
         except Exception:
             pass  # re-eval must never break the loop
         finally:
             self._champion_challenger_last_run_date = today
+
+    def _load_stored_benchmark_sessions_labelled(self) -> list:
+        """The stored benchmark sessions, each labelled with its ADX market regime (§53
+        slice 5c-iii): `[(session_bars, instrument, market_regime), …]`."""
+        from nse_algo_trader.paper_trading.historical_session_market_regime_classifier import (  # noqa: E501
+            classify_session_market_regime,
+        )
+
+        return [
+            (bars, instrument, classify_session_market_regime(bars).value)
+            for bars, instrument in self._load_stored_benchmark_sessions()
+        ]
 
     def _load_stored_benchmark_sessions(self) -> list:
         """Every stored session for the market-regime/champion benchmark instrument, as

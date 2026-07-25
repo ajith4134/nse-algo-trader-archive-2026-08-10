@@ -63,26 +63,30 @@ def _forced_decision(winning_config):
 def test_service_reeval_promotes_persists_and_gates_once_per_day(tmp_path: Path, monkeypatch):
     champ_path = tmp_path / "champ.json"  # injected store path -> the real store is untouched
     winning_config = OpeningRangeBreakoutConfig(opening_range_minutes=42, target_risk_reward_ratio=1.5)
-    # Force the evaluator (imported inside the service method) to promote our config.
-    import nse_algo_trader.paper_trading.champion_challenger_orb_evaluator as evaluator_module
-    monkeypatch.setattr(
-        evaluator_module, "evaluate_champion_vs_challengers",
-        lambda *a, **k: _forced_decision(winning_config),
-    )
+    # Force BOTH the global and the per-regime evaluators to promote (each looks the name up
+    # in its own module), so the test never touches the real backtester with dummy bars.
+    import nse_algo_trader.paper_trading.champion_challenger_orb_evaluator as ev_mod
+    import nse_algo_trader.paper_trading.per_regime_champion_evaluator as pr_mod
+    forced = lambda *a, **k: _forced_decision(winning_config)
+    monkeypatch.setattr(ev_mod, "evaluate_champion_vs_challengers", forced)
+    monkeypatch.setattr(pr_mod, "evaluate_champion_vs_challengers", forced)
 
     service = LivePaperTradingService(
         object(), 1_000_000.0, champion_challenger_min_sessions=1,
         champion_configuration_store_path=champ_path,
     )
     call_count = []
-    service._load_stored_benchmark_sessions = lambda: (call_count.append(1), [("bars", "instr")])[1]
+    service._load_stored_benchmark_sessions_labelled = lambda: (
+        call_count.append(1), [("bars", "instr", "trending")]
+    )[1]
 
     now = datetime(2026, 7, 24, 18, 0, tzinfo=IST)
     service._maybe_reevaluate_champion_challenger(now)
 
-    promoted = ChampionConfigurationStore(champ_path).load_champion_or_default()
-    assert promoted.opening_range_minutes == 42  # winning config persisted to the store
-    assert service._champion_orb_config_cache.opening_range_minutes == 42  # live cache refreshed
+    store = ChampionConfigurationStore(champ_path)
+    assert store.load_champion_or_default().opening_range_minutes == 42  # GLOBAL persisted
+    assert store.load_champion_or_default(market_regime="trending").opening_range_minutes == 42
+    assert service._champion_orb_config_by_regime["global"].opening_range_minutes == 42
     assert service._champion_challenger_last_run_date == now.date()
     assert len(call_count) == 1
 
@@ -97,7 +101,7 @@ def test_service_reeval_below_min_sessions_marks_day_without_promoting(tmp_path:
         object(), 1_000_000.0, champion_challenger_min_sessions=10,
         champion_configuration_store_path=champ_path,
     )
-    service._load_stored_benchmark_sessions = lambda: [("bars", "instr")]  # only 1 < 10
+    service._load_stored_benchmark_sessions_labelled = lambda: [("bars", "instr", "trending")]  # 1 < 10
     now = datetime(2026, 7, 24, 18, 0, tzinfo=IST)
     service._maybe_reevaluate_champion_challenger(now)
     assert service._champion_challenger_last_run_date == now.date()  # day marked, no crash

@@ -358,8 +358,33 @@ when the build starts:
     - 🔴 **Queue-position fills (queued):** the OTHER realism gap — needs L2 depth (P4b,
       market-gated). · 🔵 **Impact-coefficient calibration** vs real realized fills (needs
       live/paper fills).
+  - 🟢 **5c-iii — per-market-regime champion — DONE, Rule-F VERIFIED (2026-07-25, research/90).**
+    `per_regime_champion_evaluator` (partition by regime → tournament per regime) +
+    `champion_configuration_store` per-regime save/load (nested JSON, flat back-compat) +
+    service regime-aware `_champion_orb_config` selection + global+per-regime auto-re-eval.
+    Real pass: 12 trending / 6 range / 5 indecisive; per-regime decisions coherent. 538 pass.
+    *(task #12)*
   - 🔴 **5c+ (deeper ADVANCED, not started):** microstructure features (OFI/VPIN — OFI
-    depends on P4b depth; VPIN buildable now), per-market-regime champion (uses 5b tag). *(task TBD)*
+    depends on P4b depth; VPIN buildable now). *(task TBD)*
+
+## Dashboard operational (2026-07-25)
+- 🟢 **Dashboard outage FIXED (2026-07-25).** Root cause: `LivePaperTradingService.start()`
+  built the autonomous HIGH-FIDELITY replay feed (Breeze-1s / multi-broker fleet) by fetching
+  many instruments over the network SYNCHRONOUSLY — blocking uvicorn from binding (server
+  down) and keeping `live_service=None` for minutes. Fixes: (1) `dashboard_server` warms the
+  service up in a BACKGROUND thread (binds in ~1s, degrades gracefully); (2) autonomous
+  high-fidelity replay is OPT-IN behind `enable_autonomous_high_fidelity_replay` (default OFF)
+  → fast store-5m startup (~13s → live view: 293 experiences, calibration, tripwires, opponent
+  ledger). `/`, `/map`, `/api/snapshot` all HTTP 200 verified.
+- 🔴 **task #14 — make the high-fidelity replay prebuild incremental/lazy** so autonomous
+  Breeze-1s / fleet-1m replay can be re-enabled by default without a slow startup (today it is
+  opt-in default-off). Also re-grades task #5 (#20 fleet-in-loop) / task #7 (Breeze autonomous):
+  built + verified but now DEFAULT-OFF pending this fix — the failover/gap-fill source (#20)
+  and the fleet builder are unchanged, only the always-on auto-activation is gated.
+- 🔴 **task #13 — dashboard PANELS for the new §53/ADVANCED features** (multi-broker sourcing/
+  fleet/failover status, replay fidelity tier + regime curriculum coverage, champion-challenger
+  + champion config global/per-regime, market-impact fills, market-regime memory calibration).
+  Wired + real-data-verified but NOT displayed. READ dataviz skill first. (Layer-9 surfacing.)
 
 ## Open real-data blockers (Rule F/J — sim-verified, real pass pending)
 - ⛔ **Shadow-arm recovery (slice 4) live pass.** Functionally verified via sim

@@ -97,9 +97,23 @@ def _is_kite_token_valid() -> bool:
 def build_dashboard_app() -> FastAPI:
     access_token = get_or_create_access_token()
     control_config = load_trading_control_config()
-    live_service = _start_live_paper_trading_service(
-        control_config.account_virtual_capital
-    )
+    # Warm up the always-on paper service in a BACKGROUND thread so uvicorn binds
+    # immediately. Its start() does heavy synchronous work — notably fetching the
+    # autonomous multi-broker replay feed over the network for the focus set — which
+    # must NEVER block the web server from serving. Handlers read the holder and degrade
+    # gracefully (static views, no live section) until warmup completes.
+    import threading
+
+    live_service_holder: dict = {"service": None}
+
+    def _warm_up_paper_service() -> None:
+        live_service_holder["service"] = _start_live_paper_trading_service(
+            control_config.account_virtual_capital
+        )
+
+    threading.Thread(
+        target=_warm_up_paper_service, name="paper-service-warmup", daemon=True
+    ).start()
     app = FastAPI(title="NSE Algo Trader Dashboard")
 
     def _require_key(request: Request) -> None:
@@ -111,6 +125,7 @@ def build_dashboard_app() -> FastAPI:
 
     def _current_snapshot():
         control_config = load_trading_control_config()
+        live_service = live_service_holder["service"]
         if live_service is None:
             # No live auth: serve the static views with an empty live section.
             return build_dashboard_snapshot(
@@ -217,6 +232,7 @@ def build_dashboard_app() -> FastAPI:
         _require_key(request)
         # The live service scans continuously in the background; a refresh
         # just re-reads its latest published snapshot.
+        live_service = live_service_holder["service"]
         published = (
             live_service.published_snapshot() if live_service is not None else None
         )
