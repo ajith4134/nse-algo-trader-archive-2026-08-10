@@ -405,10 +405,11 @@ vendor SDK) — BUILT + hermetic-verified.
   all-fail→[], `on_source_attempt` observer). Real pass across live Upstox+Angel:
   primary serves; broken-primary→Angel serves 375 real bars; reversed order respected.
   491 tests pass. *(task #20)*
-  - 🔴 **Slice-2 — gap-fill AGGREGATION (queued):** fill a primary's missing
-    timestamps in the window from lower-priority sources (each bar stays wholly from
-    one feed). Needs its own real-data pass (a session with a broker-specific gap the
-    other covers). Done = gap-filled bars verified across two real sources. *(task #20)*
+  - 🟢 **Slice-2 — gap-fill AGGREGATION — DONE, Rule-F VERIFIED (2026-07-25).**
+    `SourceCombinationPolicy.GAP_FILL` unions across all sources (higher-priority wins
+    per timestamp; each bar wholly from one feed). Real pass: live Upstox truncated to
+    <12:00 (165 morning bars) + live Angel (210 afternoon) = 375 contiguous real bars.
+    499 tests pass. *(task #20)*
   - 🟢 **Composition-root autonomous FLEET wiring — DONE, Rule-F VERIFIED (2026-07-25,
     research/85).** `LivePaperTradingService._maybe_activate_autonomous_multi_broker_
     replay()` + `_build_available_broker_fleet_source()` (Upstox→Angel from .env) add a

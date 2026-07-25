@@ -13,6 +13,7 @@ from nse_algo_trader.market_data.multi_broker_historical_bar_source import (
     MultiBrokerHistoricalBarSource,
     NamedHistoricalBarSource,
     SourceAttempt,
+    SourceCombinationPolicy,
 )
 from nse_algo_trader.universe_registry import (
     ExchangeSegment,
@@ -127,3 +128,66 @@ def test_observer_receives_one_attempt_per_source_tried():
     assert attempts[0].source_name == "angel" and attempts[0].error_repr is not None
     assert attempts[1].source_name == "upstox" and attempts[1].bar_count == 2
     assert all(a.instrument_trading_symbol == "INFY" for a in attempts)
+
+
+# ---------------- GAP_FILL policy ----------------
+
+def _gap_fill(*named, observer=None):
+    return MultiBrokerHistoricalBarSource(
+        list(named),
+        on_source_attempt=observer,
+        combination_policy=SourceCombinationPolicy.GAP_FILL,
+    )
+
+
+def test_gap_fill_unions_and_primary_wins_each_timestamp():
+    # Primary has minutes 0 and 2 (a gap at 1); secondary has 0,1,2.
+    primary = _FakeSource([_bar(0), _bar(2)])
+    secondary = _FakeSource([_bar(0), _bar(1), _bar(2)])
+    attempts: list[SourceAttempt] = []
+    bars = _gap_fill(
+        NamedHistoricalBarSource("upstox", primary),
+        NamedHistoricalBarSource("angel", secondary),
+        observer=attempts.append,
+    ).fetch_historical_bars(_cash(), BarInterval.MINUTE_1, _FROM, _TO)
+
+    assert [b.timestamp for b in bars] == [_FROM, _FROM + timedelta(minutes=1),
+                                           _FROM + timedelta(minutes=2)]
+    assert secondary.called  # gap_fill always consults lower-priority sources
+    # primary contributed its 2 timestamps; secondary contributed only the missing 1.
+    assert [(a.source_name, a.outcome, a.bar_count) for a in attempts] == [
+        ("upstox", "served", 2), ("angel", "served", 1)
+    ]
+
+
+def test_gap_fill_result_is_time_sorted_and_deduped():
+    primary = _FakeSource([_bar(2), _bar(0)])  # unsorted, gap at 1
+    secondary = _FakeSource([_bar(1), _bar(2)])  # 2 overlaps -> not re-added
+    bars = _gap_fill(
+        NamedHistoricalBarSource("a", primary),
+        NamedHistoricalBarSource("b", secondary),
+    ).fetch_historical_bars(_cash(), BarInterval.MINUTE_1, _FROM, _TO)
+    ts = [b.timestamp for b in bars]
+    assert ts == sorted(ts) and len(ts) == 3  # 0,1,2 — the overlap deduped
+
+
+def test_gap_fill_skips_erroring_source_and_still_fills():
+    primary = _FakeSource(raises=RuntimeError("outage"))
+    secondary = _FakeSource([_bar(0), _bar(1)])
+    attempts: list[SourceAttempt] = []
+    bars = _gap_fill(
+        NamedHistoricalBarSource("down", primary),
+        NamedHistoricalBarSource("up", secondary),
+        observer=attempts.append,
+    ).fetch_historical_bars(_cash(), BarInterval.MINUTE_1, _FROM, _TO)
+    assert len(bars) == 2
+    assert [a.outcome for a in attempts] == ["error", "served"]
+
+
+def test_failover_is_the_default_policy():
+    primary, secondary = _FakeSource([_bar(0)]), _FakeSource([_bar(1)])
+    _multi(
+        NamedHistoricalBarSource("a", primary),
+        NamedHistoricalBarSource("b", secondary),
+    ).fetch_historical_bars(_cash(), BarInterval.MINUTE_1, _FROM, _TO)
+    assert not secondary.called  # default short-circuits (failover), not gap_fill
