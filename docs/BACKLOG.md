@@ -380,12 +380,14 @@ vendor SDK) — BUILT + hermetic-verified.
   Done = activate the **Groww Trading API subscription (₹499/mo, research/80)**, then
   re-probe + real-data pass. Adapter is built + hermetic; nothing more codeable until
   the subscription is live. *(task #19)*
-- 🟡 **Angel One** (`angel_one_historical_bar_source`) — ONE_MINUTE…ONE_DAY, **no
-  historical OI**. Creds now COMPLETE (client code `AACC226393` + PIN + api_key + TOTP,
-  research/83); live probe 2026-07-25: `generateSession` + `getCandleData` both HTTP
-  200 (real SBIN daily bar). 🔴 To close Rule-F: **symboltoken resolver**
-  (OpenAPIScripMaster) + **session builder** (`generateSession` thin client) + verify
-  script. *(task #18/#22)* — building next.
+- 🟢 **Angel One** (`angel_one_historical_bar_source` + `angel_one_symbol_token_resolver`
+  + `broker_sessions/angel_one_smartapi_session`) — ONE_MINUTE…ONE_DAY, **no historical
+  OI**. **DONE — Rule-F VERIFIED (2026-07-25):** `scripts/verify_angel_one_realdata.py`
+  (fully-automatic `generateSession` login: client code + PIN + TOTP) → 375 real
+  RELIANCE 1-min bars (symboltoken 2885) + 375 real NIFTY 23700 CE 1-min bars (token
+  63925, OI None); resolver built from the real OpenAPIScripMaster (2,433 cash + 38,241
+  options) matched symboltoken exactly; OHLC cross-matched Upstox. 484 tests pass.
+  *(task #18/#22)*
 - 🟢 **Upstox** (`upstox_historical_bar_source` + `UpstoxRestHistoricalClient` +
   `upstox_instrument_key_resolver`) — v3 minute+, OI. **DONE — Rule-F VERIFIED
   (2026-07-25):** 1-year Analytics Token → `scripts/verify_upstox_realdata.py` fetched
@@ -393,7 +395,8 @@ vendor SDK) — BUILT + hermetic-verified.
   built from the real NSE master (9,460 cash + 38,241 options) matched instrument_key
   exactly. 477 tests pass. *(task #17/#22)*
 - 🔴 **Per-vendor symbol/token resolvers + auth/session builders (remaining):**
-  ~~Upstox instrument_key resolver~~ **DONE**. Groww options resolver (instrument CSV)
-  + subscription/token-refresh (blocked on subscription); Angel symboltoken resolver
-  (OpenAPIScripMaster) + `generateSession(clientCode,pin,totp)` session builder. *(task #22)*
+  ~~Upstox instrument_key resolver~~ **DONE**. ~~Angel symboltoken resolver
+  (OpenAPIScripMaster) + `generateSession` session builder~~ **DONE**. Only Groww
+  options resolver (instrument CSV) + subscription/token-refresh left — blocked on the
+  Groww API subscription. *(task #22)*
 - 🔴 **Kite (paid) more + multi-broker aggregation/failover** across all adapters. *(task #20)*

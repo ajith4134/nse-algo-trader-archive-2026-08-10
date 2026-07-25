@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-25n**.
-- **129 Python modules across 14 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-25o**.
+- **131 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -152,12 +152,13 @@ Each block: purpose · files (role) · what flows IN/OUT · internal file→file
 - IN: `.env` (gitignored). OUT: credentials → broker_sessions.
 - Internal: `kite_login_credentials_loader → broker_api_credentials_loader`.
 
-### L0 · broker_sessions  (3 files)  — daily Kite auth
+### L0 · broker_sessions  (8 files)  — daily broker auth (Kite / Breeze / Angel One)
 - `kite_access_token_store.py` — persists the daily token + expiry; `KiteAccessTokenFileStore`.
 - `kite_totp_auto_login.py` — user+password+TOTP → request token → access token; `generate_and_store_daily_kite_access_token`.
 - `refresh_kite_access_token.py` — CLI (cron pre-market) that refreshes if stale; `refresh_kite_access_token_if_needed`.
 - **Breeze (§53 slice 4 #6a):** `breeze_session_token_store.py` (`BreezeSessionTokenFileStore`/`Record` — daily manual token + midnight/24h expiry) · `breeze_authenticated_client_builder.py` (`build_authenticated_breeze_client` — constructs + `generate_session`; injectable factory keeps the network-heavy `breeze_connect` import out of tests) · `set_breeze_session_token.py` (CLI to store the pasted apisession / print the login URL).
-- IN: credentials (L0). OUT: `kite_access_token.json` + `breeze_session_token.json` consumed by market_data/broker_oms/dashboard.
+- **Angel One (task #18):** `angel_one_smartapi_session.py` — `build_angel_one_authenticated_historical_client(api_key, client_code, pin, totp_secret)` does the SmartAPI `generateSession` (loginByPassword, TOTP via pyotp) → jwtToken, returning `AngelOneAuthenticatedHistoricalClient` exposing `getCandleData(param)` (the shape the Angel adapter injects). No SDK; requests + pyotp. Session resets midnight IST → run daily.
+- IN: credentials (L0). OUT: `kite_access_token.json` + `breeze_session_token.json` consumed by market_data/broker_oms/dashboard; the Angel client is built + injected into `AngelOneHistoricalBarSource` at the composition root (verify script today).
 - Internal: `refresh → {totp_auto_login → access_token_store}`.
 
 ### L1 · universe_registry  (4 files)  — what is tradable
@@ -173,7 +174,7 @@ Each block: purpose · files (role) · what flows IN/OUT · internal file→file
 - `broker_data_source_protocols.py` — `HistoricalBarSource` / `LiveTickStreamSource` protocols.
 - `kite_historical_bar_source.py` — Kite candles → `PriceBar` (minute…day; raises on sub-minute).
 - `breeze_historical_bar_source.py` — **ICICI Breeze v2 → `PriceBar` at 1-second** fidelity (§53 slice 4 P4a): `BreezeHistoricalBarSource` (injected authenticated client — never imports `breeze_connect`, whose import does network I/O), chunks >1000-candle pulls + de-dupes, cash + option addressing. New `BarInterval.SECOND_1`. WIRED into replay via `paper_trading/historical_source_replay_feed_builder` (P4a-wire).
-- **Multi-broker data adapters (PLAN §8a.12 — all on the `HistoricalBarSource` seam, injected client, never import the vendor SDK):** `groww_historical_bar_source.py` (Groww `get_historical_candles`, minute+, OI; + `GrowwRestHistoricalClient`) · `angel_one_historical_bar_source.py` (Angel `getCandleData`, ONE_MINUTE…ONE_DAY, no historical OI) · `upstox_historical_bar_source.py` (Upstox v3, minute+, OI; + `UpstoxRestHistoricalClient`) · `upstox_instrument_key_resolver.py` (parses the real Upstox NSE master → `instrument_key`: cash `NSE_EQ|ISIN`, options by underlying/CE-PE/strike/expiry; injected as the Upstox adapter's resolver). **Upstox real-data VERIFIED** (Analytics Token → real RELIANCE minute bars + NIFTY option bars with OI). Groww/Angel still real-data-gated (Groww ₹499/mo API subscription; Angel session builder pending).
+- **Multi-broker data adapters (PLAN §8a.12 — all on the `HistoricalBarSource` seam, injected client, never import the vendor SDK):** `groww_historical_bar_source.py` (Groww `get_historical_candles`, minute+, OI; + `GrowwRestHistoricalClient`) · `angel_one_historical_bar_source.py` (Angel `getCandleData`, ONE_MINUTE…ONE_DAY, no historical OI) · `upstox_historical_bar_source.py` (Upstox v3, minute+, OI; + `UpstoxRestHistoricalClient`) · `upstox_instrument_key_resolver.py` (parses the real Upstox NSE master → `instrument_key`: cash `NSE_EQ|ISIN`, options by underlying/CE-PE/strike/expiry; injected as the Upstox adapter's resolver) · `angel_one_symbol_token_resolver.py` (parses the real Angel OpenAPIScripMaster → `symboltoken`: cash NSE name, options by underlying/CE-PE/strike÷100/expiry; injected as the Angel adapter's resolver). **Upstox + Angel One real-data VERIFIED** (Upstox: Analytics Token → RELIANCE minute + NIFTY option bars with OI; Angel: `generateSession` → RELIANCE minute + NIFTY option bars, no OI). Groww still real-data-gated (⛔ ₹499/mo API subscription; token has no entitlement). Angel session login lives in `broker_sessions/angel_one_smartapi_session.py`.
 - `fyers_historical_bar_source.py` — **Fyers deep FREE minute history** (cash+F&O+OI, ~9y since 2017; task #11): `FyersHistoricalBarSource` on the same `HistoricalBarSource` seam, injected client (never imports `fyers_apiv3`), ≤100/366-day chunking; the deep-minute complement to Breeze's 1-second. `SECOND_1` unsupported (Fyers min = 5s).
 - `icici_security_master_stock_code_resolver.py` — **NSE symbol → ICICI stock_code** (§53 #6b): parses ICICI's real `NSEScripMaster.txt` (`ExchangeCode`→`ShortName`, EQ), injected as the Breeze adapter's `stock_code_resolver` (RELIANCE→`RELIND`); pure parser + separate network download.
 - **Order-book DEPTH (§53 P4b — recorded forward, the only path to historical depth):** `market_depth_types.py` (`MarketDepthLevel`/`MarketDepthSnapshot`) · `broker_data_source_protocols.MarketDepthSource` (seam) · `kite_market_depth_source.py` (Kite `quote()` depth → snapshots) · `market_depth_snapshot_store.py` (own `market_depth.sqlite3`). Consumed by `paper_trading/live_market_depth_recorder`.
@@ -311,6 +312,20 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-25o** — **Angel One symboltoken resolver + session builder + REAL-DATA
+  PASS** (task #18/#22; 129→131 modules, no new cross-feature edge). New
+  `market_data/angel_one_symbol_token_resolver.py` (imports only `universe_registry`)
+  parses the real OpenAPIScripMaster (~2,433 NSE cash + ~38,241 NFO option contracts)
+  into cash-name→`symboltoken` and (underlying, CE/PE, strike÷100, expiry `DDMMMYYYY`)
+  →`symboltoken` lookups; injected as the Angel adapter's resolver. New
+  `broker_sessions/angel_one_smartapi_session.py` (no nse_algo_trader imports) does
+  `generateSession` (client code + PIN + TOTP-via-pyotp → jwtToken) and returns a thin
+  `AngelOneAuthenticatedHistoricalClient.getCandleData` (no SDK). **Rule-F PASS** via
+  `scripts/verify_angel_one_realdata.py` (fully automatic login): 375 real RELIANCE
+  1-min bars (symboltoken 2885) + 375 real NIFTY 23700 CE 1-min bars (token 63925, OI
+  correctly None) — OHLC cross-matched Upstox's independent feed. 7 hermetic tests (5
+  resolver + 2 session, monkeypatched transport). **484 pass** (+7). Upstox + Angel One
+  now both have completed real-data sign-offs; Groww remains ⛔ (₹499/mo API sub).
 - **2026-07-25n** — **Upstox instrument_key resolver + REAL-DATA PASS** (tasks #17/#22;
   128→129 modules, no new cross-feature edge — new `market_data/
   upstox_instrument_key_resolver.py` imports only `universe_registry`). Parses the
