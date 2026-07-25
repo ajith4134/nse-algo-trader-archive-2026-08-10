@@ -340,9 +340,13 @@ when the build starts:
     WIRED into the live scan pass (`_champion_orb_config` → `strategy_config=`). Real pass:
     23 real sessions, champion (18 trades / 77.8% hit / Sharpe 0.539) KEPT, top challenger
     rejected on insufficient trades (conservative gate). 524 tests pass. *(task #9)*
-    - 🔴 **Scheduled auto-re-eval (queued):** run the tournament every N replayed sessions
-      and auto-update the champion store, so promotions happen autonomously (today the
-      evaluator + store + live-read exist; nothing periodically RUNS the tournament).
+    - 🟢 **Scheduled auto-re-eval — DONE, Rule-F VERIFIED (2026-07-25, research/88).**
+      `champion_challenger_reevaluation_scheduler` (once/day + default grid) +
+      `_maybe_reevaluate_champion_challenger` wired into `_run_forever`: runs the tournament
+      over stored real sessions at most once/day, promotes via the store + refreshes the
+      live cache. Store path is a DI seam so tests never touch prod (a leak bug was caught
+      + fixed during the real-data pass). Real pass: champion kept over 23 real sessions,
+      idempotent. 528 tests pass. *(task #10)*
     - 🔴 **Options/credit-spread configs in the tournament (queued):** needs option-chain
       replay data; ORB (cash) only today.
   - 🔴 **5c+ (deeper ADVANCED, not started):** microstructure features (OFI/VPIN — depends

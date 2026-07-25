@@ -220,6 +220,9 @@ class LivePaperTradingService:
         autonomous_breeze_replay_call_budget=5000,
         multi_broker_replay_source_builder=None,
         multi_broker_replay_focus_size=200,
+        champion_challenger_candidate_grid=None,
+        champion_challenger_min_sessions=10,
+        champion_configuration_store_path=None,
         record_live_market_depth=False,
         market_depth_focus_size=100,
         market_depth_recorder=None,
@@ -252,6 +255,13 @@ class LivePaperTradingService:
         # §53 slice 5c-i: the champion ORB config (promoted by the champion-challenger
         # tournament), loaded once from its store; None until first read.
         self._champion_orb_config_cache = None
+        # §53 slice 5c-i.b: autonomous champion-challenger re-evaluation — runs the
+        # tournament at most once/day over the stored sessions and promotes via the store.
+        self._champion_challenger_candidate_grid = champion_challenger_candidate_grid
+        self._champion_challenger_min_sessions = champion_challenger_min_sessions
+        self._champion_challenger_last_run_date = None
+        # DI seam so tests never touch the real champion store (default = the prod path).
+        self._champion_configuration_store_path = champion_configuration_store_path
         # §53 slice 4 P4b: record live order-book depth forward (the only path to
         # historical depth). Default OFF (no load/behaviour change); enable to start
         # accumulating. The store is built lazily in the writer thread (SQLite is
@@ -687,6 +697,7 @@ class LivePaperTradingService:
                     self._advance_replay_pass()
                 self._drain_closed_experiments_into_memory()  # Layer 10
                 self._refresh_opponent_ledger(real_now)  # Layer 10 §10
+                self._maybe_reevaluate_champion_challenger(real_now)  # §53 slice 5c-i.b
                 self._publish(real_now)
             except Exception as loop_error:
                 import traceback
@@ -795,13 +806,9 @@ class LivePaperTradingService:
         champion-challenger tournament (§53 slice 5c-i), or the built-in default when none
         has been promoted. Loaded once and cached; best-effort (a bad file → default)."""
         if self._champion_orb_config_cache is None:
-            from nse_algo_trader.paper_trading.champion_configuration_store import (
-                ChampionConfigurationStore,
-            )
-
             try:
                 self._champion_orb_config_cache = (
-                    ChampionConfigurationStore().load_champion_or_default()
+                    self._champion_store().load_champion_or_default()
                 )
             except Exception:
                 from nse_algo_trader.strategy_engine.opening_range_breakout_strategy import (  # noqa: E501
@@ -810,6 +817,102 @@ class LivePaperTradingService:
 
                 self._champion_orb_config_cache = OpeningRangeBreakoutConfig()
         return self._champion_orb_config_cache
+
+    def _champion_store(self):
+        """The champion-config store, at the injected path (tests) or the prod default."""
+        from nse_algo_trader.paper_trading.champion_configuration_store import (
+            ChampionConfigurationStore,
+        )
+
+        if self._champion_configuration_store_path is not None:
+            return ChampionConfigurationStore(self._champion_configuration_store_path)
+        return ChampionConfigurationStore()
+
+    def _maybe_reevaluate_champion_challenger(self, now) -> None:
+        """§53 slice 5c-i.b: at most once/day, run the champion-challenger tournament over
+        the stored real sessions; if a challenger clears the Deflated-Sharpe gate, persist
+        it as the new champion and refresh the live cache so the loop trades it. Best-effort
+        — any failure leaves the incumbent champion untouched and never disturbs the loop."""
+        from nse_algo_trader.paper_trading.champion_challenger_reevaluation_scheduler import (  # noqa: E501
+            DEFAULT_ORB_CHALLENGER_GRID,
+            is_reevaluation_due,
+        )
+
+        today = now.date()
+        if not is_reevaluation_due(self._champion_challenger_last_run_date, today):
+            return
+        try:
+            from nse_algo_trader.paper_trading.champion_challenger_orb_evaluator import (
+                evaluate_champion_vs_challengers,
+            )
+
+            sessions = self._load_stored_benchmark_sessions()
+            if len(sessions) < self._champion_challenger_min_sessions:
+                self._champion_challenger_last_run_date = today  # not enough data yet
+                return
+            store = self._champion_store()
+            champion = store.load_champion_or_default()
+            grid = (
+                self._champion_challenger_candidate_grid
+                if self._champion_challenger_candidate_grid is not None
+                else DEFAULT_ORB_CHALLENGER_GRID
+            )
+            decision = evaluate_champion_vs_challengers(champion, grid, sessions)
+            if decision.champion_replaced:
+                store.save_champion(decision.winning_config)
+                self._champion_orb_config_cache = decision.winning_config
+                print(f"[champion-challenger] promoted new champion: {decision.promotion_reason} "
+                      f"(DSR={decision.promotion_deflated_sharpe:.3f})", flush=True)
+        except Exception:
+            pass  # re-eval must never break the loop
+        finally:
+            self._champion_challenger_last_run_date = today
+
+    def _load_stored_benchmark_sessions(self) -> list:
+        """Every stored session for the market-regime/champion benchmark instrument, as
+        `[(session_bars, instrument), …]` — the real evaluation set for the tournament."""
+        from datetime import timedelta
+
+        from nse_algo_trader.market_data import BarInterval
+        from nse_algo_trader.universe_registry import (
+            ExchangeSegment,
+            Instrument,
+            InstrumentKind,
+        )
+
+        sessions: list = []
+        store = MarketDataSqliteStore()
+        try:
+            benchmark_token = self._curriculum_benchmark_token(store)
+            if benchmark_token is None:
+                return sessions
+            instrument = Instrument(
+                instrument_token=benchmark_token, trading_symbol="BENCHMARK",
+                exchange_segment=ExchangeSegment.NSE_CASH, kind=InstrumentKind.CASH_EQUITY,
+                lot_size=1, tick_size=0.05,
+            )
+            dates = [
+                datetime.fromisoformat(row[0]).date()
+                for row in store._connection.execute(
+                    "SELECT DISTINCT date(bar_timestamp) FROM price_bars "
+                    "WHERE bar_interval='5m' AND instrument_token=? ORDER BY 1",
+                    (benchmark_token,),
+                )
+            ]
+            for session_date in dates:
+                day_start = datetime(
+                    session_date.year, session_date.month, session_date.day,
+                    tzinfo=_INDIA_MARKET_TIMEZONE,
+                )
+                bars = store.load_price_bars(
+                    benchmark_token, BarInterval.MINUTE_5,
+                    day_start, day_start + timedelta(days=1),
+                )
+                if bars:
+                    sessions.append((bars, instrument))
+        finally:
+            store.close()
+        return sessions
 
     def _current_data_provenance(self) -> str:
         """Provenance of the data the loop is trading on right now — the active
