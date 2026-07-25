@@ -358,3 +358,13 @@ P4b) or license NSE. Net-new actionable wins now tracked:
     delisted) using `DelistedSecuritiesMaster`. The purpose-consumer (Rule K).
 - ⛔ **ISIN-to-ISIN merger lineage** — confirmed no free source (symbolchange.csv
   has no ISIN column); remains an open gap (per-event manual or paid vendor).
+
+## Rule L — segment priority (2026-07-25)
+- 🟢 **Rule L retrofit of the replay focus — DONE (real-data verified).**
+  `_rule_l_prioritized_focus_candidates` spans index options → stock options → cash
+  (was cash-only); budget truncation makes cash yield first under the 1s rate limit.
+  Rule-F on the real universe (9,292 cash / 70 index-opt / 2,846 stock-opt): options
+  ordered before cash, index before stock. 457 tests pass. *(task #16)*
+- 🔴 **Audit remaining focus/build sites for cash-first bias** (Rule L applies
+  everywhere a focus/ranking/budget/build-order is chosen, not just the Breeze
+  replay focus) — ongoing.

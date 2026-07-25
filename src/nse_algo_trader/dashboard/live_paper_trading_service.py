@@ -447,7 +447,7 @@ class LivePaperTradingService:
                 datetime.now(ZoneInfo("Asia/Kolkata")).date() - timedelta(days=1)
             )
             focus_instruments = plan_breeze_replay_focus(
-                self._liquidity_ranked_cash_universe(),
+                self._rule_l_prioritized_focus_candidates(),
                 self._autonomous_breeze_replay_call_budget,
                 BarInterval.SECOND_1,
             )
@@ -573,6 +573,22 @@ class LivePaperTradingService:
             )
         except Exception:
             return self._cash_universe
+
+    def _rule_l_prioritized_focus_candidates(self) -> list:
+        """Focus candidates across ALL THREE segments in Rule-L order: index
+        options → stock options → cash (liquidity-ranked). Equal breadth when the
+        budget is ample; concatenating in priority order means that when
+        `plan_breeze_replay_focus` truncates to the rate-limit budget, cash yields
+        first and index options are kept — exactly Rule L's tie-break."""
+        from nse_algo_trader.universe_registry import InstrumentKind
+
+        cash = self._liquidity_ranked_cash_universe()
+        if self._tradable_universe is None:
+            return cash
+        options = self._tradable_universe.option_ladder_instruments
+        index_options = [o for o in options if o.kind is InstrumentKind.INDEX_OPTION]
+        stock_options = [o for o in options if o.kind is InstrumentKind.STOCK_OPTION]
+        return index_options + stock_options + cash
 
     def _record_market_depth_best_effort(self) -> None:
         """§53 P4b: snapshot + store the focus set's order book this live pass.

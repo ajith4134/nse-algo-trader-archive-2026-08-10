@@ -218,7 +218,7 @@ Each block: purpose · files (role) · what flows IN/OUT · internal file→file
 - Internal: `atomic_multi_leg_executor → {broker_client_protocol, order_types}`; `signal_to_order_intents → order_types`; sim/kite clients → order_types.
 
 ### L7 · paper_trading  (24 files)  — the integration hub + live loop
-- **Router/feed:** `nse_market_clock` (is-NSE-open authority) · `historical_bar_replay_source` · `market_clock_gated_data_source_router` (replay↔live) · `replay_universe_feed` (market-CLOSED universe feed — now firewalled: refuses any bar/moment past the replay clock, and carries a provenance stamp) · `historical_source_replay_feed_builder` (§53 P4a-wire: `build_replay_bars_by_token_from_source` + `HighFidelityReplayConfig` — builds the replay feed's bars from any `HistoricalBarSource`, used to feed **Breeze 1-second** bars in when the service's `high_fidelity_replay` is injected; store-5m path otherwise) · `breeze_replay_focus_planner` (§53 task #7: `plan_breeze_replay_focus` — caps the 1s focus set to Breeze's 5000-calls/day budget; `rank_instruments_by_liquidity` orders the focus by real cash-bhavcopy turnover (§53 task #8); drives the service's autonomous self-activation of Breeze replay from a stored session token).
+- **Router/feed:** `nse_market_clock` (is-NSE-open authority) · `historical_bar_replay_source` · `market_clock_gated_data_source_router` (replay↔live) · `replay_universe_feed` (market-CLOSED universe feed — now firewalled: refuses any bar/moment past the replay clock, and carries a provenance stamp) · `historical_source_replay_feed_builder` (§53 P4a-wire: `build_replay_bars_by_token_from_source` + `HighFidelityReplayConfig` — builds the replay feed's bars from any `HistoricalBarSource`, used to feed **Breeze 1-second** bars in when the service's `high_fidelity_replay` is injected; store-5m path otherwise) · `breeze_replay_focus_planner` (§53 task #7: `plan_breeze_replay_focus` — caps the 1s focus set to Breeze's 5000-calls/day budget; `rank_instruments_by_liquidity` orders the focus by real cash-bhavcopy turnover (§53 task #8); drives the service's autonomous self-activation of Breeze replay from a stored session token; the focus spans all 3 segments in **Rule-L order** — index options → stock options → cash — via `_rule_l_prioritized_focus_candidates`, task #16).
 - **Market-open simulation causal spine (§53 build slices 1–2, research/62):** `historical_trading_day_walker` (today→inception real-NSE-trading-day walk, P1) · `causal_leakage_firewall` (structural no-future-leak gate + `assert_no_future_leak`, P5) · `replay_experience_provenance` (`DataProvenance`/`ReplayFidelityTier` tags so replayed experience is never mistaken for live, P6) · `point_in_time_universe_resolver` (survivorship-free per-date universe from the stored cash+F&O bhavcopy — the real EQ names + option underlyings/contracts that traded THAT day, P2) · `historical_archive_replay_planner` (WIRED into `live_paper_trading_service._build_replay_feed_from_store`: keeps each replayed bar only if its instrument was in the REAL cash universe on that bar's own date — survivorship-free — passing through dates with no ingested bhavcopy) · `corporate_action_adjustment` (P3: `CorporateActionAdjustmentEngine` keeps the replay LOOKBACK series continuous across real split/bonus ex-dates — WIRED into `replay_universe_feed.recent_intraday_bars`; the current price stays RAW). Still queued: full walker-driven backward session stepping; provenance stamp→slice-3 memory-drain (BACKLOG).
 - **Engines:** `opening_range_breakout_paper_engine` (replay ORB) · **`live_universe_paper_loop`** (the live cash loop: open/hold/manage/breakout-watch/L8 square-off) · **`option_credit_spread_live_path`** (options: regime-gated credit spreads + directional long options).
 - **Ledger/fills:** `paper_trading_ledger` · `fill_slippage_model`.
@@ -310,6 +310,19 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-25l** — **Rule L retrofit — segment-prioritized replay focus (task #16)**
+  (no new files; 125 modules, no new edge). The autonomous Breeze replay focus was
+  CASH-ONLY (violated Rule L). New `LivePaperTradingService.
+  _rule_l_prioritized_focus_candidates()` builds candidates across ALL THREE
+  segments in Rule-L order — **index options → stock options → cash** (cash still
+  liquidity-ranked) — and `_maybe_activate_autonomous_breeze_replay` now uses it.
+  Concatenate-in-priority-order + `plan_breeze_replay_focus` truncation ⇒ equal
+  breadth when budget is ample, and cash yields FIRST under the rate-limit
+  constraint (Rule L's tie-break). **Rule-F verified on the REAL universe** (fresh
+  Kite token): 9,292 cash / 70 index-opt / 2,846 stock-opt → focus orders all
+  options before all cash, index before stock; at 1s the 5000/day budget affords
+  ~217 sessions so options fill it and cash yields (correct). Hermetic: ordering,
+  tie-break-keeps-index, no-universe fallback. 457 pass (+3).
 - **2026-07-25k** — **Delisted-securities master (task #13)** + **Rule L** (segment
   priority) added to CLAUDE.md. New `market_data/delisted_securities_source.py`
   (`DelistedSecurity` · `DelistedSecuritiesSource` protocol · `BseDelistedSecuritiesSource`
