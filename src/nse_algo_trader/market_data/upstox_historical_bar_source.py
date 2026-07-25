@@ -131,3 +131,39 @@ def _price_bar_from_upstox_candle(
         volume=int(float(raw_candle[5])),
         open_interest=open_interest,
     )
+
+
+class UpstoxRestHistoricalClient:
+    """Thin Bearer-token REST client for Upstox's v3 historical-candle endpoint —
+    avoids the heavy `upstox_client` SDK. Works with either the long-lived Analytics
+    Token or a daily OAuth access token (both are plain Bearer). Network only when
+    `get_historical_candle_data` is called; built at the composition root.
+
+    v3 path: GET /v3/historical-candle/{instrument_key}/{unit}/{interval}/{to}/{from}
+    """
+
+    _HISTORICAL_CANDLE_BASE_URL = "https://api.upstox.com/v3/historical-candle"
+
+    def __init__(self, access_token: str, timeout_seconds: int = 30) -> None:
+        self._access_token = access_token
+        self._timeout_seconds = timeout_seconds
+
+    def get_historical_candle_data(
+        self, instrument_key, unit, interval, to_date, from_date, timeout=None
+    ):
+        import requests
+
+        url = (
+            f"{self._HISTORICAL_CANDLE_BASE_URL}/{instrument_key}/{unit}/{interval}"
+            f"/{to_date}/{from_date}"
+        )
+        response = requests.get(
+            url,
+            headers={
+                "Authorization": f"Bearer {self._access_token}",
+                "Accept": "application/json",
+            },
+            timeout=timeout or self._timeout_seconds,
+        )
+        response.raise_for_status()
+        return response.json()

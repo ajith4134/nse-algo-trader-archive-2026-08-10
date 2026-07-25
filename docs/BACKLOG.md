@@ -369,20 +369,31 @@ P4b) or license NSE. Net-new actionable wins now tracked:
   everywhere a focus/ranking/budget/build-order is chosen, not just the Breeze
   replay focus) — ongoing.
 
-## Multi-broker data adapters (PLAN §8a.12; research/80-82, 2026-07-25)
+## Multi-broker data adapters (PLAN §8a.12; research/80-83, 2026-07-25)
 All three implement the `HistoricalBarSource` seam (injected client, never import the
-vendor SDK) — BUILT + hermetic-verified; real-data creds/auth-gated.
-- 🟡 **Groww** (`groww_historical_bar_source` + `GrowwRestHistoricalClient`) — minute+,
-  OI, cash `NSE-{sym}`. ⛔ Rule-F blocked: Groww needs a one-time **API session
-  approval** in the account (token 403s; mint → "Session approval required"). *(task #19)*
+vendor SDK) — BUILT + hermetic-verified.
+- ⛔ **Groww** (`groww_historical_bar_source` + `GrowwRestHistoricalClient`) — minute+,
+  OI, cash `NSE-{sym}`. **Rule-F REFINED-BLOCKED (2026-07-25):** with the user's
+  session-approved long-lived token, EVERY Groww endpoint (margin, holdings, live-data,
+  historical — both param shapes, both approval + TOTP tokens) returns `403 "Access
+  forbidden"`; the token authenticates but the account has **no API entitlement**.
+  Done = activate the **Groww Trading API subscription (₹499/mo, research/80)**, then
+  re-probe + real-data pass. Adapter is built + hermetic; nothing more codeable until
+  the subscription is live. *(task #19)*
 - 🟡 **Angel One** (`angel_one_historical_bar_source`) — ONE_MINUTE…ONE_DAY, **no
-  historical OI**. ⛔ Rule-F blocked: needs **client code + PIN** (only api_key + TOTP
-  secret given). *(task #18)*
-- 🟡 **Upstox** (`upstox_historical_bar_source`) — v3 minute+, OI. ⛔ Rule-F blocked:
-  needs a token — easiest is the **1-year read-only Analytics Token** (no daily
-  redirect). *(task #17)*
-- 🔴 **Per-vendor symbol/token resolvers + auth/session builders** — Groww options
-  resolver (instrument CSV) + session-approval/token-refresh; Angel symboltoken
-  resolver (OpenAPIScripMaster) + generateSession(clientCode,pin,totp); Upstox
-  instrument_key resolver (ISIN/token from the master) + analytics-token wiring. *(task #22)*
+  historical OI**. Creds now COMPLETE (client code `AACC226393` + PIN + api_key + TOTP,
+  research/83); live probe 2026-07-25: `generateSession` + `getCandleData` both HTTP
+  200 (real SBIN daily bar). 🔴 To close Rule-F: **symboltoken resolver**
+  (OpenAPIScripMaster) + **session builder** (`generateSession` thin client) + verify
+  script. *(task #18/#22)* — building next.
+- 🟢 **Upstox** (`upstox_historical_bar_source` + `UpstoxRestHistoricalClient` +
+  `upstox_instrument_key_resolver`) — v3 minute+, OI. **DONE — Rule-F VERIFIED
+  (2026-07-25):** 1-year Analytics Token → `scripts/verify_upstox_realdata.py` fetched
+  375 real RELIANCE 1-min bars + 375 real NIFTY 23700 CE 1-min bars with OI; resolver
+  built from the real NSE master (9,460 cash + 38,241 options) matched instrument_key
+  exactly. 477 tests pass. *(task #17/#22)*
+- 🔴 **Per-vendor symbol/token resolvers + auth/session builders (remaining):**
+  ~~Upstox instrument_key resolver~~ **DONE**. Groww options resolver (instrument CSV)
+  + subscription/token-refresh (blocked on subscription); Angel symboltoken resolver
+  (OpenAPIScripMaster) + `generateSession(clientCode,pin,totp)` session builder. *(task #22)*
 - 🔴 **Kite (paid) more + multi-broker aggregation/failover** across all adapters. *(task #20)*

@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-25m**.
-- **128 Python modules across 14 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-25n**.
+- **129 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -173,7 +173,7 @@ Each block: purpose · files (role) · what flows IN/OUT · internal file→file
 - `broker_data_source_protocols.py` — `HistoricalBarSource` / `LiveTickStreamSource` protocols.
 - `kite_historical_bar_source.py` — Kite candles → `PriceBar` (minute…day; raises on sub-minute).
 - `breeze_historical_bar_source.py` — **ICICI Breeze v2 → `PriceBar` at 1-second** fidelity (§53 slice 4 P4a): `BreezeHistoricalBarSource` (injected authenticated client — never imports `breeze_connect`, whose import does network I/O), chunks >1000-candle pulls + de-dupes, cash + option addressing. New `BarInterval.SECOND_1`. WIRED into replay via `paper_trading/historical_source_replay_feed_builder` (P4a-wire).
-- **Multi-broker data adapters (PLAN §8a.12 — all on the `HistoricalBarSource` seam, injected client, never import the vendor SDK):** `groww_historical_bar_source.py` (Groww `get_historical_candles`, minute+, OI; + `GrowwRestHistoricalClient`) · `angel_one_historical_bar_source.py` (Angel `getCandleData`, ONE_MINUTE…ONE_DAY, no historical OI) · `upstox_historical_bar_source.py` (Upstox v3, minute+, OI). Real-data creds-gated (Groww session-approval / Angel client-code+PIN / Upstox token).
+- **Multi-broker data adapters (PLAN §8a.12 — all on the `HistoricalBarSource` seam, injected client, never import the vendor SDK):** `groww_historical_bar_source.py` (Groww `get_historical_candles`, minute+, OI; + `GrowwRestHistoricalClient`) · `angel_one_historical_bar_source.py` (Angel `getCandleData`, ONE_MINUTE…ONE_DAY, no historical OI) · `upstox_historical_bar_source.py` (Upstox v3, minute+, OI; + `UpstoxRestHistoricalClient`) · `upstox_instrument_key_resolver.py` (parses the real Upstox NSE master → `instrument_key`: cash `NSE_EQ|ISIN`, options by underlying/CE-PE/strike/expiry; injected as the Upstox adapter's resolver). **Upstox real-data VERIFIED** (Analytics Token → real RELIANCE minute bars + NIFTY option bars with OI). Groww/Angel still real-data-gated (Groww ₹499/mo API subscription; Angel session builder pending).
 - `fyers_historical_bar_source.py` — **Fyers deep FREE minute history** (cash+F&O+OI, ~9y since 2017; task #11): `FyersHistoricalBarSource` on the same `HistoricalBarSource` seam, injected client (never imports `fyers_apiv3`), ≤100/366-day chunking; the deep-minute complement to Breeze's 1-second. `SECOND_1` unsupported (Fyers min = 5s).
 - `icici_security_master_stock_code_resolver.py` — **NSE symbol → ICICI stock_code** (§53 #6b): parses ICICI's real `NSEScripMaster.txt` (`ExchangeCode`→`ShortName`, EQ), injected as the Breeze adapter's `stock_code_resolver` (RELIANCE→`RELIND`); pure parser + separate network download.
 - **Order-book DEPTH (§53 P4b — recorded forward, the only path to historical depth):** `market_depth_types.py` (`MarketDepthLevel`/`MarketDepthSnapshot`) · `broker_data_source_protocols.MarketDepthSource` (seam) · `kite_market_depth_source.py` (Kite `quote()` depth → snapshots) · `market_depth_snapshot_store.py` (own `market_depth.sqlite3`). Consumed by `paper_trading/live_market_depth_recorder`.
@@ -311,6 +311,21 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-25n** — **Upstox instrument_key resolver + REAL-DATA PASS** (tasks #17/#22;
+  128→129 modules, no new cross-feature edge — new `market_data/
+  upstox_instrument_key_resolver.py` imports only `universe_registry`). Parses the
+  real, public Upstox NSE instrument master (`NSE.json.gz`, ~9,460 cash + ~38,241
+  option contracts) into two lookups — cash symbol → `NSE_EQ|ISIN`, and (underlying,
+  CE/PE, strike, expiry) → `NSE_FO|token` — and is injected as the Upstox adapter's
+  `upstox_instrument_key_resolver` (pure parser hermetic; download at the composition
+  root). Added a thin `UpstoxRestHistoricalClient` (Bearer Analytics/OAuth token, v3
+  path) to `upstox_historical_bar_source.py` so we avoid the heavy `upstox_client`
+  SDK. **Rule-F PASS** via `scripts/verify_upstox_realdata.py` with the user's 1-year
+  Analytics Token: 375 real RELIANCE 1-min bars (full session) + 375 real NIFTY 23700
+  CE 1-min bars **with OI** — resolver matched the master's instrument_key exactly,
+  bars ordered/de-duped/OHLC-sane. 5 hermetic resolver tests (trimmed real records).
+  **477 pass** (+5). Upstox = the first of the three multi-broker adapters with a
+  completed real-data sign-off. Groww/Angel real-data still open (see below).
 - **2026-07-25m** — **Three multi-broker data adapters — Groww, Angel One, Upstox**
   (tasks #19/#18/#17; research/80/81/82; 125→128 modules, no new cross-feature edge —
   all three live in `market_data` importing only `universe_registry`). Each
