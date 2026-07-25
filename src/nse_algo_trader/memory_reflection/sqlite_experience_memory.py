@@ -180,6 +180,18 @@ class SqliteExperienceMemory:
             )
         }
 
+    def recent_closed_experiences(self, limit: int = 50) -> list[dict]:
+        """The most-recent closed trades (each row is a closed+graded trade), newest first
+        — the DURABLE source for the dashboard's Closed-trades panel (survives restarts and
+        spans every session, unlike the process-local ledger). research/93."""
+        cursor = self._connection.execute(
+            "SELECT occurred_at, session_date, instrument_token, instrument_kind, "
+            "strategy_tag, direction, actual_outcome, realized_pnl, data_provenance "
+            "FROM experience_nodes ORDER BY occurred_at DESC LIMIT ?",
+            (limit,),
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
     def experiment_count_by_market_regime(self) -> dict[str, int]:
         """How many experiences fall in each ADX market regime (§53 slice 5b) — the
         variety read that shows the memory is no longer a single-regime 'unknown' blob."""

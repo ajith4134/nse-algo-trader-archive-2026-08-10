@@ -317,6 +317,17 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-25ab** — **Closed-trades panel sourced from PERSISTED memory (research/93; no
+  module/edge change — `memory_reflection` + `dashboard` edits). The "Closed trades" panel
+  read the process-local `_state.closed_trades` (reset every restart → showed ~3), so the
+  user couldn't see the real 220 live trades from 2026-07-24. Fix: new
+  `ExperienceMemory.recent_closed_experiences(limit)` (durable, all sessions); the service's
+  `_recent_closed_trades()` now reads MEMORY (resolving instrument_token→symbol via a cached
+  universe map) and tags each row live vs replay_faithful, falling back to the ledger only if
+  memory is unavailable. `ClosedTradeView` gains `provenance`; the panel shows When / Source
+  columns; `closed_trade_count` reflects the persisted total. **VERIFIED: the sim WORKS** —
+  102 open positions live, 340 persisted closed+graded trades (220 live + 120 replay), real
+  win/loss + P&L, squared off 15:15. 2 tests. 549 pass.
 - **2026-07-25aa** — **Dashboard FEATURE COVERAGE panel — systematic feature visibility
   (task #13; Rule N; research/91; 141→142 modules, no new cross-feature edge — new
   `dashboard/dashboard_feature_surface.py`). A feature-surface REGISTRY replaces

@@ -241,7 +241,7 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
   </div>
 
   <div class="card">
-    <div class="head"><span class="bar"></span><h2>Closed trades — today</h2><span class="aside" id="closedaside"></span></div>
+    <div class="head"><span class="bar"></span><h2>Closed trades — all sessions (live + replay)</h2><span class="aside" id="closedaside"></span></div>
     <div class="body"><table class="labtbl" id="closedTbl"></table></div>
   </div>
 
@@ -422,13 +422,19 @@ function renderLive(snap){
   const seg3={cash:"cash",index_option:"index-opt",stock_option:"stock-opt"};
   const closed=snap.closed_trades||[];
   document.getElementById("closedaside").textContent=closed.length+" recent";
-  let crows="<tr><th>Segment</th><th>Symbol</th><th>Side</th><th>Outcome</th><th>Realized P&L</th></tr>";
-  if(!closed.length){ crows+=`<tr><td colspan="5" style="color:var(--faint)">no closed trades yet</td></tr>`; }
-  closed.slice(0,25).forEach(c=>{
+  let crows="<tr><th>When</th><th>Segment</th><th>Symbol</th><th>Side</th><th>Outcome</th><th>Realized P&L</th><th>Source</th></tr>";
+  if(!closed.length){ crows+=`<tr><td colspan="7" style="color:var(--faint)">no closed trades yet</td></tr>`; }
+  closed.slice(0,60).forEach(c=>{
     const pc=c.realized_pnl>=0?'var(--profit)':'var(--loss)';
-    crows+=`<tr><td>${seg3[c.segment]||c.segment}</td><td class="tablename">${c.trading_symbol}</td>`+
+    const when=(c.closed_at||"").slice(0,16).replace("T"," ");
+    const isReplay=c.provenance==='replay_faithful';
+    const prov=isReplay?'replay':'live';
+    const provc=isReplay?'var(--dim)':'var(--profit)';
+    crows+=`<tr><td class="num" style="color:var(--faint)">${when}</td>`+
+      `<td>${seg3[c.segment]||c.segment}</td><td class="tablename">${c.trading_symbol}</td>`+
       `<td>${c.direction}</td><td>${c.outcome.replace(/_/g," ")}</td>`+
-      `<td style="color:${pc}">${rupee(c.realized_pnl)}</td></tr>`;
+      `<td class="num" style="color:${pc}">${rupee(c.realized_pnl)}</td>`+
+      `<td style="color:${provc};font-size:.72rem;font-weight:600">${prov}</td></tr>`;
   });
   document.getElementById("closedTbl").innerHTML=crows;
   // Split the live open positions into the three §9 tables, each a broker-

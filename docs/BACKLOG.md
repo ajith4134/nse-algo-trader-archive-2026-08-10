@@ -367,6 +367,13 @@ when the build starts:
   - 🔴 **5c+ (deeper ADVANCED, not started):** microstructure features (OFI/VPIN — OFI
     depends on P4b depth; VPIN buildable now). *(task TBD)*
 
+## 24/7 simulation verification (2026-07-25) — CONFIRMED WORKING
+- 🟢 **The market-closed 24/7 replay + live simulation is verified working end-to-end.** Real
+  evidence: 102 positions open live, **340 graded closed trades persisted** (220 live 2026-07-24
+  + 120 replay_faithful), real win/loss + P&L, all squared off 15:15. All 5 §53 success criteria
+  hold (survivorship-free universe, no leakage, provenance/fidelity tag, prequential forecast,
+  intraday square-off). Closed trades + P&L now VISIBLE on the dashboard (research/93).
+
 ## Dashboard operational (2026-07-25)
 - 🟢 **Dashboard outage FIXED (2026-07-25).** Root cause: `LivePaperTradingService.start()`
   built the autonomous HIGH-FIDELITY replay feed (Breeze-1s / multi-broker fleet) by fetching

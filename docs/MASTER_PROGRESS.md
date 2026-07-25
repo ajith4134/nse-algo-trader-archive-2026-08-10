@@ -17,7 +17,7 @@ Last updated: **2026-07-25**.
 | 6 | Broker OMS | 🟢 v1 + 🟢 market-impact fills |
 | 7 | Backtesting & Paper Trading | 🟢 v1 (24/7 router, §9 lab, DSR/CPCV gates) + §53 replay engine (below) |
 | 8 | Session / Square-off | 🟢 signed off |
-| 9 | Dashboard / Monitoring | 🟢 v1; outage FIXED; 🟢 **#13 Feature-coverage panel (Rule N) — all features surfaced + coverage audit** |
+| 9 | Dashboard / Monitoring | 🟢 v1; outage FIXED; 🟢 #13 Feature-coverage panel; 🟢 **Closed trades from PERSISTED memory (all 340 sim trades + P&L visible, live+replay)** |
 | 10 | Memory & Reflection (learning AI) | 🟢 functionally complete + verified; 🟡 multi-regime queries (axis populated via 5b, variety accruing); ⛔ shadow-arm LIVE pass (market) |
 | 11 | Strategic LLM / Autonomous-Research-Agent (generative AI) | 🔴 NOT STARTED — deferred until L10 validated (runtime/market-gated, not code-gated) |
 

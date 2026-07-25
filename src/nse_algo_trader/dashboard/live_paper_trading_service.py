@@ -94,6 +94,7 @@ class ClosedTradeView:
     realized_pnl: float
     outcome: str
     closed_at: str
+    provenance: str = "live"  # research/93: live session vs 24/7 replay
 
 
 @dataclass(frozen=True)
@@ -1435,7 +1436,7 @@ class LivePaperTradingService:
         )
         snapshot = LivePaperPublishedSnapshot(
             open_positions=tuple(views),
-            closed_trade_count=len(self._state.closed_trades),
+            closed_trade_count=(self._memory_experiment_count() or len(self._state.closed_trades)),
             cash_universe_size=len(self._cash_universe),
             seeded_count=len(self._state.seeded_cash_tokens),
             last_pass_at=now.isoformat(),
@@ -1558,7 +1559,46 @@ class LivePaperTradingService:
             )
         return tuple(boards)
 
+    def _token_to_symbol_map(self) -> dict:
+        """token → trading_symbol over the whole tradable universe (cash + option ladder),
+        cached — so persisted closed trades (which store only the token) render with a
+        symbol. research/93."""
+        if getattr(self, "_token_symbol_cache", None):
+            return self._token_symbol_cache
+        mapping: dict = {}
+        universe = self._tradable_universe
+        if universe is not None:
+            for inst in list(universe.cash_equity_instruments) + list(
+                getattr(universe, "option_ladder_instruments", [])
+            ):
+                mapping[inst.instrument_token] = inst.trading_symbol
+        self._token_symbol_cache = mapping
+        return mapping
+
     def _recent_closed_trades(self) -> tuple[ClosedTradeView, ...]:
+        # research/93: source the panel from the DURABLE experience memory (survives
+        # restarts, spans every session — the real 220 live + replay trades), resolving
+        # token→symbol. Fall back to the process-local ledger only if memory is unavailable.
+        try:
+            if self._experience_memory is not None:
+                token_symbol = self._token_to_symbol_map()
+                persisted = []
+                for r in self._experience_memory.recent_closed_experiences(limit=40):
+                    kind = r["instrument_kind"]
+                    persisted.append(ClosedTradeView(
+                        segment=("cash" if kind == "cash_equity" else kind),
+                        trading_symbol=token_symbol.get(
+                            r["instrument_token"], f"#{r['instrument_token']}"),
+                        direction=r["direction"],
+                        realized_pnl=r["realized_pnl"],
+                        outcome=r["actual_outcome"],
+                        closed_at=r["occurred_at"],
+                        provenance=r["data_provenance"],
+                    ))
+                if persisted:
+                    return tuple(persisted)
+        except Exception:
+            pass
         rows = []
         for trade in self._state.closed_trades[-30:][::-1]:
             rows.append(
