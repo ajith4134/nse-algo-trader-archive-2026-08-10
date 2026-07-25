@@ -409,11 +409,14 @@ vendor SDK) — BUILT + hermetic-verified.
     timestamps in the window from lower-priority sources (each bar stays wholly from
     one feed). Needs its own real-data pass (a session with a broker-specific gap the
     other covers). Done = gap-filled bars verified across two real sources. *(task #20)*
-  - 🔴 **Composition-root autonomous FLEET wiring (queued — purpose-consumer, Rule K):**
-    the failover source is built + verified but nothing yet WIRES an ordered real
-    fleet (Fyers→Upstox→Angel→Breeze→Kite) into the autonomous replay path
-    (`_maybe_activate_autonomous_breeze_replay` / `HighFidelityReplayConfig.bar_source`).
-    Until wired, resilience isn't in the loop — display/standalone only, NOT done for
-    the "resilient loop" promise. Done = the service's replay source is the multi-broker
-    source, order applied per Rule L, verified. *(task #20)*
+  - 🟢 **Composition-root autonomous FLEET wiring — DONE, Rule-F VERIFIED (2026-07-25,
+    research/85).** `LivePaperTradingService._maybe_activate_autonomous_multi_broker_
+    replay()` + `_build_available_broker_fleet_source()` (Upstox→Angel from .env) add a
+    MINUTE fleet replay tier BETWEEN Breeze-1s and store-5m (precedence: inject → Breeze
+    1s → fleet 1m → store 5m). Real pass: the live fleet produced 1,125 real minute bars
+    through the exact loop builder. 4 hermetic activation tests. 495 pass. The failover
+    source is now IN THE LOOP — #20's resilient-loop promise met. *(task #20)*
+  - 🔵 **Fleet-member expansion (as creds land):** add Fyers (deep free minute), Kite,
+    Groww to `_build_available_broker_fleet_source` once their real-data passes clear.
+    Currently Upstox+Angel only (the two verified). *(task #20)*
 - 🔴 **Kite (paid) deeper history** — richer Kite historical wiring across intervals. *(task #20)*

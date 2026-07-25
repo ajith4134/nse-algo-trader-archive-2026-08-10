@@ -218,6 +218,8 @@ class LivePaperTradingService:
         breeze_session_token_store=None,
         breeze_historical_source_builder=None,
         autonomous_breeze_replay_call_budget=5000,
+        multi_broker_replay_source_builder=None,
+        multi_broker_replay_focus_size=200,
         record_live_market_depth=False,
         market_depth_focus_size=100,
         market_depth_recorder=None,
@@ -234,6 +236,12 @@ class LivePaperTradingService:
         self._breeze_session_token_store = breeze_session_token_store
         self._breeze_historical_source_builder = breeze_historical_source_builder
         self._autonomous_breeze_replay_call_budget = autonomous_breeze_replay_call_budget
+        # task #20: autonomous multi-broker MINUTE replay tier — when no Breeze 1s
+        # token is available, build a resilient fleet (Upstox→Angel→… whichever have
+        # creds) and replay real 1-minute bars instead of falling to the stored 5m.
+        # DI seam (default = the real fleet builder); focus_size bounds the pull.
+        self._multi_broker_replay_source_builder = multi_broker_replay_source_builder
+        self._multi_broker_replay_focus_size = multi_broker_replay_focus_size
         # §53 slice 4 P4b: record live order-book depth forward (the only path to
         # historical depth). Default OFF (no load/behaviour change); enable to start
         # accumulating. The store is built lazily in the writer thread (SQLite is
@@ -309,7 +317,9 @@ class LivePaperTradingService:
         )
         self._banned_underlying_symbols = self._load_fo_ban_list()
         if self._high_fidelity_replay is None:
-            self._maybe_activate_autonomous_breeze_replay()  # §53 task #7
+            self._maybe_activate_autonomous_breeze_replay()  # §53 task #7 (Breeze 1s)
+        if self._high_fidelity_replay is None:
+            self._maybe_activate_autonomous_multi_broker_replay()  # task #20 (fleet 1m)
         self._build_replay_feed_from_store()  # market-CLOSED replay data
         self._running = True
         self._writer_thread = threading.Thread(
@@ -458,6 +468,51 @@ class LivePaperTradingService:
                 focus_instruments=focus_instruments,
                 session_date=session_date,
                 bar_interval=BarInterval.SECOND_1,
+            )
+        except Exception:
+            self._high_fidelity_replay = None  # never break startup
+
+    def _maybe_activate_autonomous_multi_broker_replay(self) -> None:
+        """task #20: when no Breeze 1s token is available, self-build a resilient
+        multi-broker MINUTE replay from whichever brokers have creds (Upstox→Angel→…),
+        so the market-closed loop replays real 1-minute bars instead of falling to the
+        stored 5m. Best-effort — no creds / network error leaves `high_fidelity_replay`
+        None → the store path, so the always-on service always starts. Runs only after
+        the Breeze 1s attempt declined (this is the next fidelity tier down)."""
+        from datetime import timedelta
+        from zoneinfo import ZoneInfo
+
+        from nse_algo_trader.market_data import BarInterval
+        from nse_algo_trader.paper_trading.historical_source_replay_feed_builder import (  # noqa: E501
+            HighFidelityReplayConfig,
+        )
+        from nse_algo_trader.paper_trading.historical_trading_day_walker import (
+            HistoricalTradingDayWalker,
+        )
+
+        try:
+            fleet_builder = (
+                self._multi_broker_replay_source_builder
+                or _build_available_broker_fleet_source
+            )
+            fleet_source = fleet_builder()
+            if fleet_source is None:
+                return  # no broker creds -> stay on store-5m replay
+            focus_instruments = self._rule_l_prioritized_focus_candidates()[
+                : self._multi_broker_replay_focus_size
+            ]
+            if not focus_instruments:
+                return
+            session_date = HistoricalTradingDayWalker(
+                self._clock
+            ).most_recent_trading_day_on_or_before(
+                datetime.now(ZoneInfo("Asia/Kolkata")).date() - timedelta(days=1)
+            )
+            self._high_fidelity_replay = HighFidelityReplayConfig(
+                bar_source=fleet_source,
+                focus_instruments=focus_instruments,
+                session_date=session_date,
+                bar_interval=BarInterval.MINUTE_1,
             )
         except Exception:
             self._high_fidelity_replay = None  # never break startup
@@ -1147,3 +1202,90 @@ def _build_authenticated_breeze_historical_source(session_token: str):
         download_icici_nse_scrip_master_text()
     )
     return BreezeHistoricalBarSource(client, stock_code_resolver=resolver)
+
+
+def _try_build_upstox_fleet_member(environ):
+    """A live Upstox minute source from the env Analytics/access token, or None if no
+    token / build fails. Network (downloads the NSE instrument master) lives here."""
+    token = (
+        environ.get("UPSTOX_ANALYTICS_TOKEN", "").strip()
+        or environ.get("UPSTOX_ACCESS_TOKEN", "").strip()
+    )
+    if not token:
+        return None
+    from nse_algo_trader.market_data.upstox_historical_bar_source import (
+        UpstoxHistoricalBarSource,
+        UpstoxRestHistoricalClient,
+    )
+    from nse_algo_trader.market_data.upstox_instrument_key_resolver import (
+        UpstoxInstrumentKeyResolver,
+        download_upstox_nse_instrument_master_records,
+    )
+
+    resolver = UpstoxInstrumentKeyResolver.from_instrument_master_records(
+        download_upstox_nse_instrument_master_records()
+    )
+    return UpstoxHistoricalBarSource(UpstoxRestHistoricalClient(token), resolver)
+
+
+def _try_build_angel_fleet_member(environ):
+    """A live Angel One minute source from the env creds (generateSession), or None if
+    creds absent / login fails. Network (login + OpenAPIScripMaster) lives here."""
+    api_key = environ.get("ANGEL_ONE_API_KEY", "").strip()
+    client_code = environ.get("ANGEL_ONE_CLIENT_CODE", "").strip()
+    pin = environ.get("ANGEL_ONE_PIN", "").strip()
+    totp_secret = environ.get("ANGEL_ONE_TOTP_SECRET", "").strip()
+    if not all((api_key, client_code, pin, totp_secret)):
+        return None
+    from nse_algo_trader.broker_sessions.angel_one_smartapi_session import (
+        build_angel_one_authenticated_historical_client,
+    )
+    from nse_algo_trader.market_data.angel_one_historical_bar_source import (
+        AngelOneHistoricalBarSource,
+    )
+    from nse_algo_trader.market_data.angel_one_symbol_token_resolver import (
+        AngelOneSymbolTokenResolver,
+        download_angel_one_scrip_master_records,
+    )
+
+    resolver = AngelOneSymbolTokenResolver.from_scrip_master_records(
+        download_angel_one_scrip_master_records()
+    )
+    client = build_angel_one_authenticated_historical_client(
+        api_key, client_code, pin, totp_secret
+    )
+    return AngelOneHistoricalBarSource(client, resolver)
+
+
+def _build_available_broker_fleet_source(environ=None):
+    """task #20 default fleet builder: assemble a `MultiBrokerHistoricalBarSource` from
+    whichever brokers have creds in the env, in reliability priority order (deep-history
+    / no-daily-login first): Upstox → Angel One (Fyers/Kite/Groww join as their creds
+    land). Each member is best-effort — one missing/broken broker never blocks the rest.
+    Returns None when no broker is available (caller then stays on the store path)."""
+    import os
+
+    from nse_algo_trader.broker_credentials.broker_api_credentials_loader import (
+        load_env_file_into_environ,
+    )
+    from nse_algo_trader.market_data.multi_broker_historical_bar_source import (
+        MultiBrokerHistoricalBarSource,
+        NamedHistoricalBarSource,
+    )
+
+    load_env_file_into_environ()
+    environ = os.environ if environ is None else environ
+    ordered_members = []
+    for name, member_builder in (
+        ("upstox", _try_build_upstox_fleet_member),
+        ("angel_one", _try_build_angel_fleet_member),
+    ):
+        try:
+            member = member_builder(environ)
+        except Exception:
+            member = None  # a broken broker never blocks the fleet
+        if member is not None:
+            ordered_members.append(NamedHistoricalBarSource(name, member))
+    if not ordered_members:
+        return None
+    return MultiBrokerHistoricalBarSource(ordered_members)

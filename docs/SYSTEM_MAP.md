@@ -11,7 +11,7 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-25p**.
+  true to what is actually on the server. Last regenerated: **2026-07-25q**.
 - **132 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
@@ -175,7 +175,7 @@ Each block: purpose · files (role) · what flows IN/OUT · internal file→file
 - `kite_historical_bar_source.py` — Kite candles → `PriceBar` (minute…day; raises on sub-minute).
 - `breeze_historical_bar_source.py` — **ICICI Breeze v2 → `PriceBar` at 1-second** fidelity (§53 slice 4 P4a): `BreezeHistoricalBarSource` (injected authenticated client — never imports `breeze_connect`, whose import does network I/O), chunks >1000-candle pulls + de-dupes, cash + option addressing. New `BarInterval.SECOND_1`. WIRED into replay via `paper_trading/historical_source_replay_feed_builder` (P4a-wire).
 - **Multi-broker data adapters (PLAN §8a.12 — all on the `HistoricalBarSource` seam, injected client, never import the vendor SDK):** `groww_historical_bar_source.py` (Groww `get_historical_candles`, minute+, OI; + `GrowwRestHistoricalClient`) · `angel_one_historical_bar_source.py` (Angel `getCandleData`, ONE_MINUTE…ONE_DAY, no historical OI) · `upstox_historical_bar_source.py` (Upstox v3, minute+, OI; + `UpstoxRestHistoricalClient`) · `upstox_instrument_key_resolver.py` (parses the real Upstox NSE master → `instrument_key`: cash `NSE_EQ|ISIN`, options by underlying/CE-PE/strike/expiry; injected as the Upstox adapter's resolver) · `angel_one_symbol_token_resolver.py` (parses the real Angel OpenAPIScripMaster → `symboltoken`: cash NSE name, options by underlying/CE-PE/strike÷100/expiry; injected as the Angel adapter's resolver). **Upstox + Angel One real-data VERIFIED** (Upstox: Analytics Token → RELIANCE minute + NIFTY option bars with OI; Angel: `generateSession` → RELIANCE minute + NIFTY option bars, no OI). Groww still real-data-gated (⛔ ₹499/mo API subscription; token has no entitlement). Angel session login lives in `broker_sessions/angel_one_smartapi_session.py`.
-- **Multi-broker failover (task #20; research/84):** `multi_broker_historical_bar_source.py` — `MultiBrokerHistoricalBarSource` IS a `HistoricalBarSource` wrapping an ORDERED `list[NamedHistoricalBarSource]`; per instrument it tries each in priority order, failing over on RAISE (outage/rate-limit/resolver-KeyError) or EMPTY, returning the first non-empty (all-fail → `[]`, never a crash). Optional `on_source_attempt(SourceAttempt)` observer records which broker served/failed each instrument. Priority order is INJECTED (Rule L applied by the composition root, no hard-coded broker). Drops into every `HistoricalBarSource` consumer unchanged. **Real-data VERIFIED** (live Upstox+Angel: primary serves; broken-primary→Angel serves 375 real bars; reversed order respected). Slice-2 gap-fill aggregation + autonomous-loop fleet wiring QUEUED (BACKLOG).
+- **Multi-broker failover (task #20; research/84):** `multi_broker_historical_bar_source.py` — `MultiBrokerHistoricalBarSource` IS a `HistoricalBarSource` wrapping an ORDERED `list[NamedHistoricalBarSource]`; per instrument it tries each in priority order, failing over on RAISE (outage/rate-limit/resolver-KeyError) or EMPTY, returning the first non-empty (all-fail → `[]`, never a crash). Optional `on_source_attempt(SourceAttempt)` observer records which broker served/failed each instrument. Priority order is INJECTED (Rule L applied by the composition root, no hard-coded broker). Drops into every `HistoricalBarSource` consumer unchanged. **Real-data VERIFIED** (live Upstox+Angel: primary serves; broken-primary→Angel serves 375 real bars; reversed order respected). **WIRED INTO THE LOOP (task #20 purpose-consumer):** `LivePaperTradingService._maybe_activate_autonomous_multi_broker_replay()` builds the fleet (via `_build_available_broker_fleet_source`, Upstox→Angel from .env creds) as a MINUTE replay tier BETWEEN Breeze-1s and store-5m — verified producing real `bars_by_token`. Slice-2 gap-fill aggregation still QUEUED (BACKLOG).
 - `fyers_historical_bar_source.py` — **Fyers deep FREE minute history** (cash+F&O+OI, ~9y since 2017; task #11): `FyersHistoricalBarSource` on the same `HistoricalBarSource` seam, injected client (never imports `fyers_apiv3`), ≤100/366-day chunking; the deep-minute complement to Breeze's 1-second. `SECOND_1` unsupported (Fyers min = 5s).
 - `icici_security_master_stock_code_resolver.py` — **NSE symbol → ICICI stock_code** (§53 #6b): parses ICICI's real `NSEScripMaster.txt` (`ExchangeCode`→`ShortName`, EQ), injected as the Breeze adapter's `stock_code_resolver` (RELIANCE→`RELIND`); pure parser + separate network download.
 - **Order-book DEPTH (§53 P4b — recorded forward, the only path to historical depth):** `market_depth_types.py` (`MarketDepthLevel`/`MarketDepthSnapshot`) · `broker_data_source_protocols.MarketDepthSource` (seam) · `kite_market_depth_source.py` (Kite `quote()` depth → snapshots) · `market_depth_snapshot_store.py` (own `market_depth.sqlite3`). Consumed by `paper_trading/live_market_depth_recorder`.
@@ -313,6 +313,23 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-25q** — **Multi-broker fleet WIRED into the autonomous replay loop** (task
+  #20 purpose-consumer; research/85; no module/edge change — edits to
+  `dashboard/live_paper_trading_service.py` only, whose imports already cover
+  market_data/broker_sessions/broker_credentials). New `__init__` seams
+  (`multi_broker_replay_source_builder`, `multi_broker_replay_focus_size`), the
+  `_maybe_activate_autonomous_multi_broker_replay()` method (runs in `start()` after the
+  Breeze-1s attempt declines, before the store path), and the module-level
+  `_build_available_broker_fleet_source()` (assembles Upstox→Angel from .env, best-effort
+  per member) + `_try_build_{upstox,angel}_fleet_member`. Precedence is now: explicit
+  inject → Breeze 1s → **multi-broker MINUTE fleet** → store 5m. The fleet is a
+  `HistoricalBarSource`, so it flows through the existing `_build_high_fidelity_replay_
+  feed` / `build_replay_bars_by_token_from_source` unchanged. **Rule-F PASS**
+  (`scripts/verify_multi_broker_replay_wiring_realdata.py`): the real fleet
+  (upstox→angel_one) produced 1,125 real minute bars (3×375) through the exact builder
+  the loop calls. 4 hermetic activation tests (fake builder: sets MINUTE_1 config /
+  None→store path / focus truncation / exception-safe). **495 pass** (+4). #20's
+  "resilient loop" promise met; only slice-2 gap-fill aggregation remains queued.
 - **2026-07-25p** — **Multi-broker failover source + REAL-DATA PASS** (task #20;
   research/84; 131→132 modules, no new cross-feature edge — new
   `market_data/multi_broker_historical_bar_source.py` imports only
