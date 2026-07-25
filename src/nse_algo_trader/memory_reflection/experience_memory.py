@@ -55,6 +55,12 @@ class ClosedExperiment:
     predicted_exit_cause: str
     actual_exit_cause: str
     kill_criteria: str
+    # Where this experience's data came from (research/53 §8.2): "live" for a
+    # real live session, "replay_faithful" for 24/7 historical replay, etc. So
+    # the brain can weight replayed lessons below live and never let a replay-only
+    # lesson override live evidence. Defaults to "live" for back-compat (every
+    # experience recorded before the watermark existed was a real live one).
+    data_provenance: str = "live"
 
 
 @dataclass(frozen=True)
@@ -155,6 +161,8 @@ class ExperienceMemory(Protocol):
 
     def experiment_count(self) -> int: ...
 
+    def experiment_count_by_provenance(self) -> dict[str, int]: ...
+
     def calibration_for(
         self, strategy_tag: str, regime_context: str
     ) -> CalibrationSummary: ...
@@ -194,10 +202,12 @@ def build_closed_experiment(
     graded_prediction,
     closed_trade,
     instrument_kind: str,
+    data_provenance: str = "live",
 ) -> ClosedExperiment:
     """Assemble a memory node from a §9 `GradedPrediction` + its
     `ClosedPaperTrade`. Kept free of any backend so it is reused across
-    substrates (Rule C names, research/43)."""
+    substrates (Rule C names, research/43). `data_provenance` marks whether the
+    trade ran on a live session or on 24/7 historical replay (research/53 §8.2)."""
     record = graded_prediction.record
     notional = abs(closed_trade.entry_price * closed_trade.quantity)
     return ClosedExperiment(
@@ -226,4 +236,5 @@ def build_closed_experiment(
         predicted_exit_cause=record.predicted_exit_cause,
         actual_exit_cause=closed_trade.outcome.value,
         kill_criteria=record.kill_criteria,
+        data_provenance=data_provenance,
     )

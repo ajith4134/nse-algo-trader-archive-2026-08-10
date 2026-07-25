@@ -57,7 +57,33 @@ un-veto once it recovers + 1-in-8 shadow probes to keep evidence flowing; no
 permanent lock-out) · `../research/47` **opponent ledger design** (Layer 10 §10;
 acquire NSE participant-wise OI — verified URL/UA/format 2026 — and derive FII
 vs Client "who's on the other side" divergence signals; vendor-and-adapt the
-fetch, build the ledger).
+fetch, build the ledger). Corporate-actions/universe-registry sourcing pass
+(2026-07-24): `../research/56` **paid-vendor pricing** (Ace Equity Nxt
+₹125k/yr — the one self-serve price found) + **yfinance/.NS + NSE
+`symbolchange.csv` symbol-ISIN-rename pipeline (solved)**, `../research/57`
+**corporate-actions master consolidated** (NSE `corporates-corporateActions`
+API, 1995→present, 41,979 records verified live; BSE cross-check; mergers/
+ISIN-extinction = the one real blocker), `../research/58` **point-in-time
+universe reconstruction** (survivorship-bias-free replay simulator feed):
+historical listing/delisting (bhavcopy backbone from 1994, `symbolchange.csv`
+solves renames, merger/ISIN-extinction + a single bulk delisted-list still
+open), **F&O eligibility fully solved** (daily F&O bhavcopy 2001→present =
+exact eligible-symbol set per date, no circular parsing needed), **index
+membership fully solved** (`niftyindices.com/press-release`, 1,027 releases,
+1998→present, all 5 target indices — NIFTY 50/BANKNIFTY/FINNIFTY/MIDCPNIFTY/
+NIFTYNXT50). `../research/59` **consolidated deep-history price + universe
+sourcing** (synthesizes `56`-`58` above plus two new items): NSE Data &
+Analytics historical dissemination now fully priced (₹22k-31.3L/yr tariff
+effective Apr-2026; two products — legacy trades-only from 1995(CM)/2003(F&O),
+full order-level data only from ~Dec-2007) and per-segment inception dates
+verified (Nifty futures Jun-2000, index options Jun-2001, stock options
+Jul-2001, stock futures Nov-2001; weekly-expiry windows per index incl.
+NIFTYNXT50 never having weekly expiry, and the 2025-09-01 Thu→Tue expiry-day
+cutover). `../research/60` segment-inception-dates detail (renamed from a
+colliding `56_`), `../research/61` point-in-time market-rules/calendar/news
+sourcing (renamed from a colliding `57_`, pre-existing separate pass). One
+confirmed hard blocker across the whole pass: ISIN-extinguishing
+merger/amalgamation swap-ratio records (no free source) — see BACKLOG.
 
 ## Scope decided so far
 - Segments in phase 1: NSE cash intraday, NSE options intraday (index +

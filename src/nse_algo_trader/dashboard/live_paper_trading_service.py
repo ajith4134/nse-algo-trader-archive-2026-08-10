@@ -289,6 +289,12 @@ class LivePaperTradingService:
         is closed. Only cash instruments in the tradable universe are replayed;
         the feed is empty (and replay simply idles) until bars accumulate."""
         from nse_algo_trader.market_data import BarInterval
+        from nse_algo_trader.paper_trading.historical_archive_replay_planner import (
+            HistoricalArchiveReplayPlanner,
+        )
+        from nse_algo_trader.paper_trading.point_in_time_universe_resolver import (
+            PointInTimeUniverseResolver,
+        )
         from nse_algo_trader.paper_trading.replay_universe_feed import (
             ReplayUniverseFeed,
         )
@@ -305,11 +311,61 @@ class LivePaperTradingService:
                 bars = store.load_price_bars(token, BarInterval.MINUTE_5)
                 if bars:
                     bars_by_token[token] = bars
+            # Slice-2 wiring (research/62 P2): keep each bar only if its
+            # instrument was in the REAL cash universe on that bar's own date
+            # (survivorship-free, §11.1) — not merely in today's universe.
+            # Pass-through for dates with no ingested bhavcopy, so replay never
+            # idles for want of a point-in-time universe.
+            archive_replay_planner = HistoricalArchiveReplayPlanner(
+                PointInTimeUniverseResolver(store)
+            )
+            bars_by_token = archive_replay_planner.filter_bars_to_point_in_time_universe(
+                bars_by_token,
+                {
+                    inst.instrument_token: inst.trading_symbol
+                    for inst in self._cash_universe
+                },
+            )
         finally:
             store.close()
-        self._replay_feed = ReplayUniverseFeed(bars_by_token)
+        self._replay_feed = ReplayUniverseFeed(
+            bars_by_token,
+            corporate_action_adjustment_engine=(
+                self._build_corporate_action_adjustment_engine(bars_by_token)
+            ),
+        )
         self._replay_timestamps = self._replay_feed.stored_session_timestamps()
         self._replay_cursor = 0
+
+    @staticmethod
+    def _build_corporate_action_adjustment_engine(bars_by_token):
+        """Real NSE split/bonus actions over the replayed window so the replay
+        lookback series stays continuous across ex-dates (research/62 P3, §11.2).
+        Best-effort: any fetch failure or empty result → None (identity), so
+        replay never breaks on a corporate-action data hiccup."""
+        from nse_algo_trader.market_data.nse_corporate_action_source import (
+            NseLibCorporateActionSource,
+        )
+        from nse_algo_trader.paper_trading.corporate_action_adjustment import (
+            CorporateActionAdjustmentEngine,
+        )
+
+        bar_dates = [
+            bar.timestamp.date()
+            for bars in bars_by_token.values()
+            for bar in bars
+        ]
+        if not bar_dates:
+            return None
+        try:
+            actions_by_symbol = NseLibCorporateActionSource().corporate_actions_by_symbol(
+                min(bar_dates), max(bar_dates)
+            )
+        except Exception:  # network / nselib / parse hiccup — never break replay
+            return None
+        if not actions_by_symbol:
+            return None
+        return CorporateActionAdjustmentEngine(actions_by_symbol)
 
     @staticmethod
     def _stored_bar_tokens(store) -> list:
@@ -381,6 +437,19 @@ class LivePaperTradingService:
         self._feed = self._replay_feed
         self._advance_one_pass(replay_now, replay_mode=True)
 
+    def _current_data_provenance(self) -> str:
+        """Provenance of the data the loop is trading on right now — the active
+        feed's stamp in replay, "live" otherwise (research/53 §8.2). A trade
+        opens and squares off within one session/mode, so this drain-time read
+        equals the trade's provenance. Consumes the slice-1 watermark (Rule G)."""
+        from nse_algo_trader.paper_trading.replay_experience_provenance import (
+            DataProvenance,
+        )
+
+        if self._replay_feed is not None and self._feed is self._replay_feed:
+            return self._replay_feed.provenance_stamp().provenance.value
+        return DataProvenance.LIVE.value
+
     def _drain_closed_experiments_into_memory(self) -> None:
         """Record each closed §9 experiment the loop emitted into Layer-10
         ExperienceMemory (Rule G wiring). Runs in the writer thread; the store
@@ -390,10 +459,13 @@ class LivePaperTradingService:
         try:
             if self._experience_memory is None:
                 self._experience_memory = SqliteExperienceMemory()
+            data_provenance = self._current_data_provenance()
             while events:
                 graded, closed_trade, instrument_kind = events.pop(0)
                 self._experience_memory.record_closed_experiment(
-                    build_closed_experiment(graded, closed_trade, instrument_kind)
+                    build_closed_experiment(
+                        graded, closed_trade, instrument_kind, data_provenance
+                    )
                 )
             # Refresh the antibody veto set (Layer 10 slice 3): mechanisms the
             # memory has statistically refuted stop taking new entries.

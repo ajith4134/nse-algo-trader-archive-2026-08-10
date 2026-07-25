@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-24q**.
-- **104 Python modules across 14 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-24r**.
+- **111 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -166,8 +166,9 @@ Each block: purpose · files (role) · what flows IN/OUT · internal file→file
 - `live_tradable_universe.py` — mainboard cash + near-expiry ATM/ITM/OTM option ladders + index-spot resolver; `fetch_live_tradable_universe`, `TradableUniverse`, `resolve_spot_instrument_by_option_underlying`.
 - IN: Kite instrument master + live spots. OUT: `Instrument` / `TradableUniverse` → market_data, strategy, risk, oms, paper_trading.
 
-### L2 · market_data  (14 files)  — bars, reports, live feed, store
+### L2 · market_data  (15 files)  — bars, reports, live feed, store
 - `market_data_types.py` — `PriceBar`, `BarInterval`, `MarketTick`.
+- `nse_corporate_action_source.py` — real NSE split/bonus records via `nselib` + the `subject`→price-factor parser (`CorporateAction`, `CorporateActionType`); feeds the replay continuity engine (§53 P3).
 - `broker_data_source_protocols.py` — `HistoricalBarSource` / `LiveTickStreamSource` protocols.
 - `kite_historical_bar_source.py` — Kite candles → `PriceBar`.
 - `kite_live_tick_stream_source.py` — KiteTicker adapter (orphaned; superseded by the polling feed).
@@ -210,8 +211,9 @@ Each block: purpose · files (role) · what flows IN/OUT · internal file→file
 - IN: signals (L4), `RiskGateDecision` (L5), `Instrument`. OUT: `OrderIntent`s, fills, atomic exec → paper_trading + session_management.
 - Internal: `atomic_multi_leg_executor → {broker_client_protocol, order_types}`; `signal_to_order_intents → order_types`; sim/kite clients → order_types.
 
-### L7 · paper_trading  (18 files)  — the integration hub + live loop
-- **Router/feed:** `nse_market_clock` (is-NSE-open authority) · `historical_bar_replay_source` · `market_clock_gated_data_source_router` (replay↔live) · `replay_universe_feed` (market-CLOSED universe feed).
+### L7 · paper_trading  (24 files)  — the integration hub + live loop
+- **Router/feed:** `nse_market_clock` (is-NSE-open authority) · `historical_bar_replay_source` · `market_clock_gated_data_source_router` (replay↔live) · `replay_universe_feed` (market-CLOSED universe feed — now firewalled: refuses any bar/moment past the replay clock, and carries a provenance stamp).
+- **Market-open simulation causal spine (§53 build slices 1–2, research/62):** `historical_trading_day_walker` (today→inception real-NSE-trading-day walk, P1) · `causal_leakage_firewall` (structural no-future-leak gate + `assert_no_future_leak`, P5) · `replay_experience_provenance` (`DataProvenance`/`ReplayFidelityTier` tags so replayed experience is never mistaken for live, P6) · `point_in_time_universe_resolver` (survivorship-free per-date universe from the stored cash+F&O bhavcopy — the real EQ names + option underlyings/contracts that traded THAT day, P2) · `historical_archive_replay_planner` (WIRED into `live_paper_trading_service._build_replay_feed_from_store`: keeps each replayed bar only if its instrument was in the REAL cash universe on that bar's own date — survivorship-free — passing through dates with no ingested bhavcopy) · `corporate_action_adjustment` (P3: `CorporateActionAdjustmentEngine` keeps the replay LOOKBACK series continuous across real split/bonus ex-dates — WIRED into `replay_universe_feed.recent_intraday_bars`; the current price stays RAW). Still queued: full walker-driven backward session stepping; provenance stamp→slice-3 memory-drain (BACKLOG).
 - **Engines:** `opening_range_breakout_paper_engine` (replay ORB) · **`live_universe_paper_loop`** (the live cash loop: open/hold/manage/breakout-watch/L8 square-off) · **`option_credit_spread_live_path`** (options: regime-gated credit spreads + directional long options).
 - **Ledger/fills:** `paper_trading_ledger` · `fill_slippage_model`.
 - **§9 lab (`prediction_lab/`, 7):** `prediction_record` (immutable) · `adx_confidence_prediction` · `option_prediction_records` (§9 records for options: directional confidence rises with ADX, spread confidence rises as ADX falls) · `prediction_outcome_grading` (Brier) · `prediction_table_scoreboard` · `opening_range_breakout_prediction_lab`. **Cash + options** are both graded now.
@@ -302,6 +304,65 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-24u** — **Market-open simulation §53 — slice 2 COMPLETE (P3
+  corporate-action adjustment).** New files `market_data/
+  nse_corporate_action_source.py` (real NSE split/bonus via `nselib` + the
+  `subject`→factor parser) and `paper_trading/corporate_action_adjustment.py`
+  (`CorporateActionAdjustmentEngine`) — 109→111 modules, no new cross-feature
+  edge. WIRED into `replay_universe_feed.recent_intraday_bars` (the lookback
+  series is made continuous across ex-dates as of the replay clock; the current
+  price stays RAW, §11.2) and built best-effort in `live_paper_trading_service`
+  from real nselib actions (identity on any fetch failure — replay never breaks).
+  Rule-F verified LIVE: the real KRISHANA 10→2 split's fake 80% gap (500→100)
+  becomes continuous (100→100); real bonuses parsed (KOTYARK 10:1→1/11,
+  GOLDIAM 1:3→0.75). 397 tests pass (incl. a guarded live real-data test).
+  Acquired `nselib` (Rule I). Slice 2 done; remaining §53 items: walker session
+  stepping (refinement), slice 3 (prequential).
+- **2026-07-24t** — **Market-open simulation §53 — slice 2 wired into the loop.**
+  New file `paper_trading/historical_archive_replay_planner.py` (108→109 modules,
+  no new cross-feature edge). WIRED into `dashboard/live_paper_trading_service.
+  _build_replay_feed_from_store`: the replay feed now keeps each bar only if its
+  instrument was in the REAL cash universe on that bar's OWN date (via
+  `PointInTimeUniverseResolver`), replacing the old survivorship-biased "in
+  today's universe" filter (§11.1); dates with no ingested bhavcopy pass through
+  so replay never idles. Rule-F verified on real bhavcopy (RELIANCE eligible on
+  2026-07-23, a non-universe name dropped, a pre-ingestion date passes through);
+  382 tests pass. The resolver+planner are now CONSUMED in the loop → slice-2
+  survivorship goal met. Still queued: full walker-driven backward *session
+  stepping* (the cursor still steps stored timestamps, not walker-ordered
+  sessions) + corporate-action adjustment (P3) (BACKLOG, tasks #5/#6).
+- **2026-07-24s** — **Market-open simulation §53 — build slice 2 (part P2):
+  point-in-time universe resolver.** New file `paper_trading/
+  point_in_time_universe_resolver.py` (107→108 modules, no new cross-feature
+  edge — imports `market_data` only). Reconstructs the survivorship-free
+  tradeable universe as of any past date from the stored NSE bhavcopy:
+  `cash_equity_universe_on` (EQ-series names that traded that day), 
+  `option_underlyings_on` (the F&O-eligibility snapshot), `option_contracts_on`,
+  `resolve`, `has_universe_for`. Rule-F verified on REAL stored bhavcopy
+  (2026-07-23: ~2,387 real EQ names, 150+ option underlyings incl. NIFTY &
+  RELIANCE, full strike/expiry ladders). 378 tests pass. NOT yet wired into the
+  live service — its primary consumer (the slice-2 archive-walk driver that
+  feeds per-date universes into the loop) + corporate-action adjustment (P3)
+  remain queued (BACKLOG); slice 2 is "core built + real-data verified,
+  integration QUEUED" (Rule K), not fully done.
+- **2026-07-24r** — **Market-open simulation §53 — build slice 1: the honest
+  historical-replay clock** (research/62; 104→107 modules, no new feature/edge —
+  all three files live in `paper_trading` and import only `market_data`, an
+  existing edge). New files: `historical_trading_day_walker` (P1, today→inception
+  real-NSE-trading-day walk), `causal_leakage_firewall` (P5, structural
+  no-future-leak gate + `assert_no_future_leak`), `replay_experience_provenance`
+  (P6, `DataProvenance`/`ReplayFidelityTier` tags). Wired: `replay_universe_feed`
+  (the live service's market-CLOSED path) now routes its causal boundary through
+  the firewall (refuses to serve any bar/moment later than the replay clock) and
+  carries a provenance stamp. Verified: day-walker Rule-F real-data pass against
+  the REAL XNSE NSE calendar (250 real 2020 sessions, real holidays skipped);
+  firewall + provenance hermetic (Rule J) over real-shaped PriceBars. Real-data
+  pass (Rule F) DONE at bar-only fidelity: firewall verified over a REAL stored
+  full session (2026-07-24, 225 cash instruments, 5m) — no broker login needed.
+  Higher-fidelity tick/1s real replay deferred to slice 4 (BACKLOG). Full suite
+  373 passed.
+  Named consumers queued: walker→slice-2 archive-walk driver; provenance
+  stamp→slice-3 memory-drain.
 - **2026-07-24q** — **Information diet** (§10 institution feature — the LAST one;
   research/52; 104 modules). New file `paper_trading/information_diet.py`:
   `read_information_diet(considered, positioning_deferred, antibody_vetoed,

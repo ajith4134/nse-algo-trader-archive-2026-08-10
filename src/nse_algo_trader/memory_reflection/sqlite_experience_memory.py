@@ -74,7 +74,8 @@ CREATE TABLE IF NOT EXISTS experience_nodes (
     realized_return_fraction REAL NOT NULL,
     predicted_exit_cause TEXT NOT NULL,
     actual_exit_cause TEXT NOT NULL,
-    kill_criteria TEXT NOT NULL
+    kill_criteria TEXT NOT NULL,
+    data_provenance TEXT NOT NULL DEFAULT 'live'
 )
 """
 
@@ -99,10 +100,27 @@ class SqliteExperienceMemory:
         self._connection.row_factory = sqlite3.Row
         self._connection.execute("PRAGMA journal_mode=WAL")
         self._connection.execute(_CREATE_TABLE)
+        self._add_column_if_missing(
+            "data_provenance", "TEXT NOT NULL DEFAULT 'live'"
+        )
         for index_statement in _INDEXES:
             self._connection.execute(index_statement)
         self._connection.commit()
         self._now_provider = now_provider
+
+    def _add_column_if_missing(self, column_name: str, column_definition: str) -> None:
+        """One-time migration for DBs created before this column existed. Existing
+        rows take the column default (e.g. 'live' — every experience recorded
+        before the provenance watermark was a real live one)."""
+        existing_columns = {
+            row["name"]
+            for row in self._connection.execute("PRAGMA table_info(experience_nodes)")
+        }
+        if column_name not in existing_columns:
+            self._connection.execute(
+                f"ALTER TABLE experience_nodes ADD COLUMN {column_name} "
+                f"{column_definition}"
+            )
 
     def close(self) -> None:
         self._connection.close()
@@ -110,7 +128,7 @@ class SqliteExperienceMemory:
     def record_closed_experiment(self, experiment: ClosedExperiment) -> None:
         self._connection.execute(
             "INSERT OR REPLACE INTO experience_nodes VALUES "
-            "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 experiment.experiment_id,
                 experiment.occurred_at.isoformat(),
@@ -133,6 +151,7 @@ class SqliteExperienceMemory:
                 experiment.predicted_exit_cause,
                 experiment.actual_exit_cause,
                 experiment.kill_criteria,
+                experiment.data_provenance,
             ),
         )
         self._connection.commit()
@@ -141,6 +160,18 @@ class SqliteExperienceMemory:
         return self._connection.execute(
             "SELECT COUNT(*) AS n FROM experience_nodes"
         ).fetchone()["n"]
+
+    def experiment_count_by_provenance(self) -> dict[str, int]:
+        """Live-vs-replay experience mix — the separability read that lets the
+        brain (slice 3b) weight replayed lessons below live and see if it is
+        over-relying on replay (research/53 §8.2, §8.8)."""
+        return {
+            row["data_provenance"]: row["n"]
+            for row in self._connection.execute(
+                "SELECT data_provenance, COUNT(*) AS n FROM experience_nodes "
+                "GROUP BY data_provenance"
+            )
+        }
 
     def calibration_for(
         self, strategy_tag: str, regime_context: str
