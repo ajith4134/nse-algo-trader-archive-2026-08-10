@@ -20,10 +20,16 @@ adapter yields broker-neutral `PriceBar`s, identical in shape to the Kite source
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from nse_algo_trader.market_data.market_data_types import BarInterval, PriceBar
 from nse_algo_trader.universe_registry import Instrument, InstrumentKind, OptionRight
+
+# Breeze v2 interprets from_date/to_date as IST WALL-CLOCK (the trailing 'Z' is
+# cosmetic — it does NOT mean UTC; verified live 2026-07-25). So all times sent to
+# Breeze are formatted in this zone, and Breeze returns IST datetimes too.
+_BREEZE_MARKET_TIMEZONE = ZoneInfo("Asia/Kolkata")
 
 # Breeze v2 supports only this subset of interval names (research/66). Anything
 # else (3m/10m/15m/60m) has no Breeze equivalent → a clear error, not a KeyError.
@@ -104,8 +110,8 @@ class BreezeHistoricalBarSource:
             chunk_end = min(chunk_start + window, to_datetime)
             raw_response = self._breeze_client.get_historical_data_v2(
                 interval=breeze_interval,
-                from_date=_to_breeze_iso_utc(chunk_start),
-                to_date=_to_breeze_iso_utc(chunk_end),
+                from_date=_to_breeze_ist_iso(chunk_start),
+                to_date=_to_breeze_ist_iso(chunk_end),
                 **addressing,
             )
             for raw_candle in _successful_candles(raw_response):
@@ -125,12 +131,11 @@ class BreezeHistoricalBarSource:
                 "stock_code": stock_code,
                 "exchange_code": "NFO",
                 "product_type": "options",
-                "expiry_date": _to_breeze_iso_utc(
+                "expiry_date": _to_breeze_ist_iso(
                     datetime(
                         instrument.expiry_date.year,
                         instrument.expiry_date.month,
                         instrument.expiry_date.day,
-                        tzinfo=timezone.utc,
                     )
                 ),
                 "right": _BREEZE_RIGHT_BY_OPTION_RIGHT[instrument.option_right],
@@ -143,10 +148,13 @@ class BreezeHistoricalBarSource:
         }
 
 
-def _to_breeze_iso_utc(moment: datetime) -> str:
-    """Breeze v2 wants ISO-8601 UTC with millis + 'Z' (e.g. 2023-01-02T07:00:00.000Z)."""
-    as_utc = moment.astimezone(timezone.utc) if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
-    return as_utc.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+def _to_breeze_ist_iso(moment: datetime) -> str:
+    """Breeze v2 wants the time as IST WALL-CLOCK in an ISO string with a cosmetic
+    trailing 'Z' (e.g. 2026-07-24T09:15:00.000Z means 09:15 IST, NOT UTC — verified
+    live). A tz-aware input is converted to IST; a naive input is taken as already
+    IST wall-clock."""
+    ist = moment.astimezone(_BREEZE_MARKET_TIMEZONE) if moment.tzinfo else moment
+    return ist.strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
 def _successful_candles(raw_response) -> list[dict]:

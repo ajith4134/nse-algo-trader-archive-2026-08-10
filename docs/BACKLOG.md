@@ -199,20 +199,22 @@ when the build starts:
   COMPLETE.** (Per-BAR finer-than-per-trade scoring — the River-accumulator
   use-case — remains a future item only if per-step predictions are ever emitted.)
 - **Slice 4 — fidelity climb** (research/66):
-  - 🟡 **P4a — Breeze 1-second historical source.** BUILT + hermetically verified
-    (2026-07-25): `market_data/breeze_historical_bar_source.py` behind the
+  - 🟢 **P4a — Breeze 1-second historical source. DONE (2026-07-25, real-data
+    verified).** `market_data/breeze_historical_bar_source.py` behind the
     `HistoricalBarSource` seam (injected client, chunking+de-dup, cash+option
-    addressing), `BarInterval.SECOND_1`, `breeze-connect` acquired (MIT). 420 tests
-    pass. **⛔ Rule-F real-data pass OPEN** — needs a daily Breeze session token
-    (manual TOTP login); run `scripts/verify_breeze_1s_realdata.py <apisession>`
-    (creds in `.env`). *(task #3)*
+    addressing), `BarInterval.SECOND_1`, `breeze-connect` acquired (MIT). Rule-F:
+    fetched 600 real 1-second ITC bars (2026-07-24) via
+    `scripts/verify_breeze_1s_realdata.py`. Bug the pass caught + fixed: Breeze v2
+    reads from/to as **IST wall-clock**, not UTC. 420 tests pass. *(task #3)*
   - 🔴 **P4a-wire (PRIMARY consumer, queued):** wire Breeze in as the replay
     router's fidelity source (bar-only → 1s) so the loop actually consumes it.
     Until then P4a is "built + hermetic-verified, purpose-consumer queued" (Rule K).
   - 🔴 **P4b — live-depth recorder:** record L2 order-book depth forward (the only
     path to historical depth).
   - 🔴 **Breeze session-token daily refresh** (auth layer, like Kite's) + an
-    ICICI-stock-code ↔ NSE-symbol mapping if the real-data pass shows mismatches.
+    **ICICI-stock-code ↔ NSE-symbol mapping** — CONFIRMED needed by the real-data
+    pass (RELIANCE→empty; ICICI uses e.g. "RELIND"). Source it from the Breeze
+    SecurityMaster and inject via the adapter's `stock_code_resolver`. *(task #6)*
 - 🔴 **Slice 5+ — ADVANCED**: microstructure features, queue/impact fills,
   deficit-driven curriculum (unblocks the Layer-10 regime queries),
   parallel multi-day → champion-challenger.

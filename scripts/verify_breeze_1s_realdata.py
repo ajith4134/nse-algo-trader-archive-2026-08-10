@@ -51,7 +51,9 @@ def main() -> int:
     session_date = (
         date.fromisoformat(sys.argv[2]) if len(sys.argv) > 2 else _most_recent_weekday()
     )
-    symbol = sys.argv[3] if len(sys.argv) > 3 else "RELIANCE"
+    # Default to ITC: its ICICI stock_code == NSE symbol, so it works without the
+    # stock-code map. Many names (e.g. Reliance = "RELIND") differ — see task #6.
+    symbol = sys.argv[3] if len(sys.argv) > 3 else "ITC"
 
     load_env_file_into_environ()
     credentials = load_broker_api_credentials(BrokerName.ICICI_BREEZE)

@@ -7,7 +7,7 @@ requested window, so chunking + de-dup are exercised for real. The fake lives on
 here under tests/, never in src/ — production wires the real BreezeConnect.
 """
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 
 import pytest
 
@@ -22,7 +22,6 @@ from nse_algo_trader.universe_registry import (
     OptionRight,
 )
 
-UTC = timezone.utc
 
 
 def _cash_instrument() -> Instrument:
@@ -54,11 +53,13 @@ class _FakeBreezeClient:
 
     def get_historical_data_v2(self, **kwargs):
         self.calls.append(kwargs)
-        start = datetime.fromisoformat(kwargs["from_date"].replace("Z", "+00:00"))
-        end = datetime.fromisoformat(kwargs["to_date"].replace("Z", "+00:00"))
+        # The adapter sends IST wall-clock with a cosmetic 'Z'; parse it back to a
+        # naive wall-clock time and filter the (wall-clock) candles.
+        start = datetime.strptime(kwargs["from_date"], "%Y-%m-%dT%H:%M:%S.000Z")
+        end = datetime.strptime(kwargs["to_date"], "%Y-%m-%dT%H:%M:%S.000Z")
         served = [
             c for c in self._candles
-            if start <= datetime.strptime(c["datetime"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=UTC) <= end
+            if start <= datetime.strptime(c["datetime"], "%Y-%m-%d %H:%M:%S") <= end
         ]
         return {"Success": served, "Error": None, "Status": 200}
 
@@ -80,12 +81,12 @@ def test_unsupported_interval_raises_clearly():
     with pytest.raises(ValueError, match="does not serve"):
         source.fetch_historical_bars(
             _cash_instrument(), BarInterval.MINUTE_15,
-            datetime(2026, 7, 24, tzinfo=UTC), datetime(2026, 7, 25, tzinfo=UTC),
+            datetime(2026, 7, 24), datetime(2026, 7, 25),
         )
 
 
 def test_cash_addressing_and_parsing():
-    base = datetime(2026, 7, 24, 3, 45, 0, tzinfo=UTC)
+    base = datetime(2026, 7, 24, 3, 45, 0)
     fake = _FakeBreezeClient(_one_second_candles(base, 5))
     source = BreezeHistoricalBarSource(fake)
     bars = source.fetch_historical_bars(
@@ -104,7 +105,7 @@ def test_cash_addressing_and_parsing():
 
 
 def test_option_addressing():
-    base = datetime(2026, 7, 24, 4, 0, 0, tzinfo=UTC)
+    base = datetime(2026, 7, 24, 4, 0, 0)
     fake = _FakeBreezeClient(_one_second_candles(base, 2))
     source = BreezeHistoricalBarSource(fake)
     source.fetch_historical_bars(
@@ -119,7 +120,7 @@ def test_option_addressing():
 
 
 def test_chunks_beyond_1000_candles_and_dedupes_boundaries():
-    base = datetime(2026, 7, 24, 3, 0, 0, tzinfo=UTC)
+    base = datetime(2026, 7, 24, 3, 0, 0)
     fake = _FakeBreezeClient(_one_second_candles(base, 2500))
     source = BreezeHistoricalBarSource(fake)
     bars = source.fetch_historical_bars(
@@ -138,14 +139,14 @@ def test_empty_success_envelope_yields_no_bars():
     source = BreezeHistoricalBarSource(_FakeBreezeClient([]))
     bars = source.fetch_historical_bars(
         _cash_instrument(), BarInterval.SECOND_1,
-        datetime(2026, 7, 24, 3, 0, tzinfo=UTC),
-        datetime(2026, 7, 24, 3, 0, 30, tzinfo=UTC),
+        datetime(2026, 7, 24, 3, 0),
+        datetime(2026, 7, 24, 3, 0, 30),
     )
     assert bars == []
 
 
 def test_open_interest_parsed_for_options():
-    base = datetime(2026, 7, 24, 4, 0, 0, tzinfo=UTC)
+    base = datetime(2026, 7, 24, 4, 0, 0)
     candles = _one_second_candles(base, 1)
     candles[0]["open_interest"] = "1250"
     source = BreezeHistoricalBarSource(_FakeBreezeClient(candles))

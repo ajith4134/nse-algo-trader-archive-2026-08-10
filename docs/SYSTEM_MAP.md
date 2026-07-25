@@ -320,11 +320,15 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
   hermetically (Rule J):** 6 tests with an injected fake — interval map, cash+option
   addressing, chunk windows + boundary de-dup (2500×1s → 3 calls, 2500 unique),
   parsing, empty-envelope, unsupported-interval error. 420 tests pass (+6).
-  **Rule-F real-data pass is an OPEN BLOCKER:** needs a daily Breeze session token
-  from a manual TOTP login — `scripts/verify_breeze_1s_realdata.py` is ready; the
-  user runs it (creds already in `.env`). Queued: P4a-wire (router uses Breeze for
-  1s replay — the PRIMARY consumer), P4b (live-depth recorder), daily session
-  refresh, ICICI stock-code mapping if real data shows mismatches.
+  **Rule-F real-data pass DONE (2026-07-25):** fetched 600 REAL 1-second ITC bars
+  (2026-07-24 09:15–09:25), time-ordered + OHLC-sane, via
+  `scripts/verify_breeze_1s_realdata.py`. Fixed a real bug the pass caught: **Breeze
+  v2 reads from/to as IST wall-clock, not UTC** (the trailing `Z` is cosmetic) — the
+  adapter now formats IST (`_to_breeze_ist_iso`). Confirmed the **ICICI stock-code
+  gotcha** (RELIANCE→empty; ITC works because its code == NSE symbol) → the
+  stock-code map is now a real need. **P4a done** (built + hermetic + real-data).
+  Queued: P4a-wire (router uses Breeze for 1s replay — the PRIMARY consumer), P4b
+  (live-depth recorder), daily session refresh, ICICI stock-code map.
 - **2026-07-25c** — **§53 slice 3b-ii — dense prequential forecast scorer** (no new
   files; 111 modules, no new cross-feature edge; research/65). New
   `ExperienceMemory.prequential_forecast_score(data_provenance=None) ->
