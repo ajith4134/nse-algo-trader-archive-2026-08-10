@@ -17,7 +17,7 @@ Last updated: **2026-07-25**.
 | 6 | Broker OMS | 🟢 v1 + 🟢 market-impact fills |
 | 7 | Backtesting & Paper Trading | 🟢 v1 (24/7 router, §9 lab, DSR/CPCV gates) + §53 replay engine (below) |
 | 8 | Session / Square-off | 🟢 signed off |
-| 9 | Dashboard / Monitoring | 🟢 v1; outage FIXED (2026-07-25); 🔴 **#13 no panels for new features** |
+| 9 | Dashboard / Monitoring | 🟢 v1; outage FIXED; 🟢 **#13 Feature-coverage panel (Rule N) — all features surfaced + coverage audit** |
 | 10 | Memory & Reflection (learning AI) | 🟢 functionally complete + verified; 🟡 multi-regime queries (axis populated via 5b, variety accruing); ⛔ shadow-arm LIVE pass (market) |
 | 11 | Strategic LLM / Autonomous-Research-Agent (generative AI) | 🔴 NOT STARTED — deferred until L10 validated (runtime/market-gated, not code-gated) |
 
@@ -38,11 +38,10 @@ Last updated: **2026-07-25**.
 - ⛔ **Market-gated:** P4b depth capture, shadow-arm live pass (need an open session).
 
 ## TOP REMAINING BIG-ROCKS (whole-plan priority order — re-pick from here, don't tunnel)
-1. **#13** — surface ALL features on the dashboard (systematic registry + coverage audit; research/91). ← NEXT
-2. **§53 slice-5 finish** — VPIN; then depth-gated items when P4b depth accrues.
-3. **Layer 11 (LLM/agentic AI)** — the big net-new area, once L10 validation accrues (runtime/market-gated).
-4. **Market/creds-gated & paused** — P4b depth capture, shadow-arm (open market); Groww/Fyers (user).
-5. Small follow-ups: bound the fleet replay focus so fleet auto-replay can be default-on too.
+1. **§53 slice-5 finish** — VPIN microstructure feature; then depth-gated items when P4b depth accrues. ← NEXT
+2. **Layer 11 (LLM/agentic AI)** — the big net-new area, once L10 validation accrues (runtime/market-gated).
+3. **Market/creds-gated & paused** — P4b depth capture, shadow-arm (open market); Groww/Fyers (user).
+4. Small follow-ups: bound the fleet replay focus (fleet auto-replay default-on); per-feature dashboard drill-downs.
 
 ## How to use this (Rule M)
 - **Session start:** read this + BACKLOG; say where we are in the WHOLE plan.

@@ -129,6 +129,9 @@ class LivePaperPublishedSnapshot:
     # §53 slice 3b-ii: running forecast skill (log-loss/Brier) overall + split
     # live vs replay ({"overall":{...}, "live":{...}, "replay_faithful":{...}}).
     prequential_forecast_score: dict | None = None
+    # task #13 (Rule N): every feature's live surface for the dashboard "Feature coverage"
+    # panel — tuple[DashboardFeatureSurface, ...]. Empty until first publish.
+    feature_surfaces: tuple = ()
 
     @property
     def open_position_count(self) -> int:
@@ -899,6 +902,131 @@ class LivePaperTradingService:
             return ChampionConfigurationStore(self._champion_configuration_store_path)
         return ChampionConfigurationStore()
 
+    def _build_feature_surfaces(self) -> tuple:
+        """task #13 (Rule N): a live `DashboardFeatureSurface` per §53/ADVANCED feature, so
+        the dashboard's Feature-coverage panel shows every feature's status at a glance.
+        Each builder is best-effort — a failing one is simply omitted (renders as 'not yet
+        surfaced'), never breaking the publish."""
+        import os
+
+        from nse_algo_trader.dashboard.dashboard_feature_surface import (
+            DashboardFeatureSurface,
+            FeatureCoverageReport,
+        )
+
+        surfaces = []
+
+        def _add(fn):
+            try:
+                surfaces.append(fn())
+            except Exception:
+                pass
+
+        # 1. Multi-broker data sourcing — which brokers have creds available right now.
+        def _multi_broker():
+            env = os.environ
+            available = []
+            if env.get("UPSTOX_ANALYTICS_TOKEN", "").strip() or env.get("UPSTOX_ACCESS_TOKEN", "").strip():
+                available.append("Upstox")
+            if all(env.get(k, "").strip() for k in ("ANGEL_ONE_CLIENT_CODE", "ANGEL_ONE_PIN", "ANGEL_ONE_TOTP_SECRET")):
+                available.append("Angel One")
+            if env.get("ICICI_BREEZE_API_KEY", "").strip():
+                available.append("Breeze")
+            if env.get("ZERODHA_KITE_API_KEY", "").strip():
+                available.append("Kite")
+            return DashboardFeatureSurface(
+                key="multi_broker_sourcing",
+                title="Multi-broker data sourcing (failover + gap-fill)",
+                status="active" if len(available) >= 2 else "gathering",
+                metrics=(("live brokers", str(len(available))),
+                         ("sources", ", ".join(available) or "—")),
+                note="Historical bars fail over across brokers; Groww/Fyers paused.",
+            )
+        _add(_multi_broker)
+
+        # 2. Replay fidelity tier (market-closed).
+        def _replay_fidelity():
+            hf = self._high_fidelity_replay
+            tier = "5-minute (store)"
+            if hf is not None:
+                tier = f"{hf.bar_interval.value} ({'Breeze' if hf.bar_interval.value == '1s' else 'fleet'})"
+            return DashboardFeatureSurface(
+                key="replay_fidelity", title="Replay fidelity tier (market-closed)",
+                status="idle" if self._clock.is_market_open(datetime.now(_INDIA_MARKET_TIMEZONE)) else "active",
+                metrics=(("tier", tier),
+                         ("session", str(hf.session_date) if hf else "rolling")),
+                note="High-fidelity feed builds in the background and swaps in when ready.",
+            )
+        _add(_replay_fidelity)
+
+        # 3. Deficit-driven replay curriculum — regime coverage of replayed sessions.
+        def _curriculum():
+            from nse_algo_trader.paper_trading.replayed_session_regime_ledger import (
+                ReplayedSessionRegimeLedger,
+            )
+            ledger = ReplayedSessionRegimeLedger()
+            try:
+                counts = ledger.covered_regime_counts()
+                total = ledger.replayed_session_count()
+            finally:
+                ledger.close()
+            return DashboardFeatureSurface(
+                key="replay_curriculum", title="Deficit-driven replay curriculum (regime coverage)",
+                status="active" if total else "gathering",
+                metrics=(("sessions replayed", str(total)),
+                         ("by regime", ", ".join(f"{r}:{n}" for r, n in sorted(counts.items())) or "—")),
+                note="Replays the market regime the bot has learned least about.",
+            )
+        _add(_curriculum)
+
+        # 4. Champion-challenger strategy config (global + per-regime).
+        def _champion():
+            store = self._champion_store()
+            g = store.load_champion_or_default()
+            per_regime = [r for r in ("trending", "range_bound", "indecisive")
+                          if store.load_champion_or_default(market_regime=r) != g]
+            return DashboardFeatureSurface(
+                key="champion_challenger", title="Champion-challenger strategy config (global + per-regime)",
+                status="active",
+                metrics=(("global ORB", f"OR{g.opening_range_minutes}m · RR{g.target_risk_reward_ratio}"),
+                         ("per-regime champions", str(len(per_regime)) if per_regime else "0 (global)")),
+                note="Tournament auto-tunes the ORB config, gated by Deflated-Sharpe.",
+            )
+        _add(_champion)
+
+        # 5. Market-impact fill model.
+        def _market_impact():
+            from nse_algo_trader.paper_trading.market_impact_fill_model import MarketImpactConfig
+            n = len(self._state.average_daily_quantity_by_token)
+            return DashboardFeatureSurface(
+                key="market_impact_fills", title="Market-impact fill model",
+                status="active" if n else "gathering",
+                metrics=(("instruments w/ ADV", str(n)),
+                         ("coefficient", f"{MarketImpactConfig().impact_coefficient_bps:.0f} bps @100% ADV")),
+                note="Larger orders pay square-root price impact on top of the spread.",
+            )
+        _add(_market_impact)
+
+        # 6. Market-regime memory calibration.
+        def _regime_memory():
+            if self._experience_memory is None:
+                return DashboardFeatureSurface(
+                    key="market_regime_memory", title="Market-regime memory calibration",
+                    status="gathering", metrics=(("experiences", "0"),), note="")
+            by_regime = self._experience_memory.experiment_count_by_market_regime()
+            return DashboardFeatureSurface(
+                key="market_regime_memory", title="Market-regime memory calibration",
+                status="active" if by_regime else "gathering",
+                metrics=(("by market regime",
+                          ", ".join(f"{r}:{n}" for r, n in sorted(by_regime.items())) or "—"),),
+                note="Calibration split by trending/range/indecisive regime.",
+            )
+        _add(_regime_memory)
+
+        # Return ALL manifest features in order — a placeholder 'not yet surfaced' row for
+        # any that failed to build, so the coverage panel always lists every feature.
+        return tuple(FeatureCoverageReport(surfaces=tuple(surfaces)).rows_in_manifest_order())
+
     def _maybe_reevaluate_champion_challenger(self, now) -> None:
         """§53 slice 5c-i.b + 5c-iii: at most once/day, run the champion-challenger
         tournament over the stored real sessions — a GLOBAL tournament (all sessions) plus a
@@ -1336,6 +1464,7 @@ class LivePaperTradingService:
             opponent_ledger=self._opponent_ledger_reading,
             positioning_deferred_count=self._state.positioning_deferred_count,
             information_diet=self._information_diet_dict(),
+            feature_surfaces=self._build_feature_surfaces(),  # task #13 (Rule N)
         )
         with self._publish_lock:
             self._published = snapshot

@@ -299,6 +299,14 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
   </div>
 
   <div class="card">
+    <div class="head"><span class="bar"></span><h2>Feature coverage — every feature &amp; its live status</h2><span class="aside" id="feataside"></span></div>
+    <div class="body">
+      <table class="labtbl" id="featTbl"></table>
+      <p class="note" id="featnote"></p>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="head"><span class="bar"></span><h2>Layer roadmap</h2><span class="aside" id="roadaside"></span></div>
     <div class="body"><div class="rlist" id="roadmap"></div></div>
   </div>
@@ -597,6 +605,27 @@ function renderLive(snap){
     document.getElementById("dietTbl").innerHTML=rows;
     document.getElementById("dietnote").innerHTML=`<b style="color:${sc}">Memory influence: ${Math.round((diet.memory_influence_share||0)*100)}%</b> — ${diet.note}`;
   }
+  // --- Feature coverage: every §53/ADVANCED feature & its live status (Rule N) ---
+  const feats=snap.feature_surfaces||[];
+  const featColor={active:'var(--profit)',gathering:'var(--faint)',idle:'var(--dim)',blocked:'var(--loss)',off:'var(--faint)',unknown:'var(--warnc)'};
+  const featIcon={active:'●',gathering:'◍',idle:'○',blocked:'▲',off:'○',unknown:'▲'};
+  if(!feats.length){
+    document.getElementById("feataside").textContent="—";
+    document.getElementById("featTbl").innerHTML=`<tr><td style="color:var(--faint)">warming up…</td></tr>`;
+  } else {
+    const shown=feats.filter(f=>f.status!=='unknown').length;
+    document.getElementById("feataside").innerHTML=`<span style="font-weight:600">${shown}/${feats.length}</span> surfaced`;
+    let rows="<tr><th>Feature</th><th>Status</th><th>Live</th></tr>";
+    feats.forEach(f=>{
+      const c=featColor[f.status]||'var(--faint)';
+      const metrics=(f.metrics||[]).map(m=>`<span style="color:var(--dim)">${m[0]}:</span> ${m[1]}`).join(" &nbsp;·&nbsp; ");
+      rows+=`<tr><td class="tablename">${f.title}</td>`+
+        `<td><span style="color:${c};font-weight:600">${featIcon[f.status]||'—'} ${f.status}</span></td>`+
+        `<td>${metrics||'<span style="color:var(--faint)">—</span>'}</td></tr>`;
+    });
+    document.getElementById("featTbl").innerHTML=rows;
+  }
+  document.getElementById("featnote").innerHTML="Every feature must register a surface (Rule N) — a “▲ unknown / not yet surfaced” row fails the coverage audit. Wired-but-invisible ≠ shipped.";
   document.getElementById("sub").textContent="live dashboard · updated "+snap.generated_at.slice(11,16)+(LIVE_API_KEY?" · auto-refresh 20s":"");
 }
 renderLive(SNAPSHOT);

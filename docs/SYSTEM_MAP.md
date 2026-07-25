@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-25y**.
-- **141 Python modules across 14 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-25aa**.
+- **142 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -317,6 +317,22 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-25aa** — **Dashboard FEATURE COVERAGE panel — systematic feature visibility
+  (task #13; Rule N; research/91; 141→142 modules, no new cross-feature edge — new
+  `dashboard/dashboard_feature_surface.py`). A feature-surface REGISTRY replaces
+  hand-writing a panel per feature: each feature emits a uniform `DashboardFeatureSurface`
+  (title, live status ∈ active/gathering/idle/blocked/off/unknown, headline metrics), the
+  service's `_build_feature_surfaces()` builds one per feature at publish (best-effort →
+  placeholder), `FeatureCoverageReport.rows_in_manifest_order()` fills any gap with a
+  'not yet surfaced' row, and the dashboard renders them all in one **"Feature coverage"**
+  card (status dot + label + metrics, matching the existing design system; auto-refreshes
+  via the JS `renderLive`). Threaded through `LivePaperPublishedSnapshot.feature_surfaces`
+  → `DashboardSnapshot` → `render_dashboard_html`. **Coverage AUDIT test** fails if any
+  manifest feature lacks a surface (the Rule-N enforcement, mirror of the no-orphan rule).
+  **Real-data verified** on the live dashboard: 6/6 surfaced — multi-broker (4 live
+  brokers), replay fidelity (1s Breeze), curriculum (3 sessions, indecisive:1/range:1/
+  trending:1), champion (OR15m·RR2.0), market-impact (215 instruments), regime memory
+  (indecisive:262/unknown:78). 5 tests. **547 pass.**
 - **2026-07-25z** — **Non-blocking high-fidelity replay prebuild (task #14; research/92; no
   module/edge change — `dashboard/live_paper_trading_service.py` only). `start()` now builds
   the FAST store-5m replay feed immediately (service live in ~14s), then, if a high-fidelity

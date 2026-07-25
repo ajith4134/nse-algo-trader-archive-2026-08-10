@@ -114,6 +114,7 @@ class DashboardSnapshot:
     information_diet: dict | None = None
     experiment_count_by_provenance: dict | None = None
     prequential_forecast_score: dict | None = None
+    feature_surfaces: list[dict] = field(default_factory=list)  # task #13 (Rule N)
 
     def to_json_dict(self) -> dict:
         return {
@@ -149,6 +150,7 @@ class DashboardSnapshot:
             "information_diet": self.information_diet,
             "experiment_count_by_provenance": self.experiment_count_by_provenance,
             "prequential_forecast_score": self.prequential_forecast_score,
+            "feature_surfaces": self.feature_surfaces,
         }
 
 
@@ -179,6 +181,7 @@ def build_dashboard_snapshot(
     information_diet: dict | None = None,
     experiment_count_by_provenance: dict | None = None,
     prequential_forecast_score: dict | None = None,
+    feature_surfaces: list[dict] | None = None,
 ) -> DashboardSnapshot:
     """When `precomputed_*` summaries are supplied (by the live service's
     writer thread, which is the sole mutator of the ledger/scoreboard),
@@ -279,6 +282,7 @@ def build_dashboard_snapshot(
         information_diet=information_diet,
         experiment_count_by_provenance=experiment_count_by_provenance,
         prequential_forecast_score=prequential_forecast_score,
+        feature_surfaces=feature_surfaces or [],
     )
 
 

@@ -387,10 +387,14 @@ when the build starts:
   auto-replay) restored to default (Breeze on; fleet opt-in).
   - 🔵 **Bound the fleet replay focus** (e.g. small default) so the multi-broker 1m fleet can
     also be default-on, not just Breeze. Low priority.
-- 🔴 **task #13 — dashboard PANELS for the new §53/ADVANCED features** (multi-broker sourcing/
-  fleet/failover status, replay fidelity tier + regime curriculum coverage, champion-challenger
-  + champion config global/per-regime, market-impact fills, market-regime memory calibration).
-  Wired + real-data-verified but NOT displayed. READ dataviz skill first. (Layer-9 surfacing.)
+- 🟢 **task #13 — dashboard feature visibility — DONE, Rule-F VERIFIED (2026-07-25,
+  research/91; Rule N).** `dashboard_feature_surface` registry + `_build_feature_surfaces` +
+  a "Feature coverage" panel (auto-refreshing, matching the design system) + a coverage-AUDIT
+  test that fails if any manifest feature lacks a surface. Live: 6/6 surfaced (multi-broker,
+  replay fidelity, curriculum, champion-challenger, market-impact, regime memory) with real
+  metrics. 547 pass.
+  - 🔵 **Per-feature detail panels** (deeper drill-downs beyond the coverage row) — optional
+    follow-up as features warrant; the coverage panel + registry is the systematic base.
 
 ## Open real-data blockers (Rule F/J — sim-verified, real pass pending)
 - ⛔ **Shadow-arm recovery (slice 4) live pass.** Functionally verified via sim

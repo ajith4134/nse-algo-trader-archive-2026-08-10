@@ -193,6 +193,7 @@ def build_dashboard_app() -> FastAPI:
             information_diet=published.information_diet,
             experiment_count_by_provenance=published.experiment_count_by_provenance,
             prequential_forecast_score=published.prequential_forecast_score,
+            feature_surfaces=[s.to_json_dict() for s in published.feature_surfaces],
         )
 
     @app.get("/", response_class=HTMLResponse)
