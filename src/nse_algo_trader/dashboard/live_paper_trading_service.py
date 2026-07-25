@@ -336,6 +336,7 @@ class LivePaperTradingService:
             ),
         )
         self._banned_underlying_symbols = self._load_fo_ban_list()
+        self._populate_average_daily_quantities()  # §53 slice 5c-ii (market-impact fills)
         if self._high_fidelity_replay is None:
             self._maybe_activate_autonomous_breeze_replay()  # §53 task #7 (Breeze 1s)
         if self._high_fidelity_replay is None:
@@ -817,6 +818,28 @@ class LivePaperTradingService:
 
                 self._champion_orb_config_cache = OpeningRangeBreakoutConfig()
         return self._champion_orb_config_cache
+
+    def _populate_average_daily_quantities(self) -> None:
+        """§53 slice 5c-ii: fill `state.average_daily_quantity_by_token` with each token's
+        mean per-session traded volume from the REAL stored bars, so cash fills pay
+        size-dependent market impact. Best-effort — on any failure the map stays empty and
+        fills fall back to spread-only (no regression)."""
+        try:
+            store = MarketDataSqliteStore()
+            try:
+                rows = store._connection.execute(
+                    "SELECT instrument_token, AVG(day_volume) FROM ("
+                    "  SELECT instrument_token, date(bar_timestamp) d, SUM(volume) AS day_volume"
+                    "  FROM price_bars GROUP BY instrument_token, d"
+                    ") GROUP BY instrument_token"
+                ).fetchall()
+            finally:
+                store.close()
+            self._state.average_daily_quantity_by_token = {
+                token: float(adv) for token, adv in rows if adv and adv > 0
+            }
+        except Exception:
+            self._state.average_daily_quantity_by_token = {}
 
     def _champion_store(self):
         """The champion-config store, at the injected path (tests) or the prod default."""

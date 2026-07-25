@@ -123,6 +123,10 @@ class LiveUniversePaperState:
         )
     )
     fill_slippage_config: FillSlippageConfig = field(default_factory=FillSlippageConfig)
+    # §53 slice 5c-ii: per-token average daily quantity (real ADV) so fills pay
+    # size-dependent market impact. Empty (default) → spread-only fills (no regression);
+    # the service populates it from real stored bar volumes.
+    average_daily_quantity_by_token: dict = field(default_factory=dict)
     open_positions: dict[int, OpenPaperPosition] = field(default_factory=dict)
     closed_trades: list[ClosedPaperTrade] = field(default_factory=list)
     # Closed §9 experiments awaiting Layer-10 recording: (graded, trade, kind)
@@ -289,6 +293,10 @@ def _open_position_from_signal(
     entry_fill_price = slipped_fill_price(
         signal.instrument, entry_side, signal.breakout_close_price,
         state.fill_slippage_config,
+        order_quantity=quantity,
+        average_daily_quantity=state.average_daily_quantity_by_token.get(
+            signal.instrument.instrument_token
+        ),
     )
     state.simulated_broker.update_market_price(
         signal.instrument.instrument_token, signal.breakout_close_price
@@ -325,7 +333,11 @@ def _close_position(
     # Pay the spread on exit too (stops/targets fill at market near the level,
     # not exactly on it) — no more optimistic frictionless exits (research/41).
     exit_price = slipped_fill_price(
-        position.instrument, exit_side, exit_price, state.fill_slippage_config
+        position.instrument, exit_side, exit_price, state.fill_slippage_config,
+        order_quantity=position.quantity,
+        average_daily_quantity=state.average_daily_quantity_by_token.get(
+            position.instrument.instrument_token
+        ),
     )
     recorded = state.ledger.record_fill(
         position.instrument.instrument_token, exit_side, position.quantity, exit_price

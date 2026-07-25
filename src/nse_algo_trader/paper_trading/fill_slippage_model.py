@@ -36,6 +36,8 @@ def estimate_slipped_fill_price(
     order_intent: OrderIntent,
     reference_price: float,
     config: FillSlippageConfig = FillSlippageConfig(),
+    average_daily_quantity: float | None = None,
+    market_impact_config=None,
 ) -> float:
     if order_intent.instrument.kind in _OPTION_INSTRUMENT_KINDS:
         half_spread = reference_price * config.option_half_spread_bps / 10_000.0
@@ -46,7 +48,22 @@ def estimate_slipped_fill_price(
     half_spread = max(half_spread, config.minimum_half_spread_rupees)
 
     taker_direction = 1.0 if order_intent.side is OrderSide.BUY else -1.0
-    slipped_price = reference_price + taker_direction * half_spread
+    # §53 slice 5c-ii: add size-dependent market impact on top of the half-spread when a
+    # liquidity reference (ADQ) is provided. Omitted → pure half-spread (no regression).
+    impact_rupees = 0.0
+    if average_daily_quantity is not None:
+        from nse_algo_trader.paper_trading.market_impact_fill_model import (
+            MarketImpactConfig,
+            estimate_market_impact_bps,
+        )
+
+        impact_bps = estimate_market_impact_bps(
+            order_intent.quantity, average_daily_quantity,
+            market_impact_config or MarketImpactConfig(),
+        )
+        impact_rupees = reference_price * impact_bps / 10_000.0
+
+    slipped_price = reference_price + taker_direction * (half_spread + impact_rupees)
     return max(slipped_price, 0.05)  # never below one tick
 
 
@@ -64,11 +81,15 @@ def slipped_fill_price(
     side: OrderSide,
     reference_price: float,
     config: FillSlippageConfig = FillSlippageConfig(),
+    order_quantity: int = 1,
+    average_daily_quantity: float | None = None,
+    market_impact_config=None,
 ) -> float:
-    """Slippage for a fill recorded straight into the ledger (the live loop's
-    cash path bypasses the broker's adjuster). Same model as the broker uses,
-    so paper P&L is not frictionless."""
-    # quantity is not used by the model (only instrument.kind + side matter).
+    """Slippage (+ optional size-dependent market impact) for a fill recorded straight into
+    the ledger (the live loop's cash path bypasses the broker's adjuster). Same model as the
+    broker uses, so paper P&L is not frictionless. When `average_daily_quantity` is given,
+    the order's participation adds market impact (§53 slice 5c-ii); omitted → spread only."""
     return estimate_slipped_fill_price(
-        OrderIntent(instrument, side, 1, "slip"), reference_price, config
+        OrderIntent(instrument, side, order_quantity, "slip"), reference_price, config,
+        average_daily_quantity, market_impact_config,
     )

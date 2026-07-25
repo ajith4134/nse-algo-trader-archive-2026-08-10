@@ -349,8 +349,17 @@ when the build starts:
       idempotent. 528 tests pass. *(task #10)*
     - 🔴 **Options/credit-spread configs in the tournament (queued):** needs option-chain
       replay data; ORB (cash) only today.
-  - 🔴 **5c+ (deeper ADVANCED, not started):** microstructure features (OFI/VPIN — depends
-    on P4b depth accruing), queue-position & market-impact fills (hftbacktest-style). *(task TBD)*
+  - 🟢 **5c-ii — market-impact fill model — DONE, Rule-F VERIFIED (2026-07-25,
+    research/89).** `market_impact_fill_model` (square-root law over participation=order/ADQ)
+    composed into `fill_slippage_model` (optional ADQ → spread-only when absent), wired at
+    the cash fill sites via `LiveUniversePaperState.average_daily_quantity_by_token` (service
+    populates from real stored volumes). Real pass: impact monotone in size on a real ADQ,
+    tiny order ≈ spread, absent ADQ = old fill. 534 tests pass. *(task #11)*
+    - 🔴 **Queue-position fills (queued):** the OTHER realism gap — needs L2 depth (P4b,
+      market-gated). · 🔵 **Impact-coefficient calibration** vs real realized fills (needs
+      live/paper fills).
+  - 🔴 **5c+ (deeper ADVANCED, not started):** microstructure features (OFI/VPIN — OFI
+    depends on P4b depth; VPIN buildable now), per-market-regime champion (uses 5b tag). *(task TBD)*
 
 ## Open real-data blockers (Rule F/J — sim-verified, real pass pending)
 - ⛔ **Shadow-arm recovery (slice 4) live pass.** Functionally verified via sim
