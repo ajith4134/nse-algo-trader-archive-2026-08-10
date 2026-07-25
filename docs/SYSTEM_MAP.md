@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-25e**.
-- **113 Python modules across 14 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-25f**.
+- **117 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -156,7 +156,8 @@ Each block: purpose · files (role) · what flows IN/OUT · internal file→file
 - `kite_access_token_store.py` — persists the daily token + expiry; `KiteAccessTokenFileStore`.
 - `kite_totp_auto_login.py` — user+password+TOTP → request token → access token; `generate_and_store_daily_kite_access_token`.
 - `refresh_kite_access_token.py` — CLI (cron pre-market) that refreshes if stale; `refresh_kite_access_token_if_needed`.
-- IN: credentials (L0). OUT: `kite_access_token.json` consumed by market_data/broker_oms/dashboard.
+- **Breeze (§53 slice 4 #6a):** `breeze_session_token_store.py` (`BreezeSessionTokenFileStore`/`Record` — daily manual token + midnight/24h expiry) · `breeze_authenticated_client_builder.py` (`build_authenticated_breeze_client` — constructs + `generate_session`; injectable factory keeps the network-heavy `breeze_connect` import out of tests) · `set_breeze_session_token.py` (CLI to store the pasted apisession / print the login URL).
+- IN: credentials (L0). OUT: `kite_access_token.json` + `breeze_session_token.json` consumed by market_data/broker_oms/dashboard.
 - Internal: `refresh → {totp_auto_login → access_token_store}`.
 
 ### L1 · universe_registry  (4 files)  — what is tradable
@@ -171,7 +172,8 @@ Each block: purpose · files (role) · what flows IN/OUT · internal file→file
 - `nse_corporate_action_source.py` — real NSE split/bonus records via `nselib` + the `subject`→price-factor parser (`CorporateAction`, `CorporateActionType`); feeds the replay continuity engine (§53 P3).
 - `broker_data_source_protocols.py` — `HistoricalBarSource` / `LiveTickStreamSource` protocols.
 - `kite_historical_bar_source.py` — Kite candles → `PriceBar` (minute…day; raises on sub-minute).
-- `breeze_historical_bar_source.py` — **ICICI Breeze v2 → `PriceBar` at 1-second** fidelity (§53 slice 4 P4a): `BreezeHistoricalBarSource` (injected authenticated client — never imports `breeze_connect`, whose import does network I/O), chunks >1000-candle pulls + de-dupes, cash + option addressing. New `BarInterval.SECOND_1`. Named consumer: the replay router fidelity upgrade (queued, P4a-wire).
+- `breeze_historical_bar_source.py` — **ICICI Breeze v2 → `PriceBar` at 1-second** fidelity (§53 slice 4 P4a): `BreezeHistoricalBarSource` (injected authenticated client — never imports `breeze_connect`, whose import does network I/O), chunks >1000-candle pulls + de-dupes, cash + option addressing. New `BarInterval.SECOND_1`. WIRED into replay via `paper_trading/historical_source_replay_feed_builder` (P4a-wire).
+- `icici_security_master_stock_code_resolver.py` — **NSE symbol → ICICI stock_code** (§53 #6b): parses ICICI's real `NSEScripMaster.txt` (`ExchangeCode`→`ShortName`, EQ), injected as the Breeze adapter's `stock_code_resolver` (RELIANCE→`RELIND`); pure parser + separate network download.
 - `kite_live_tick_stream_source.py` — KiteTicker adapter (orphaned; superseded by the polling feed).
 - `kite_live_universe_feed.py` — **the live-session feed**: batched-LTP breadth + `recent_intraday_bars` depth; `KiteLiveUniverseFeed`.
 - `market_data_sqlite_store.py` — persists/loads bars + all 5 report types; `MarketDataSqliteStore`.
@@ -305,6 +307,24 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-25f** — **§53 slice 4 task #6 — Breeze session store + ICICI stock-code
+  map** (113→117 modules; no new cross-feature edge; research/68). **6b (stock-code
+  map):** new `market_data/icici_security_master_stock_code_resolver.py` — parses
+  ICICI's real `SecurityMaster/NSEScripMaster.txt` (`ExchangeCode`=NSE symbol,
+  `ShortName`=ICICI code, `Series==EQ`) into an NSE-symbol→ICICI-code resolver;
+  callable, drops into `BreezeHistoricalBarSource(stock_code_resolver=…)`; pure
+  parser + separate `download_…` (network at composition root only). **Closes the
+  P4a bug** — Rule-F: real master resolves RELIANCE→`RELIND`/INFY→`INFTEC`/
+  HDFCBANK→`HDFBAN` (>1500 EQ), and real Breeze fetched **196 one-second RELIANCE
+  bars via the resolver** (previously empty). **6a (session store):** new
+  `broker_sessions/breeze_session_token_store.py` (daily token + midnight/24h
+  expiry, owner-only file, mirrors the Kite token store),
+  `breeze_authenticated_client_builder.py` (builds+`generate_session`; injectable
+  factory so tests never import the network-heavy `breeze_connect`),
+  `set_breeze_session_token.py` (CLI: prints login URL / stores the pasted
+  apisession). Hermetic (Rule J): store validity across midnight, builder via a fake
+  factory, resolver parse. 430 pass (+8, 1 network test env-gated). Queued: task #7
+  autonomous replay can now read the stored token + inject the resolver.
 - **2026-07-25e** — **§53 slice 4 P4a-wire — Breeze 1s into the replay loop**
   (112→113 modules; no new cross-feature edge; research/67). New
   `paper_trading/historical_source_replay_feed_builder.py`:

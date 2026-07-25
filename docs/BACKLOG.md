@@ -220,10 +220,13 @@ when the build starts:
     injection / the real-data script, not the unattended loop. *(task #7)*
   - 🔴 **P4b — live-depth recorder:** record L2 order-book depth forward (the only
     path to historical depth).
-  - 🔴 **Breeze session-token daily refresh** (auth layer, like Kite's) + an
-    **ICICI-stock-code ↔ NSE-symbol mapping** — CONFIRMED needed by the real-data
-    pass (RELIANCE→empty; ICICI uses e.g. "RELIND"). Source it from the Breeze
-    SecurityMaster and inject via the adapter's `stock_code_resolver`. *(task #6)*
+  - 🟢 **Breeze session store + ICICI stock-code map — DONE (2026-07-25, real-data
+    verified).** *6b:* `icici_security_master_stock_code_resolver` parses ICICI's
+    real SecurityMaster (NSE symbol→ICICI code); injected as the Breeze adapter's
+    `stock_code_resolver`. Rule-F: RELIANCE→`RELIND` → **196 real 1-second RELIANCE
+    bars** (previously empty). *6a:* `broker_sessions/breeze_session_token_store`
+    (daily token + midnight/24h expiry), `breeze_authenticated_client_builder`
+    (injectable factory), `set_breeze_session_token` CLI. 430 tests pass. *(task #6)*
 - 🔴 **Slice 5+ — ADVANCED**: microstructure features, queue/impact fills,
   deficit-driven curriculum (unblocks the Layer-10 regime queries),
   parallel multi-day → champion-challenger.
