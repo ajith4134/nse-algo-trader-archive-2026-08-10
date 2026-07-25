@@ -309,9 +309,25 @@ when the build starts:
     bars** (previously empty). *6a:* `broker_sessions/breeze_session_token_store`
     (daily token + midnight/24h expiry), `breeze_authenticated_client_builder`
     (injectable factory), `set_breeze_session_token` CLI. 430 tests pass. *(task #6)*
-- 🔴 **Slice 5+ — ADVANCED**: microstructure features, queue/impact fills,
-  deficit-driven curriculum (unblocks the Layer-10 regime queries),
-  parallel multi-day → champion-challenger.
+- **Slice 5+ — ADVANCED** (research/62 §3; research/86):
+  - 🟢 **5a — deficit-driven replay curriculum — DONE, Rule-F VERIFIED (2026-07-25).**
+    `historical_session_market_regime_classifier` (ADX→TRENDING/RANGE/INDECISIVE, reuses
+    the real indicator+gate) + `deficit_driven_replay_session_selector` (least-covered
+    regime wins) + `replayed_session_regime_ledger` (coverage rotation), WIRED into
+    `_curriculum_pick_replay_session` (autonomous replay now picks the least-learned-regime
+    session, best-effort → most-recent fallback). Real pass: 23 real sessions → 12 trending
+    / 6 range / 5 indecisive; selector avoids the saturated regime. 509 tests pass. *(task #7)*
+  - 🔴 **5b — market-regime TAG on experiences (queued — the multi-regime unblock):** stamp
+    the session's ADX market regime onto each `ClosedExperiment` (thread through
+    `build_closed_experiment` + sqlite migration + count-by-regime), so `ExperienceMemory`'s
+    regime-aware queries (calibration-by-regime, outcome_sequence_dependence, cross-regime
+    co-failure) finally get real variety → **unblocks the Layer-10 multi-regime queries**
+    end-to-end. Curriculum (5a) makes the replay stream regime-diverse; 5b captures it into
+    memory. Done = experiences carry market regime + a multi-regime query returns
+    differentiated results, real-data verified. *(task #8)*
+  - 🔴 **5c+ (deeper ADVANCED, not started):** microstructure features (OFI/VPIN — depends
+    on P4b depth accruing), queue-position & market-impact fills (hftbacktest-style),
+    parallel multi-day → champion-challenger. *(task TBD)*
 
 ## Open real-data blockers (Rule F/J — sim-verified, real pass pending)
 - ⛔ **Shadow-arm recovery (slice 4) live pass.** Functionally verified via sim

@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-25r**.
-- **132 Python modules across 14 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-25s**.
+- **135 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -220,8 +220,9 @@ Each block: purpose · files (role) · what flows IN/OUT · internal file→file
 - IN: signals (L4), `RiskGateDecision` (L5), `Instrument`. OUT: `OrderIntent`s, fills, atomic exec → paper_trading + session_management.
 - Internal: `atomic_multi_leg_executor → {broker_client_protocol, order_types}`; `signal_to_order_intents → order_types`; sim/kite clients → order_types.
 
-### L7 · paper_trading  (24 files)  — the integration hub + live loop
+### L7 · paper_trading  (27 files)  — the integration hub + live loop
 - **Router/feed:** `nse_market_clock` (is-NSE-open authority) · `historical_bar_replay_source` · `market_clock_gated_data_source_router` (replay↔live) · `replay_universe_feed` (market-CLOSED universe feed — now firewalled: refuses any bar/moment past the replay clock, and carries a provenance stamp) · `historical_source_replay_feed_builder` (§53 P4a-wire: `build_replay_bars_by_token_from_source` + `HighFidelityReplayConfig` — builds the replay feed's bars from any `HistoricalBarSource`, used to feed **Breeze 1-second** bars in when the service's `high_fidelity_replay` is injected; store-5m path otherwise) · `breeze_replay_focus_planner` (§53 task #7: `plan_breeze_replay_focus` — caps the 1s focus set to Breeze's 5000-calls/day budget; `rank_instruments_by_liquidity` orders the focus by real cash-bhavcopy turnover (§53 task #8); drives the service's autonomous self-activation of Breeze replay from a stored session token; the focus spans all 3 segments in **Rule-L order** — index options → stock options → cash — via `_rule_l_prioritized_focus_candidates`, task #16).
+- **Deficit-driven replay CURRICULUM (§53 slice 5a — ADVANCED tier; research/86):** `historical_session_market_regime_classifier` (`classify_session_market_regime` — reuses `indicators.compute_average_directional_index` + `strategy_engine.classify_adx_market_regime` to label a session TRENDING/RANGE_BOUND/INDECISIVE) · `deficit_driven_replay_session_selector` (`select_deficit_replay_session` — pick the candidate whose regime is least-covered; tie-break most-recent) · `replayed_session_regime_ledger` (own `replay_curriculum.sqlite3`; `record_replayed_session` + `covered_regime_counts` so coverage rotates). WIRED into `live_paper_trading_service._curriculum_pick_replay_session`: the autonomous multi-broker replay now picks the session whose market regime the bot has learned LEAST about (best-effort → most-recent fallback), records the pick's regime. Real-data verified: 23 real sessions → 12 trending / 6 range / 5 indecisive; deficit selector avoids the saturated regime. **Slice 5b (queued):** stamp the session's market regime onto each experience to unblock the Layer-10 multi-regime queries.
 - **Market-open simulation causal spine (§53 build slices 1–2, research/62):** `historical_trading_day_walker` (today→inception real-NSE-trading-day walk, P1) · `causal_leakage_firewall` (structural no-future-leak gate + `assert_no_future_leak`, P5) · `replay_experience_provenance` (`DataProvenance`/`ReplayFidelityTier` tags so replayed experience is never mistaken for live, P6) · `point_in_time_universe_resolver` (survivorship-free per-date universe from the stored cash+F&O bhavcopy — the real EQ names + option underlyings/contracts that traded THAT day, P2) · `historical_archive_replay_planner` (WIRED into `live_paper_trading_service._build_replay_feed_from_store`: keeps each replayed bar only if its instrument was in the REAL cash universe on that bar's own date — survivorship-free — passing through dates with no ingested bhavcopy) · `corporate_action_adjustment` (P3: `CorporateActionAdjustmentEngine` keeps the replay LOOKBACK series continuous across real split/bonus ex-dates — WIRED into `replay_universe_feed.recent_intraday_bars`; the current price stays RAW). Still queued: full walker-driven backward session stepping; provenance stamp→slice-3 memory-drain (BACKLOG).
 - **Engines:** `opening_range_breakout_paper_engine` (replay ORB) · **`live_universe_paper_loop`** (the live cash loop: open/hold/manage/breakout-watch/L8 square-off) · **`option_credit_spread_live_path`** (options: regime-gated credit spreads + directional long options).
 - **Ledger/fills:** `paper_trading_ledger` · `fill_slippage_model`.
@@ -313,6 +314,22 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-25s** — **Deficit-driven replay CURRICULUM — first ADVANCED-tier slice (§53
+  slice 5a; research/86; 132→135 modules, no new cross-feature edge — 3 new
+  `paper_trading` files importing only indicators/strategy_engine/universe, all existing
+  edges). Diagnosis (Rule F): the real memory's 293 experiences are ALL
+  `regime_context="normal"` (calendar context) — the Layer-10 single-regime blocker — and
+  the ADX market regime, though computed, never steered replay. New:
+  `historical_session_market_regime_classifier` (reuses ADX + gate → TRENDING/RANGE_BOUND/
+  INDECISIVE), `deficit_driven_replay_session_selector` (least-covered regime wins;
+  most-recent tie-break), `replayed_session_regime_ledger` (own sqlite; coverage counts so
+  the curriculum rotates). WIRED into `live_paper_trading_service._curriculum_pick_replay_
+  session` — the autonomous multi-broker replay now picks the least-learned-regime session
+  (best-effort → most-recent fallback, no regression) and records the pick. **Rule-F PASS**
+  (`scripts/verify_replay_curriculum_realdata.py`): 23 real stored sessions classify into
+  12 trending / 6 range_bound / 5 indecisive (real variety), selector avoids the saturated
+  regime. 10 hermetic tests. **509 pass** (+10). **Slice 5b QUEUED:** market-regime tag on
+  experiences → unblocks the Layer-10 multi-regime queries end-to-end.
 - **2026-07-25r** — **GAP_FILL aggregation policy (task #20 slice-2; research/84)** — no
   module/edge change (edits to `market_data/multi_broker_historical_bar_source.py` +
   tests only). Added `SourceCombinationPolicy{FAILOVER (default), GAP_FILL}`; GAP_FILL

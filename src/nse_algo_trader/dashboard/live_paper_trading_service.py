@@ -242,6 +242,9 @@ class LivePaperTradingService:
         # DI seam (default = the real fleet builder); focus_size bounds the pull.
         self._multi_broker_replay_source_builder = multi_broker_replay_source_builder
         self._multi_broker_replay_focus_size = multi_broker_replay_focus_size
+        # §53 slice 5a: deficit-driven replay curriculum — how many recent calendar days
+        # to scan for stored sessions to classify + balance regime coverage across.
+        self._curriculum_lookback_days = 60
         # §53 slice 4 P4b: record live order-book depth forward (the only path to
         # historical depth). Default OFF (no load/behaviour change); enable to start
         # accumulating. The store is built lazily in the writer thread (SQLite is
@@ -503,10 +506,15 @@ class LivePaperTradingService:
             ]
             if not focus_instruments:
                 return
-            session_date = HistoricalTradingDayWalker(
+            default_session_date = HistoricalTradingDayWalker(
                 self._clock
             ).most_recent_trading_day_on_or_before(
                 datetime.now(ZoneInfo("Asia/Kolkata")).date() - timedelta(days=1)
+            )
+            # §53 slice 5a: deficit-driven curriculum picks the session whose market
+            # regime we've learned least about (best-effort → default most-recent).
+            session_date, session_regime = self._curriculum_pick_replay_session(
+                default_session_date
             )
             self._high_fidelity_replay = HighFidelityReplayConfig(
                 bar_source=fleet_source,
@@ -514,8 +522,92 @@ class LivePaperTradingService:
                 session_date=session_date,
                 bar_interval=BarInterval.MINUTE_1,
             )
+            if session_regime is not None:
+                self._record_curriculum_session(session_date, session_regime)
         except Exception:
             self._high_fidelity_replay = None  # never break startup
+
+    def _curriculum_pick_replay_session(self, default_session_date):
+        """§53 slice 5a: choose the replay session whose ADX market regime is least
+        covered so far (deficit-driven curriculum). Best-effort: classifies recent stored
+        sessions for a liquid benchmark, then the deficit selector picks; any miss (no
+        stored bars, no benchmark) falls back to `default_session_date` → no regression.
+        Returns `(session_date, market_regime_or_None)`; None regime = fell back."""
+        from datetime import timedelta
+
+        from nse_algo_trader.market_data import BarInterval
+        from nse_algo_trader.paper_trading.deficit_driven_replay_session_selector import (
+            select_deficit_replay_session,
+        )
+        from nse_algo_trader.paper_trading.historical_session_market_regime_classifier import (  # noqa: E501
+            classify_session_market_regime,
+        )
+        from nse_algo_trader.paper_trading.replayed_session_regime_ledger import (
+            ReplayedSessionRegimeLedger,
+        )
+
+        try:
+            store = MarketDataSqliteStore()
+            try:
+                benchmark_token = self._curriculum_benchmark_token(store)
+                if benchmark_token is None:
+                    return default_session_date, None
+                classified: list = []
+                self._curriculum_regime_by_date = {}
+                for day_offset in range(self._curriculum_lookback_days):
+                    candidate = default_session_date - timedelta(days=day_offset)
+                    day_start = datetime(candidate.year, candidate.month, candidate.day,
+                                         tzinfo=_INDIA_MARKET_TIMEZONE)
+                    bars = store.load_price_bars(
+                        benchmark_token, BarInterval.MINUTE_5,
+                        day_start, day_start + timedelta(days=1),
+                    )
+                    if bars:
+                        regime = classify_session_market_regime(bars)
+                        classified.append((candidate, regime))
+                        self._curriculum_regime_by_date[candidate] = regime
+            finally:
+                store.close()
+            if not classified:
+                return default_session_date, None
+            ledger = ReplayedSessionRegimeLedger()
+            try:
+                chosen = select_deficit_replay_session(
+                    classified, ledger.covered_regime_counts()
+                )
+            finally:
+                ledger.close()
+            if chosen is None:
+                return default_session_date, None
+            return chosen, self._curriculum_regime_by_date.get(chosen)
+        except Exception:
+            return default_session_date, None  # curriculum never breaks startup
+
+    @staticmethod
+    def _curriculum_benchmark_token(store):
+        """The stored instrument with the most 5-minute bars — a stand-in for the most
+        liquid / most-consistently-recorded name, used as the market-regime benchmark."""
+        row = store._connection.execute(
+            "SELECT instrument_token FROM price_bars WHERE bar_interval=? "
+            "GROUP BY instrument_token ORDER BY COUNT(*) DESC LIMIT 1",
+            ("5m",),
+        ).fetchone()
+        return row[0] if row else None
+
+    def _record_curriculum_session(self, session_date, market_regime) -> None:
+        """Persist the replayed session's regime so the curriculum rotates coverage."""
+        from nse_algo_trader.paper_trading.replayed_session_regime_ledger import (
+            ReplayedSessionRegimeLedger,
+        )
+
+        try:
+            ledger = ReplayedSessionRegimeLedger()
+            try:
+                ledger.record_replayed_session(session_date, market_regime)
+            finally:
+                ledger.close()
+        except Exception:
+            pass  # coverage bookkeeping must never break startup
 
     @staticmethod
     def _build_corporate_action_adjustment_engine(bars_by_token):
