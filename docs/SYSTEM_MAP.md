@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-25k**.
-- **125 Python modules across 14 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-25m**.
+- **128 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -173,6 +173,7 @@ Each block: purpose · files (role) · what flows IN/OUT · internal file→file
 - `broker_data_source_protocols.py` — `HistoricalBarSource` / `LiveTickStreamSource` protocols.
 - `kite_historical_bar_source.py` — Kite candles → `PriceBar` (minute…day; raises on sub-minute).
 - `breeze_historical_bar_source.py` — **ICICI Breeze v2 → `PriceBar` at 1-second** fidelity (§53 slice 4 P4a): `BreezeHistoricalBarSource` (injected authenticated client — never imports `breeze_connect`, whose import does network I/O), chunks >1000-candle pulls + de-dupes, cash + option addressing. New `BarInterval.SECOND_1`. WIRED into replay via `paper_trading/historical_source_replay_feed_builder` (P4a-wire).
+- **Multi-broker data adapters (PLAN §8a.12 — all on the `HistoricalBarSource` seam, injected client, never import the vendor SDK):** `groww_historical_bar_source.py` (Groww `get_historical_candles`, minute+, OI; + `GrowwRestHistoricalClient`) · `angel_one_historical_bar_source.py` (Angel `getCandleData`, ONE_MINUTE…ONE_DAY, no historical OI) · `upstox_historical_bar_source.py` (Upstox v3, minute+, OI). Real-data creds-gated (Groww session-approval / Angel client-code+PIN / Upstox token).
 - `fyers_historical_bar_source.py` — **Fyers deep FREE minute history** (cash+F&O+OI, ~9y since 2017; task #11): `FyersHistoricalBarSource` on the same `HistoricalBarSource` seam, injected client (never imports `fyers_apiv3`), ≤100/366-day chunking; the deep-minute complement to Breeze's 1-second. `SECOND_1` unsupported (Fyers min = 5s).
 - `icici_security_master_stock_code_resolver.py` — **NSE symbol → ICICI stock_code** (§53 #6b): parses ICICI's real `NSEScripMaster.txt` (`ExchangeCode`→`ShortName`, EQ), injected as the Breeze adapter's `stock_code_resolver` (RELIANCE→`RELIND`); pure parser + separate network download.
 - **Order-book DEPTH (§53 P4b — recorded forward, the only path to historical depth):** `market_depth_types.py` (`MarketDepthLevel`/`MarketDepthSnapshot`) · `broker_data_source_protocols.MarketDepthSource` (seam) · `kite_market_depth_source.py` (Kite `quote()` depth → snapshots) · `market_depth_snapshot_store.py` (own `market_depth.sqlite3`). Consumed by `paper_trading/live_market_depth_recorder`.
@@ -310,6 +311,27 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-25m** — **Three multi-broker data adapters — Groww, Angel One, Upstox**
+  (tasks #19/#18/#17; research/80/81/82; 125→128 modules, no new cross-feature edge —
+  all three live in `market_data` importing only `universe_registry`). Each
+  implements the `HistoricalBarSource` seam behind an INJECTED client (none import
+  their vendor SDK — Groww/Fyers SDKs are heavy/non-hermetic, Angel/Upstox are light;
+  injection keeps all hermetic). `market_data/groww_historical_bar_source.py`
+  (`get_historical_candles`, minute+, cash `NSE-{sym}`, OI; + a thin
+  `GrowwRestHistoricalClient` Bearer REST client that avoids the heavy SDK) ·
+  `angel_one_historical_bar_source.py` (`getCandleData`, ONE_MINUTE…ONE_DAY, NO
+  historical OI, symboltoken resolver injected) · `upstox_historical_bar_source.py`
+  (v3 `get_historical_candle_data`, minute+, OI, instrument_key resolver injected).
+  All: interval maps (SECOND_1 raises — Breeze stays the 1s source), per-vendor
+  day-window chunking + dedupe, cash/option addressing. Plug into
+  `build_replay_bars_by_token_from_source` (multi-broker redundancy per PLAN §8a.12).
+  **Hermetic (Rule J):** 6 (Groww) + 5 (Angel) + 5 (Upstox) tests with injected
+  fakes. 472 pass (+21 across the three). **Rule-F OPEN BLOCKERS** (creds/auth):
+  Groww needs a one-time API **session approval** in the account (its token 403s /
+  mint says "Session approval required"); Angel needs **client code + PIN** (only
+  api_key + TOTP secret given); Upstox needs a token (easiest = the 1-year read-only
+  **Analytics Token**). Creds stored gitignored in `.env` (never committed). Queued:
+  per-vendor symbol/token resolvers + session builders (tasks).
 - **2026-07-25l** — **Rule L retrofit — segment-prioritized replay focus (task #16)**
   (no new files; 125 modules, no new edge). The autonomous Breeze replay focus was
   CASH-ONLY (violated Rule L). New `LivePaperTradingService.

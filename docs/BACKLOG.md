@@ -368,3 +368,21 @@ P4b) or license NSE. Net-new actionable wins now tracked:
 - 🔴 **Audit remaining focus/build sites for cash-first bias** (Rule L applies
   everywhere a focus/ranking/budget/build-order is chosen, not just the Breeze
   replay focus) — ongoing.
+
+## Multi-broker data adapters (PLAN §8a.12; research/80-82, 2026-07-25)
+All three implement the `HistoricalBarSource` seam (injected client, never import the
+vendor SDK) — BUILT + hermetic-verified; real-data creds/auth-gated.
+- 🟡 **Groww** (`groww_historical_bar_source` + `GrowwRestHistoricalClient`) — minute+,
+  OI, cash `NSE-{sym}`. ⛔ Rule-F blocked: Groww needs a one-time **API session
+  approval** in the account (token 403s; mint → "Session approval required"). *(task #19)*
+- 🟡 **Angel One** (`angel_one_historical_bar_source`) — ONE_MINUTE…ONE_DAY, **no
+  historical OI**. ⛔ Rule-F blocked: needs **client code + PIN** (only api_key + TOTP
+  secret given). *(task #18)*
+- 🟡 **Upstox** (`upstox_historical_bar_source`) — v3 minute+, OI. ⛔ Rule-F blocked:
+  needs a token — easiest is the **1-year read-only Analytics Token** (no daily
+  redirect). *(task #17)*
+- 🔴 **Per-vendor symbol/token resolvers + auth/session builders** — Groww options
+  resolver (instrument CSV) + session-approval/token-refresh; Angel symboltoken
+  resolver (OpenAPIScripMaster) + generateSession(clientCode,pin,totp); Upstox
+  instrument_key resolver (ISIN/token from the master) + analytics-token wiring. *(task #22)*
+- 🔴 **Kite (paid) more + multi-broker aggregation/failover** across all adapters. *(task #20)*
