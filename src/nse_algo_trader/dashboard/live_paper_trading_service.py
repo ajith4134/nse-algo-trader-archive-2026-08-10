@@ -447,7 +447,7 @@ class LivePaperTradingService:
                 datetime.now(ZoneInfo("Asia/Kolkata")).date() - timedelta(days=1)
             )
             focus_instruments = plan_breeze_replay_focus(
-                self._cash_universe,
+                self._liquidity_ranked_cash_universe(),
                 self._autonomous_breeze_replay_call_budget,
                 BarInterval.SECOND_1,
             )
@@ -546,6 +546,33 @@ class LivePaperTradingService:
                 except Exception:
                     pass
             time_module.sleep(self._scan_interval_seconds)
+
+    def _liquidity_ranked_cash_universe(self) -> list:
+        """Cash universe ordered most-liquid-first by the latest stored cash
+        bhavcopy turnover (§53 task #8), so the rate-limited 1s replay focus is
+        spent on the names that matter. Best-effort — falls back to the existing
+        (option-underlyings-first) order if no bhavcopy is stored."""
+        from nse_algo_trader.paper_trading.breeze_replay_focus_planner import (
+            rank_instruments_by_liquidity,
+        )
+
+        try:
+            store = MarketDataSqliteStore()
+            try:
+                latest_date = store.latest_cash_bhavcopy_trade_date()
+                if latest_date is None:
+                    return self._cash_universe
+                turnover_by_symbol = {
+                    row.symbol: row.turnover_lakhs
+                    for row in store.load_cash_bhavcopy_delivery_rows(latest_date)
+                }
+            finally:
+                store.close()
+            return rank_instruments_by_liquidity(
+                self._cash_universe, turnover_by_symbol
+            )
+        except Exception:
+            return self._cash_universe
 
     def _record_market_depth_best_effort(self) -> None:
         """§53 P4b: snapshot + store the focus set's order book this live pass.

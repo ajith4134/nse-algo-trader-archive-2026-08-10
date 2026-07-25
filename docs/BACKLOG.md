@@ -221,10 +221,12 @@ when the build starts:
     best-effort → store-5m path when no token. Rule-F: from a stored real token the
     service self-served **21,952 ITC + 17,193 RELIANCE real 1s bars** unattended. 435
     tests pass. *(task #7)* Set the daily token → the loop runs 1s replay itself.
-  - 🔵 **Focus RANKING refinement (queued):** the focus is currently "first N of the
-    cash universe (option-underlyings-first), budget-capped". A liquidity/actively-
-    watched ranking (replay the names the loop actually trades) would spend the 1s
-    budget better. *(task #8)*
+  - 🟢 **Focus RANKING — DONE (2026-07-25, real-data verified).**
+    `rank_instruments_by_liquidity` + `MarketDataSqliteStore.
+    latest_cash_bhavcopy_trade_date`; the autonomous activation ranks the cash
+    universe by real latest-bhavcopy turnover before budget-capping. Rule-F: on the
+    real 2026-07-24 bhavcopy INFY ranks above HDFCBANK; unknown symbols sort last.
+    442 tests pass. *(task #8)*
   - 🟡 **P4b — live-depth recorder. BUILT + hermetic-verified (2026-07-25).** Full
     pipeline: `market_depth_types` · `MarketDepthSource` seam · `kite_market_depth_
     source` (Kite `quote()` depth) · `market_depth_snapshot_store` (own

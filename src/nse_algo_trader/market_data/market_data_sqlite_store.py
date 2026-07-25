@@ -181,6 +181,14 @@ class MarketDataSqliteStore:
             )
         ]
 
+    def latest_cash_bhavcopy_trade_date(self) -> date | None:
+        """The most recent trade date with stored cash bhavcopy, or None. Used to
+        rank the Breeze-replay focus by real liquidity (§53 task #8)."""
+        row = self._connection.execute(
+            "SELECT MAX(trade_date) FROM cash_bhavcopy_delivery"
+        ).fetchone()
+        return date.fromisoformat(row[0]) if row and row[0] else None
+
     # -- F&O bhavcopy (historical OI) ---------------------------------------
 
     def save_fo_bhavcopy_contract_rows(

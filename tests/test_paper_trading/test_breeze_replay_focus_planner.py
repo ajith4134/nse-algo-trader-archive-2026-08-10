@@ -8,9 +8,15 @@ from nse_algo_trader.dashboard.live_paper_trading_service import (
     LivePaperTradingService,
 )
 from nse_algo_trader.market_data.market_data_types import BarInterval
+import os
+from pathlib import Path
+
+import pytest
+
 from nse_algo_trader.paper_trading.breeze_replay_focus_planner import (
     chunks_per_instrument_for,
     plan_breeze_replay_focus,
+    rank_instruments_by_liquidity,
 )
 from nse_algo_trader.broker_sessions.breeze_session_token_store import (
     BreezeSessionTokenRecord,
@@ -50,6 +56,33 @@ def test_focus_capped_to_daily_call_budget():
 def test_tiny_budget_and_empty_candidates_yield_empty_focus():
     assert plan_breeze_replay_focus(_instruments(10), 10, BarInterval.SECOND_1) == []
     assert plan_breeze_replay_focus([], 5000, BarInterval.SECOND_1) == []
+
+
+def _named(symbol: str) -> Instrument:
+    return Instrument(
+        instrument_token=abs(hash(symbol)) % 100000, trading_symbol=symbol,
+        exchange_segment=ExchangeSegment.NSE_CASH, kind=InstrumentKind.CASH_EQUITY,
+        lot_size=1, tick_size=0.05,
+    )
+
+
+def test_rank_by_liquidity_orders_by_turnover_unknown_last():
+    ranked = rank_instruments_by_liquidity(
+        [_named("A"), _named("B"), _named("C")],
+        {"B": 100.0, "A": 50.0},  # C has no turnover row
+    )
+    assert [i.trading_symbol for i in ranked] == ["B", "A", "C"]
+
+
+def test_service_ranks_cash_universe_by_real_bhavcopy_turnover():
+    """Rule F: rank a few real symbols by the real stored cash-bhavcopy turnover."""
+    if not Path("~/.nse_algo_trader/market_data.sqlite3").expanduser().exists():
+        pytest.skip("real market_data store not present")
+    service = LivePaperTradingService(object(), 1_000_000.0)
+    service._cash_universe = [_named("HDFCBANK"), _named("ZZUNKNOWNXYZ"), _named("INFY")]
+    ranked = [i.trading_symbol for i in service._liquidity_ranked_cash_universe()]
+    assert ranked.index("INFY") < ranked.index("HDFCBANK")  # INFY turnover > HDFCBANK
+    assert ranked[-1] == "ZZUNKNOWNXYZ"  # not in bhavcopy -> last
 
 
 class _FakeTokenStore:

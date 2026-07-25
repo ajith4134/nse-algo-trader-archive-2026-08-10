@@ -32,6 +32,21 @@ def chunks_per_instrument_for(
     return max(1, math.ceil(session_trading_seconds / window_seconds))
 
 
+def rank_instruments_by_liquidity(
+    instruments: list[Instrument],
+    turnover_lakhs_by_symbol: dict[str, float],
+) -> list[Instrument]:
+    """Order instruments most-liquid-first by real cash-bhavcopy turnover (§53 task
+    #8), so the rate-limited 1s focus is spent on the names that matter. An
+    instrument with no turnover row sorts last; ties keep the input order (stable)."""
+    return sorted(
+        instruments,
+        key=lambda instrument: -turnover_lakhs_by_symbol.get(
+            instrument.trading_symbol, 0.0
+        ),
+    )
+
+
 def plan_breeze_replay_focus(
     candidate_instruments: list[Instrument],
     daily_call_budget: int,
