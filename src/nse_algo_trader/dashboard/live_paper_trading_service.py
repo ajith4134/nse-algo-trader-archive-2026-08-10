@@ -214,8 +214,14 @@ class LivePaperTradingService:
         max_new_cash_seeds_per_pass: int = 30,
         max_new_option_seeds_per_pass: int = 25,
         participant_positioning_source=None,
+        high_fidelity_replay=None,
     ) -> None:
         self._kite_client = authenticated_kite_client
+        # §53 slice 4 P4a-wire: optional HighFidelityReplayConfig — when injected,
+        # the market-closed replay is built from a higher-fidelity source (Breeze
+        # 1-second) for a bounded focus set instead of the stored 5-minute bars.
+        # None (default) keeps the store path exactly as before (no regression).
+        self._high_fidelity_replay = high_fidelity_replay
         # Layer 10 §10 opponent ledger — real NSE archive fetcher by default;
         # injectable (DI seam) so tests pass an in-memory fake. Fetched once per
         # trade date in the writer thread and cached.
@@ -295,6 +301,9 @@ class LivePaperTradingService:
         into a ReplayUniverseFeed so the loop can run on replay when the market
         is closed. Only cash instruments in the tradable universe are replayed;
         the feed is empty (and replay simply idles) until bars accumulate."""
+        if self._high_fidelity_replay is not None:
+            self._build_high_fidelity_replay_feed()  # §53 P4a-wire (Breeze 1s)
+            return
         from nse_algo_trader.market_data import BarInterval
         from nse_algo_trader.paper_trading.historical_archive_replay_planner import (
             HistoricalArchiveReplayPlanner,
@@ -341,6 +350,38 @@ class LivePaperTradingService:
                 self._build_corporate_action_adjustment_engine(bars_by_token)
             ),
         )
+        self._replay_timestamps = self._replay_feed.stored_session_timestamps()
+        self._replay_cursor = 0
+
+    def _build_high_fidelity_replay_feed(self) -> None:
+        """§53 slice 4 P4a-wire: build the market-closed replay feed from the
+        injected higher-fidelity source (Breeze 1-second) for the config's focus
+        instruments over one session (09:15–15:30 IST), instead of the stored
+        5-minute bars. Same `ReplayUniverseFeed` the loop already consumes."""
+        from zoneinfo import ZoneInfo
+
+        from nse_algo_trader.paper_trading.historical_source_replay_feed_builder import (  # noqa: E501
+            build_replay_bars_by_token_from_source,
+        )
+        from nse_algo_trader.paper_trading.replay_universe_feed import (
+            ReplayUniverseFeed,
+        )
+
+        config = self._high_fidelity_replay
+        ist = ZoneInfo("Asia/Kolkata")
+        session_open = datetime(
+            config.session_date.year, config.session_date.month,
+            config.session_date.day, 9, 15, tzinfo=ist,
+        )
+        session_close = datetime(
+            config.session_date.year, config.session_date.month,
+            config.session_date.day, 15, 30, tzinfo=ist,
+        )
+        bars_by_token = build_replay_bars_by_token_from_source(
+            config.bar_source, config.focus_instruments,
+            config.bar_interval, session_open, session_close,
+        )
+        self._replay_feed = ReplayUniverseFeed(bars_by_token)
         self._replay_timestamps = self._replay_feed.stored_session_timestamps()
         self._replay_cursor = 0
 

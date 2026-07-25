@@ -206,9 +206,18 @@ when the build starts:
     fetched 600 real 1-second ITC bars (2026-07-24) via
     `scripts/verify_breeze_1s_realdata.py`. Bug the pass caught + fixed: Breeze v2
     reads from/to as **IST wall-clock**, not UTC. 420 tests pass. *(task #3)*
-  - 🔴 **P4a-wire (PRIMARY consumer, queued):** wire Breeze in as the replay
-    router's fidelity source (bar-only → 1s) so the loop actually consumes it.
-    Until then P4a is "built + hermetic-verified, purpose-consumer queued" (Rule K).
+  - 🟢 **P4a-wire — DONE (2026-07-25, real-data verified).** New
+    `historical_source_replay_feed_builder` (`build_replay_bars_by_token_from_source`
+    + `HighFidelityReplayConfig`) + a `high_fidelity_replay` DI param on the service:
+    when injected, the market-closed `ReplayUniverseFeed` is built from Breeze
+    **1-second** bars for a focus set instead of the stored 5-minute bars (default
+    None = no change). Rule-F: 600 real Breeze 1s ITC bars built into a real
+    `ReplayUniverseFeed`. 422 tests pass. P4a's fidelity now reaches the loop.
+  - 🔴 **P4a-wire-autonomous (queued):** the always-on service AUTONOMOUSLY picking
+    a focus set + session and auto-refreshing the Breeze session to run 1s replay
+    unattended. Needs task #6 (session refresh) + a rate-limit-aware focus scheduler
+    (5000 calls/day caps 1s to a bounded set). Until then the seam runs via explicit
+    injection / the real-data script, not the unattended loop. *(task #7)*
   - 🔴 **P4b — live-depth recorder:** record L2 order-book depth forward (the only
     path to historical depth).
   - 🔴 **Breeze session-token daily refresh** (auth layer, like Kite's) + an

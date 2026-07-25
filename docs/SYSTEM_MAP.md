@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-25d**.
-- **112 Python modules across 14 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-25e**.
+- **113 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -213,7 +213,7 @@ Each block: purpose · files (role) · what flows IN/OUT · internal file→file
 - Internal: `atomic_multi_leg_executor → {broker_client_protocol, order_types}`; `signal_to_order_intents → order_types`; sim/kite clients → order_types.
 
 ### L7 · paper_trading  (24 files)  — the integration hub + live loop
-- **Router/feed:** `nse_market_clock` (is-NSE-open authority) · `historical_bar_replay_source` · `market_clock_gated_data_source_router` (replay↔live) · `replay_universe_feed` (market-CLOSED universe feed — now firewalled: refuses any bar/moment past the replay clock, and carries a provenance stamp).
+- **Router/feed:** `nse_market_clock` (is-NSE-open authority) · `historical_bar_replay_source` · `market_clock_gated_data_source_router` (replay↔live) · `replay_universe_feed` (market-CLOSED universe feed — now firewalled: refuses any bar/moment past the replay clock, and carries a provenance stamp) · `historical_source_replay_feed_builder` (§53 P4a-wire: `build_replay_bars_by_token_from_source` + `HighFidelityReplayConfig` — builds the replay feed's bars from any `HistoricalBarSource`, used to feed **Breeze 1-second** bars in when the service's `high_fidelity_replay` is injected; store-5m path otherwise).
 - **Market-open simulation causal spine (§53 build slices 1–2, research/62):** `historical_trading_day_walker` (today→inception real-NSE-trading-day walk, P1) · `causal_leakage_firewall` (structural no-future-leak gate + `assert_no_future_leak`, P5) · `replay_experience_provenance` (`DataProvenance`/`ReplayFidelityTier` tags so replayed experience is never mistaken for live, P6) · `point_in_time_universe_resolver` (survivorship-free per-date universe from the stored cash+F&O bhavcopy — the real EQ names + option underlyings/contracts that traded THAT day, P2) · `historical_archive_replay_planner` (WIRED into `live_paper_trading_service._build_replay_feed_from_store`: keeps each replayed bar only if its instrument was in the REAL cash universe on that bar's own date — survivorship-free — passing through dates with no ingested bhavcopy) · `corporate_action_adjustment` (P3: `CorporateActionAdjustmentEngine` keeps the replay LOOKBACK series continuous across real split/bonus ex-dates — WIRED into `replay_universe_feed.recent_intraday_bars`; the current price stays RAW). Still queued: full walker-driven backward session stepping; provenance stamp→slice-3 memory-drain (BACKLOG).
 - **Engines:** `opening_range_breakout_paper_engine` (replay ORB) · **`live_universe_paper_loop`** (the live cash loop: open/hold/manage/breakout-watch/L8 square-off) · **`option_credit_spread_live_path`** (options: regime-gated credit spreads + directional long options).
 - **Ledger/fills:** `paper_trading_ledger` · `fill_slippage_model`.
@@ -305,6 +305,24 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-25e** — **§53 slice 4 P4a-wire — Breeze 1s into the replay loop**
+  (112→113 modules; no new cross-feature edge; research/67). New
+  `paper_trading/historical_source_replay_feed_builder.py`:
+  `build_replay_bars_by_token_from_source(source, instruments, interval, from, to)`
+  (generic over any `HistoricalBarSource`) + `HighFidelityReplayConfig`. The service
+  gains an optional `high_fidelity_replay` DI param: when injected,
+  `_build_replay_feed_from_store` builds the `ReplayUniverseFeed` from the source
+  (Breeze **1-second**) for the focus instruments over one session instead of the
+  stored 5-minute bars — the SAME feed the market-closed loop consumes, so P4a's
+  fidelity reaches decisions. Default None → store path unchanged (no regression).
+  **Verified hermetically (Rule J):** builder keys-by-token/drops-empties; the
+  service branch builds the feed from an injected fake and serves its 1s bars.
+  **Rule-F real-data DONE:** 600 REAL Breeze 1-second ITC bars (2026-07-24) built
+  into a real `ReplayUniverseFeed` (timestamps correct, mid-replay price served,
+  provenance replay_faithful/bar_only). 422 tests pass (+2). **P4a's primary
+  consumer wired.** Queued (task): the always-on service AUTONOMOUSLY selecting
+  focus+session + auto-refreshing the Breeze session (needs task #6 + a
+  rate-limit-aware scheduler; 5000 calls/day caps 1s to a bounded focus set).
 - **2026-07-25d** — **§53 slice 4 P4a — Breeze 1-second historical source**
   (111→112 modules; no new cross-feature edge — `market_data` still imports only
   `universe_registry`; research/66). New `market_data/
