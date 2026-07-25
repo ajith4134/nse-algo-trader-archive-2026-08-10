@@ -98,10 +98,15 @@ Full findings: `docs/research/74_free_deep_intraday_nse_history_ceiling_2026.md`
   the multi-hop capability in SQLite: outcome_sequence_dependence (LAG) → non-iid
   clustering feeds the antibody verdict. Real-data verified over 213 experiences.
   *(task #28)*
-- 🔴 **Regime-transition fragility + cross-regime co-failure clusters (queued).**
-  The LAG/recursive-CTE substrate is built; these need MULTI-REGIME data (real
-  data is single-regime "normal" today). Done = fragility/co-failure derived +
-  consumed, verified once regimes vary.
+- 🟡 **Regime-transition fragility + cross-regime co-failure clusters (queued).**
+  The LAG/recursive-CTE substrate is built. **UPDATE (2026-07-25, slice 5b):** the
+  blocker's root — "real data is single-regime 'normal'" — is fixed at the AXIS level:
+  experiences now carry a real `market_regime` (was degenerate calendar 'normal'), the
+  slice-5a curriculum drives regime-diverse replay, and `calibration_by_market_regime`
+  differentiates. What remains is (a) deriving fragility/co-failure ACROSS the market_regime
+  axis (query work) and (b) enough replayed variety for it to be meaningful (runtime accrual
+  via 5a). Done = fragility/co-failure derived over market_regime + consumed, verified once
+  the curriculum has replayed ≥2 regimes.
 - 🟢 **Brier decomposition** (Murphy reliability/resolution/uncertainty). DONE
   (2026-07-24): vendored (briertools rejected — no Murphy fn, 6 deps, no license);
   reliability_decomposition() + diagnosis fed into the antibody's tripwire detail;
@@ -317,14 +322,18 @@ when the build starts:
     `_curriculum_pick_replay_session` (autonomous replay now picks the least-learned-regime
     session, best-effort → most-recent fallback). Real pass: 23 real sessions → 12 trending
     / 6 range / 5 indecisive; selector avoids the saturated regime. 509 tests pass. *(task #7)*
-  - 🔴 **5b — market-regime TAG on experiences (queued — the multi-regime unblock):** stamp
-    the session's ADX market regime onto each `ClosedExperiment` (thread through
-    `build_closed_experiment` + sqlite migration + count-by-regime), so `ExperienceMemory`'s
-    regime-aware queries (calibration-by-regime, outcome_sequence_dependence, cross-regime
-    co-failure) finally get real variety → **unblocks the Layer-10 multi-regime queries**
-    end-to-end. Curriculum (5a) makes the replay stream regime-diverse; 5b captures it into
-    memory. Done = experiences carry market regime + a multi-regime query returns
-    differentiated results, real-data verified. *(task #8)*
+  - 🟢 **5b — market-regime TAG on experiences — DONE, Rule-F VERIFIED (2026-07-25).**
+    `ClosedExperiment.market_regime` threaded through `build_closed_experiment` + sqlite
+    migration; `experiment_count_by_market_regime` + `calibration_by_market_regime`
+    (`MarketRegimeCalibration` differentiated cohort) + `backfill_market_regime_by_session_
+    date`; the service drain stamps each experience's session regime. Real pass
+    (`scripts/backfill_experience_market_regime.py`): 293 real experiences re-tagged
+    'unknown'→'indecisive' (their true session); multi-regime query returns a real cohort.
+    514 tests pass. **Multi-regime AXIS now populated.** *(task #8)*
+    - 🔵 **Variety accrual (runtime, not code):** the real memory spans 1 traded session
+      today → 1 regime. As the slice-5a curriculum replays trending/range/indecisive
+      sessions, the multi-regime cohorts fill in and the differentiated queries become
+      multi-valued. No code owed — accrues as the always-on loop runs.
   - 🔴 **5c+ (deeper ADVANCED, not started):** microstructure features (OFI/VPIN — depends
     on P4b depth accruing), queue-position & market-impact fills (hftbacktest-style),
     parallel multi-day → champion-challenger. *(task TBD)*

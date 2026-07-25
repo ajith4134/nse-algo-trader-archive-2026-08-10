@@ -245,6 +245,10 @@ class LivePaperTradingService:
         # §53 slice 5a: deficit-driven replay curriculum — how many recent calendar days
         # to scan for stored sessions to classify + balance regime coverage across.
         self._curriculum_lookback_days = 60
+        # §53 slice 5b: cache of a date's classified market regime (keyed by date), so
+        # each closed experience is tagged with the ADX regime of its session without
+        # re-classifying every drain pass. Populated lazily from the bar store.
+        self._market_regime_cache_by_date: dict = {}
         # §53 slice 4 P4b: record live order-book depth forward (the only path to
         # historical depth). Default OFF (no load/behaviour change); enable to start
         # accumulating. The store is built lazily in the writer thread (SQLite is
@@ -796,6 +800,59 @@ class LivePaperTradingService:
             return self._replay_feed.provenance_stamp().provenance.value
         return DataProvenance.LIVE.value
 
+    def _current_session_market_regime(self) -> str:
+        """§53 slice 5b: the ADX market regime of the session the loop is trading right
+        now — the replay session in replay, today in live — so each closed experience is
+        tagged with its regime (the axis the multi-regime queries need variety on). A
+        trade opens+closes within one session, so this drain-time read is the trade's
+        regime. Best-effort → 'unknown' (never blocks the drain)."""
+        if (
+            self._replay_feed is not None
+            and self._feed is self._replay_feed
+            and self._high_fidelity_replay is not None
+        ):
+            return self._market_regime_for_date(self._high_fidelity_replay.session_date)
+        if self._feed is self._live_feed:
+            return self._market_regime_for_date(
+                datetime.now(_INDIA_MARKET_TIMEZONE).date()
+            )
+        return "unknown"  # store-5m replay spans many dates — no single regime
+
+    def _market_regime_for_date(self, session_date) -> str:
+        """Classify a session's ADX market regime from the stored benchmark bars, cached
+        per date. 'unknown' when no bars are stored for that date (best-effort)."""
+        if session_date in self._market_regime_cache_by_date:
+            return self._market_regime_cache_by_date[session_date]
+        from datetime import timedelta
+
+        from nse_algo_trader.market_data import BarInterval
+        from nse_algo_trader.paper_trading.historical_session_market_regime_classifier import (  # noqa: E501
+            classify_session_market_regime,
+        )
+
+        regime = "unknown"
+        try:
+            store = MarketDataSqliteStore()
+            try:
+                benchmark_token = self._curriculum_benchmark_token(store)
+                if benchmark_token is not None:
+                    day_start = datetime(
+                        session_date.year, session_date.month, session_date.day,
+                        tzinfo=_INDIA_MARKET_TIMEZONE,
+                    )
+                    bars = store.load_price_bars(
+                        benchmark_token, BarInterval.MINUTE_5,
+                        day_start, day_start + timedelta(days=1),
+                    )
+                    if bars:
+                        regime = classify_session_market_regime(bars).value
+            finally:
+                store.close()
+        except Exception:
+            regime = "unknown"
+        self._market_regime_cache_by_date[session_date] = regime
+        return regime
+
     def _drain_closed_experiments_into_memory(self) -> None:
         """Record each closed §9 experiment the loop emitted into Layer-10
         ExperienceMemory (Rule G wiring). Runs in the writer thread; the store
@@ -806,11 +863,13 @@ class LivePaperTradingService:
             if self._experience_memory is None:
                 self._experience_memory = SqliteExperienceMemory()
             data_provenance = self._current_data_provenance()
+            market_regime = self._current_session_market_regime()
             while events:
                 graded, closed_trade, instrument_kind = events.pop(0)
                 self._experience_memory.record_closed_experiment(
                     build_closed_experiment(
-                        graded, closed_trade, instrument_kind, data_provenance
+                        graded, closed_trade, instrument_kind, data_provenance,
+                        market_regime,
                     )
                 )
             # Refresh the antibody veto set (Layer 10 slice 3): mechanisms the

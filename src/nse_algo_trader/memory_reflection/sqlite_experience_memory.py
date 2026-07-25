@@ -23,6 +23,7 @@ from nse_algo_trader.memory_reflection.experience_memory import (
     CalibrationBoardRow,
     CalibrationSummary,
     ClosedExperiment,
+    MarketRegimeCalibration,
     MechanismReliability,
     OutcomeSequenceDependence,
     PrequentialForecastScore,
@@ -76,7 +77,8 @@ CREATE TABLE IF NOT EXISTS experience_nodes (
     predicted_exit_cause TEXT NOT NULL,
     actual_exit_cause TEXT NOT NULL,
     kill_criteria TEXT NOT NULL,
-    data_provenance TEXT NOT NULL DEFAULT 'live'
+    data_provenance TEXT NOT NULL DEFAULT 'live',
+    market_regime TEXT NOT NULL DEFAULT 'unknown'
 )
 """
 
@@ -104,6 +106,9 @@ class SqliteExperienceMemory:
         self._add_column_if_missing(
             "data_provenance", "TEXT NOT NULL DEFAULT 'live'"
         )
+        self._add_column_if_missing(
+            "market_regime", "TEXT NOT NULL DEFAULT 'unknown'"
+        )
         for index_statement in _INDEXES:
             self._connection.execute(index_statement)
         self._connection.commit()
@@ -129,7 +134,7 @@ class SqliteExperienceMemory:
     def record_closed_experiment(self, experiment: ClosedExperiment) -> None:
         self._connection.execute(
             "INSERT OR REPLACE INTO experience_nodes VALUES "
-            "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 experiment.experiment_id,
                 experiment.occurred_at.isoformat(),
@@ -153,6 +158,7 @@ class SqliteExperienceMemory:
                 experiment.actual_exit_cause,
                 experiment.kill_criteria,
                 experiment.data_provenance,
+                experiment.market_regime,
             ),
         )
         self._connection.commit()
@@ -173,6 +179,62 @@ class SqliteExperienceMemory:
                 "GROUP BY data_provenance"
             )
         }
+
+    def experiment_count_by_market_regime(self) -> dict[str, int]:
+        """How many experiences fall in each ADX market regime (§53 slice 5b) — the
+        variety read that shows the memory is no longer a single-regime 'unknown' blob."""
+        return {
+            row["market_regime"]: row["n"]
+            for row in self._connection.execute(
+                "SELECT market_regime, COUNT(*) AS n FROM experience_nodes "
+                "GROUP BY market_regime"
+            )
+        }
+
+    def calibration_by_market_regime(
+        self, strategy_tag: str | None = None, minimum_experiments: int = 1
+    ) -> list[MarketRegimeCalibration]:
+        """Per-market-regime calibration cohorts (§53 slice 5b) — the differentiated
+        multi-regime read (hit rate / Brier / mean return by trending vs range vs
+        indecisive). Optionally scoped to one strategy. This is the query the Layer-10
+        multi-regime blocker was waiting on regime variety to make meaningful."""
+        where = "WHERE strategy_tag = ?" if strategy_tag else ""
+        params: tuple = (strategy_tag,) if strategy_tag else ()
+        rows = self._connection.execute(
+            "SELECT market_regime, COUNT(*) AS n, AVG(prediction_was_correct) AS hit, "
+            "AVG(brier_contribution) AS brier, AVG(realized_return_fraction) AS ret "
+            f"FROM experience_nodes {where} "
+            "GROUP BY market_regime HAVING n >= ? ORDER BY market_regime",
+            (*params, minimum_experiments),
+        ).fetchall()
+        return [
+            MarketRegimeCalibration(
+                market_regime=row["market_regime"],
+                experiment_count=row["n"],
+                hit_rate=row["hit"],
+                mean_brier=row["brier"],
+                mean_return_fraction=row["ret"],
+            )
+            for row in rows
+        ]
+
+    def backfill_market_regime_by_session_date(
+        self, market_regime_by_session_date: dict
+    ) -> int:
+        """Retro-tag existing experiences with the market regime of their session
+        (§53 slice 5b) — classify each experience's `session_date` once and set its
+        `market_regime`, so the multi-regime queries have real variety immediately
+        (not only for experiences recorded after the tag existed). Idempotent; keys are
+        `datetime.date`. Returns the number of rows updated."""
+        updated = 0
+        for session_date, market_regime in market_regime_by_session_date.items():
+            cursor = self._connection.execute(
+                "UPDATE experience_nodes SET market_regime = ? WHERE session_date = ?",
+                (market_regime, session_date.isoformat()),
+            )
+            updated += cursor.rowcount
+        self._connection.commit()
+        return updated
 
     def calibration_for(
         self, strategy_tag: str, regime_context: str

@@ -61,6 +61,13 @@ class ClosedExperiment:
     # lesson override live evidence. Defaults to "live" for back-compat (every
     # experience recorded before the watermark existed was a real live one).
     data_provenance: str = "live"
+    # The ADX MARKET regime the session traded in (§53 slice 5b): "trending" /
+    # "range_bound" / "indecisive" / "unknown". Distinct from `regime_context` (the
+    # calendar context). This is the axis the deficit-driven curriculum varies and the
+    # Layer-10 multi-regime queries need variety on. Defaults to "unknown" for
+    # back-compat (experiences recorded before the tag existed; backfillable by
+    # classifying their session_date — scripts/backfill_experience_market_regime.py).
+    market_regime: str = "unknown"
 
 
 @dataclass(frozen=True)
@@ -165,6 +172,20 @@ class PrequentialForecastScore:
     mean_brier: float | None
 
 
+@dataclass(frozen=True)
+class MarketRegimeCalibration:
+    """Per-market-regime calibration cohort (§53 slice 5b) — the differentiated read the
+    Layer-10 multi-regime queries needed regime variety to produce. Shows how a strategy's
+    hit rate / Brier / mean return DIFFER across trending vs range-bound vs indecisive
+    sessions, instead of one undifferentiated 'normal' blob."""
+
+    market_regime: str
+    experiment_count: int
+    hit_rate: float | None
+    mean_brier: float | None
+    mean_return_fraction: float | None
+
+
 class ExperienceMemory(Protocol):
     """The swappable substrate boundary (research/43). A SQLite backend today.
     Graphiti/Neo4j was REJECTED (research/50): it is an LLM-text-extraction KG
@@ -177,6 +198,16 @@ class ExperienceMemory(Protocol):
     def experiment_count(self) -> int: ...
 
     def experiment_count_by_provenance(self) -> dict[str, int]: ...
+
+    def experiment_count_by_market_regime(self) -> dict[str, int]: ...
+
+    def calibration_by_market_regime(
+        self, strategy_tag: str | None = None, minimum_experiments: int = 1
+    ) -> list[MarketRegimeCalibration]: ...
+
+    def backfill_market_regime_by_session_date(
+        self, market_regime_by_session_date: dict
+    ) -> int: ...
 
     def calibration_for(
         self, strategy_tag: str, regime_context: str
@@ -224,6 +255,7 @@ def build_closed_experiment(
     closed_trade,
     instrument_kind: str,
     data_provenance: str = "live",
+    market_regime: str = "unknown",
 ) -> ClosedExperiment:
     """Assemble a memory node from a §9 `GradedPrediction` + its
     `ClosedPaperTrade`. Kept free of any backend so it is reused across
@@ -258,4 +290,5 @@ def build_closed_experiment(
         actual_exit_cause=closed_trade.outcome.value,
         kill_criteria=record.kill_criteria,
         data_provenance=data_provenance,
+        market_regime=market_regime,
     )
