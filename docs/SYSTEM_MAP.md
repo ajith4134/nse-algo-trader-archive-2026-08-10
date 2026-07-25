@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-25j**.
-- **123 Python modules across 14 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-25k**.
+- **125 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -180,6 +180,7 @@ Each block: purpose · files (role) · what flows IN/OUT · internal file→file
 - `kite_live_universe_feed.py` — **the live-session feed**: batched-LTP breadth + `recent_intraday_bars` depth; `KiteLiveUniverseFeed`.
 - `market_data_sqlite_store.py` — persists/loads bars + all 5 report types; `MarketDataSqliteStore`.
 - `daily_nse_reports_ingestion_job.py`, `fo_bhavcopy_backfill_job.py` — ingestion jobs.
+- **Delisted master (§53 task #13):** `delisted_securities_source.py` (`DelistedSecuritiesSource` seam + `BseDelistedSecuritiesSource` free BSE `ListofScripData`, ISIN-carrying + `DelistedSecuritiesMaster` lookup) · `delisted_securities_ingestion_job.py` (CLI/cron entry point) · stored via `MarketDataSqliteStore.save/load_delisted_securities`. Cross-source for the §53 survivorship / suspension-vs-delisting work.
 - `nse_official_reports/*` (6) — downloader + 5 parsers (cash bhavcopy/delivery, F&O OI, ban list, MWPL, bulk/block deals).
 - IN: Kite (ltp/historical), NSE report files, `Instrument`. OUT: `PriceBar` (live + replay) → indicators/paper_trading; report rows → indicators/risk; the SQLite store.
 
@@ -309,6 +310,24 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-25k** — **Delisted-securities master (task #13)** + **Rule L** (segment
+  priority) added to CLAUDE.md. New `market_data/delisted_securities_source.py`
+  (`DelistedSecurity` · `DelistedSecuritiesSource` protocol · `BseDelistedSecuritiesSource`
+  real adapter · `DelistedSecuritiesMaster` lookup) + `market_data/
+  delisted_securities_ingestion_job.py` (CLI entry point, Rule-G wiring) +
+  `MarketDataSqliteStore.save/load_delisted_securities` (new `delisted_securities`
+  table). 123→125 modules, no new cross-feature edge. Free BSE `ListofScripData`
+  delisted list (ISIN-carrying) as a cross-source for the §53 survivorship work
+  (NSE's own list is bot-blocked). **Hermetic (Rule J):** parse/skip-no-ISIN, store
+  round-trip, master lookup, ingestion job via injected fake. **Rule-F real-data
+  DONE:** live BSE fetch returned **>1,000 real delisted rows, all ISIN-carrying**
+  (env-gated `RUN_BSE_NETWORK_TEST`). 454 pass (+5, 2 network tests env-gated).
+  Queued (Rule K): Kaggle CC-BY cross-set (needs a Kaggle token); resolver-side
+  consumption (suspension-vs-delisting test G3 + universe-gap classification).
+  **Rule L** (CLAUDE.md): the 3 segments (index options / stock options / cash) are
+  EQUAL by default (full universe each); the order index→stock→cash is only the
+  tie-break under a rate-limit/budget/single-focus constraint (cash yields first).
+  Retrofit tracked as task #16 (the Breeze replay focus is currently cash-only).
 - **2026-07-25j** — **Fyers deep-history adapter** (task #11; research/77 top win +
   research/78; 122→123 modules, no new cross-feature edge). New `market_data/
   fyers_historical_bar_source.py`: `FyersHistoricalBarSource` implements the

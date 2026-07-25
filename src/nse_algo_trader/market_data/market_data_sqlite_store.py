@@ -181,6 +181,47 @@ class MarketDataSqliteStore:
             )
         ]
 
+    # -- delisted-securities master (§53 task #13) --------------------------
+    _CREATE_DELISTED_TABLE = """
+    CREATE TABLE IF NOT EXISTS delisted_securities (
+        source TEXT NOT NULL, isin TEXT NOT NULL, name TEXT NOT NULL,
+        symbol TEXT NOT NULL, scrip_code TEXT NOT NULL,
+        PRIMARY KEY (source, isin)
+    )
+    """
+
+    def save_delisted_securities(self, delisted_securities: list) -> int:
+        """Persist the delisted master (keyed by source+ISIN, idempotent)."""
+        self._connection.execute(self._CREATE_DELISTED_TABLE)
+        self._connection.executemany(
+            "INSERT OR REPLACE INTO delisted_securities VALUES (?,?,?,?,?)",
+            [
+                (d.source, d.isin, d.name, d.symbol, d.scrip_code)
+                for d in delisted_securities
+            ],
+        )
+        self._connection.commit()
+        return len(delisted_securities)
+
+    def load_delisted_securities(self, source: str | None = None) -> list:
+        from nse_algo_trader.market_data.delisted_securities_source import (
+            DelistedSecurity,
+        )
+
+        self._connection.execute(self._CREATE_DELISTED_TABLE)
+        clause = "WHERE source = ?" if source else ""
+        params = (source,) if source else ()
+        return [
+            DelistedSecurity(
+                source=row[0], isin=row[1], name=row[2], symbol=row[3], scrip_code=row[4],
+            )
+            for row in self._connection.execute(
+                f"SELECT source, isin, name, symbol, scrip_code "
+                f"FROM delisted_securities {clause} ORDER BY isin",
+                params,
+            )
+        ]
+
     def latest_cash_bhavcopy_trade_date(self) -> date | None:
         """The most recent trade date with stored cash bhavcopy, or None. Used to
         rank the Breeze-replay focus by real liquidity (§53 task #8)."""

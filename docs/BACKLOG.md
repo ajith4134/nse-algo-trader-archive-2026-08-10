@@ -346,7 +346,15 @@ P4b) or license NSE. Net-new actionable wins now tracked:
   - 🔴 **Fyers session-token store** (like Breeze #6a) + isolated dependency group. *(task #15)*
 - 🔵 **HuggingFace 2022+ NSE 1-min seed** (MIT) — bulk backfill of the bars store;
   verify provenance first. *(task #12)*
-- 🔵 **BSE + Kaggle delisted cross-sources** — BSE ListofScripData (status=delisted)
-  + Kaggle CC-BY-4.0 survivorship-free set; helps the delisted-master blocker. *(task #13)*
+- 🟡 **BSE delisted cross-source — BUILT + real-data verified (2026-07-25,
+  research/79).** `delisted_securities_source` (BSE `ListofScripData`, ISIN-carrying,
+  free) + `DelistedSecuritiesMaster` + `delisted_securities_ingestion_job` (CLI) +
+  store table. Rule-F: live BSE fetch >1,000 real delisted rows, all with ISIN. 454
+  tests pass. *(task #13)*
+  - 🔵 **Kaggle CC-BY-4.0 survivorship-free set** as a 2nd cross-source — deferred
+    (needs a Kaggle API token). *(task #13)*
+  - 🔴 **Resolver-side consumption** — suspension-vs-delisting test (§53 G3) +
+    universe-gap classification (bhavcopy gap + delisted-master hit = confirmed
+    delisted) using `DelistedSecuritiesMaster`. The purpose-consumer (Rule K).
 - ⛔ **ISIN-to-ISIN merger lineage** — confirmed no free source (symbolchange.csv
   has no ISIN column); remains an open gap (per-event manual or paid vendor).

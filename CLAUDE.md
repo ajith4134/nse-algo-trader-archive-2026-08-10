@@ -229,6 +229,23 @@ otherwise promise something not done in this change — I MUST, in the same turn
   consumer), Rule F/J (open real-data blockers are backlog items too), Rule H
   (the map records structure; the backlog records promised-but-undone work).
 
+## Rule L — Three segments EQUAL by default; priority order only as the tie-break under a constraint
+By default treat the three segments as **EQUAL priority** — cover the FULL universe
+of all three equally, never over-focusing on any one (and never a cash-only path
+while options lag). The segments:
+- NSE **index options** (NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY, NIFTYNXT50)
+- NSE **stock options** (~210 underlyings)
+- NSE **cash equity intraday**
+
+**Only when you genuinely cannot serve all three equally** — a rate-limit / time /
+compute / budget constraint, or a deliberate single-segment focus — apply this
+tie-break order to decide what gets priority and what is dropped LAST/first:
+1. index options → 2. stock options → 3. cash (cash yields first).
+So: equal breadth normally; index-options-first only when something must give.
+This sits on top of the full-universe rule — within each covered segment always the
+FULL universe (all 5 index-option underlyings with near-expiry ATM/ITM/OTM ladders,
+all ~210 stock-option underlyings with ladders, all ~2,000 cash names), never a sample.
+
 ## Non-negotiables carried through every layer
 - Intraday only. Every position auto-squares-off before close. No exceptions
   per-segment, ever, unless a future phase explicitly revisits this.
