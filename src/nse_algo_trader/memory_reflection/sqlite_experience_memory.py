@@ -25,6 +25,7 @@ from nse_algo_trader.memory_reflection.experience_memory import (
     ClosedExperiment,
     MechanismReliability,
     OutcomeSequenceDependence,
+    PrequentialForecastScore,
     PriorOutcomeSummary,
     ReflectionDiffRow,
 )
@@ -409,6 +410,37 @@ class SqliteExperienceMemory:
             reverse=True,
         )
         return results
+
+    def prequential_forecast_score(
+        self, data_provenance: str | None = None
+    ) -> PrequentialForecastScore:
+        """Running predict-then-reveal forecast skill over the stored prediction
+        stream (§53 slice 3b-ii): mean log-loss (bits) + mean Brier over every
+        graded prediction, optionally restricted to one provenance so live vs
+        replay skill are comparable. Order-independent (a mean), so the persisted
+        rows ARE the prequential stream — no in-memory accumulator needed."""
+        where = "WHERE data_provenance = ?" if data_provenance else ""
+        params: tuple = (data_provenance,) if data_provenance else ()
+        rows = self._connection.execute(
+            "SELECT win_probability, "
+            "CASE WHEN actual_outcome='win' THEN 1.0 ELSE 0.0 END AS won "
+            f"FROM experience_nodes {where}",
+            params,
+        ).fetchall()
+        if not rows:
+            return PrequentialForecastScore(0, None, None)
+        log_loss_sum = 0.0
+        brier_sum = 0.0
+        for row in rows:
+            probability = min(
+                1.0 - _LOG_SCORE_PROBABILITY_EPSILON,
+                max(_LOG_SCORE_PROBABILITY_EPSILON, row["win_probability"]),
+            )
+            probability_of_realized = probability if row["won"] >= 0.5 else 1.0 - probability
+            log_loss_sum += -math.log2(probability_of_realized)
+            brier_sum += (row["win_probability"] - row["won"]) ** 2
+        count = len(rows)
+        return PrequentialForecastScore(count, log_loss_sum / count, brier_sum / count)
 
     def _aggregate_cohorts(self, where_clause: str, params: tuple) -> dict:
         cursor = self._connection.execute(

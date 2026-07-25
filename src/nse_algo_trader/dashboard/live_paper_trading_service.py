@@ -126,6 +126,9 @@ class LivePaperPublishedSnapshot:
     # replay is visible ({"live": n, "replay_faithful": m}). Empty until replay
     # experiences accrue.
     experiment_count_by_provenance: dict | None = None
+    # §53 slice 3b-ii: running forecast skill (log-loss/Brier) overall + split
+    # live vs replay ({"overall":{...}, "live":{...}, "replay_faithful":{...}}).
+    prequential_forecast_score: dict | None = None
 
     @property
     def open_position_count(self) -> int:
@@ -691,6 +694,7 @@ class LivePaperTradingService:
             strategy_readiness=_strategy_readiness_summaries(self._state),
             memory_experiment_count=self._memory_experiment_count(),
             experiment_count_by_provenance=self._memory_experiment_count_by_provenance(),
+            prequential_forecast_score=self._memory_prequential_forecast_score(),
             calibration_board=self._memory_calibration_board(),
             assumption_verdicts=self._memory_assumption_verdicts(),
             vetoed_mechanism_count=len(self._state.vetoed_mechanisms),
@@ -855,6 +859,30 @@ class LivePaperTradingService:
                 if self._experience_memory
                 else {}
             )
+        except Exception:
+            return {}
+
+    def _memory_prequential_forecast_score(self) -> dict:
+        """Running forecast skill (log-loss/Brier) overall + split live vs replay
+        (§53 slice 3b-ii; writer thread owns the memory's SQLite connection)."""
+        if self._experience_memory is None:
+            return {}
+        try:
+            from dataclasses import asdict
+
+            return {
+                "overall": asdict(self._experience_memory.prequential_forecast_score()),
+                "live": asdict(
+                    self._experience_memory.prequential_forecast_score(
+                        data_provenance="live"
+                    )
+                ),
+                "replay_faithful": asdict(
+                    self._experience_memory.prequential_forecast_score(
+                        data_provenance="replay_faithful"
+                    )
+                ),
+            }
         except Exception:
             return {}
 

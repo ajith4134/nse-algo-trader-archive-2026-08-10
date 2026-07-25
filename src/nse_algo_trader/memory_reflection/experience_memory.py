@@ -150,6 +150,21 @@ class OutcomeSequenceDependence:
     clusters: bool
 
 
+@dataclass(frozen=True)
+class PrequentialForecastScore:
+    """The running predict-then-reveal forecast SKILL over the prediction stream
+    (§53 slice 3b-ii, research/65) — a proper-score summary, not a calibration gap.
+    `mean_log_loss_bits` is −log₂(p_of_the_realized_outcome) averaged over every
+    graded prediction (1.0 = an always-0.5 guess; lower is sharper-and-right,
+    higher = confidently wrong); `mean_brier` is the mean (p − won)². Computed with
+    an optional `data_provenance` filter so LIVE and 24/7-REPLAY forecast skill are
+    comparable side by side."""
+
+    experiment_count: int
+    mean_log_loss_bits: float | None
+    mean_brier: float | None
+
+
 class ExperienceMemory(Protocol):
     """The swappable substrate boundary (research/43). A SQLite backend today.
     Graphiti/Neo4j was REJECTED (research/50): it is an LLM-text-extraction KG
@@ -197,6 +212,11 @@ class ExperienceMemory(Protocol):
         self,
         minimum_experiments: int = 12,
     ) -> list[OutcomeSequenceDependence]: ...
+
+    def prequential_forecast_score(
+        self,
+        data_provenance: str | None = None,
+    ) -> PrequentialForecastScore: ...
 
 
 def build_closed_experiment(

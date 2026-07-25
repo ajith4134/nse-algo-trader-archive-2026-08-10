@@ -188,15 +188,16 @@ when the build starts:
   over-reliance-on-replay WARNING (`replay_experience_share`). Rule-F: on the real
   293-live DB the weighted veto set + offsets are IDENTICAL to pooled (no
   regression); hermetic tests prove the discount + the WARNING. 410 tests pass.
-- 🔴 **Slice 3b-ii — dense per-step prequential scorer (queued).** Beyond the
-  existing per-trade §9 grading: a running predict-then-reveal log/Brier over the
-  replay stream (§8.1). Sourcing verdict (research/63): **vendor River `LogLoss`**
-  (`river.metrics.LogLoss` + `river.stats.Mean` + `metrics.base` scaffold, BSD-3,
-  ~100 LOC) + a hand-written 15-line `BrierScore` twin; per-cohort = a dict of
-  metric instances keyed by group; River's `progressive_val_score` REJECTED
-  (model-coupled), depending on the River package REJECTED (numpy + Python≥3.11).
-  Done = a running log/Brier accrues over a replay session + surfaced, Rule-F
-  verified. *(task #2)*
+- 🟢 **Slice 3b-ii — dense prequential forecast scorer.** DONE (2026-07-25,
+  research/65, real-data verified): `ExperienceMemory.prequential_forecast_score`
+  (running log-loss bits + Brier over the stored prediction stream, provenance-
+  separable) → Reflection panel "Forecast skill" note (live vs replay). Sourcing
+  outcome: River's `LogLoss` NOT vendored — a query over the persisted stream (we
+  already have the formulas) is stateless, restart-safe, and Rule-F-verifiable now,
+  which an in-memory accumulator is not. Rule-F: real 293 predictions → 1.142 bits
+  / Brier 0.252; independent Brier recompute matches. 414 tests pass. **⇒ slice 3b
+  COMPLETE.** (Per-BAR finer-than-per-trade scoring — the River-accumulator
+  use-case — remains a future item only if per-step predictions are ever emitted.)
 - 🔴 **Slice 4 — fidelity climb**: ICICI Breeze 1-second source + start
   recording our own live depth forward (the only path to L2/L3).
 - 🔴 **Slice 5+ — ADVANCED**: microstructure features, queue/impact fills,

@@ -520,7 +520,13 @@ function renderLive(snap){
       `<td style="color:${logc}">${logv!=null?logv.toFixed(2):'—'}</td></tr>`;
   });
   document.getElementById("reflectTbl").innerHTML=rbrows;
-  document.getElementById("reflectnote").innerHTML="Each closed §9 experiment (cash + options) is a memory node. The bar is the <b>actual</b> win-rate; the tick <b>▏</b> is what was <b>predicted</b>. A tick far to the RIGHT of the bar = over-confident thesis (red) — the bot learns to distrust it; tick left of the bar = under-confident (blue).";
+  // §53 slice 3b-ii: running prequential forecast SKILL (log-loss bits · Brier),
+  // live vs replay. <1.0 bit = better than a coin-flip; higher = confidently wrong.
+  const pfs=snap.prequential_forecast_score||{};
+  const skill=g=>(g&&g.experiment_count)?`${(g.mean_log_loss_bits).toFixed(2)} bits · Brier ${(g.mean_brier).toFixed(3)}`:"—";
+  const replaySkill=(pfs.replay_faithful&&pfs.replay_faithful.experiment_count)?` · replay ${skill(pfs.replay_faithful)}`:"";
+  const skillLine=pfs.overall?`<b>Forecast skill (prequential):</b> live ${skill(pfs.live||pfs.overall)}${replaySkill}. `:"";
+  document.getElementById("reflectnote").innerHTML=skillLine+"Each closed §9 experiment (cash + options) is a memory node. The bar is the <b>actual</b> win-rate; the tick <b>▏</b> is what was <b>predicted</b>. A tick far to the RIGHT of the bar = over-confident thesis (red) — the bot learns to distrust it; tick left of the bar = under-confident (blue).";
   // --- Assumption tripwires (L10 slice 2) ---
   const tw=snap.assumption_tripwires||[];
   const statusOrder={violated:0,holding:1,insufficient_data:2};

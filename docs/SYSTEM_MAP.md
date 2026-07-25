@@ -265,7 +265,7 @@ flowchart LR
 ### L10 · memory_reflection  (4 files)  — episodic experience memory + assumption tripwires
 - `experience_memory.py` — `ExperienceMemory` protocol (swappable substrate boundary), `ClosedExperiment` node, `build_closed_experiment` (from a graded §9 prediction + closed trade), summary types.
 - `assumption_registry.py` — `evaluate_trading_assumptions` (calibration + edge assumptions, TRIPPED only with significant evidence — one-sided binomial z, min 12 trades) + `vetoed_mechanisms` (the tripped set). Feeds the dashboard "Assumption tripwires" panel, a WARNING alert, AND the **antibody auto-veto**: the service sets `LiveUniversePaperState.vetoed_mechanisms` each pass, and the L7 loop refuses new entries on a refuted mechanism (`is_mechanism_vetoed`) — memory feeding back into the trading gate. **§53 slice 3b-i:** the veto + recalibration read a **provenance-weighted** board (`provenance_weighted_calibration_board`, replay=0.25×live) so a replay-only lesson never overrides live evidence; the information-diet warns on over-reliance on replay.
-- `sqlite_experience_memory.py` — `SqliteExperienceMemory`: typed experiment nodes in one `.db`; serves calibration-by-regime, prior-outcomes (entry-time pre-mortem), reflection-diff, and the **calibration_board** (per-mechanism predicted-vs-actual win-rate — with an optional `data_provenance` filter, §53 slice 3a, so live vs 24/7-replay calibration are separable) by indexed group-by; `experiment_count_by_provenance()` gives the live/replay mix. (Graphiti/Neo4j temporal-KG = documented swap-up for the semantic/multi-hop tier — research/43.)
+- `sqlite_experience_memory.py` — `SqliteExperienceMemory`: typed experiment nodes in one `.db`; serves calibration-by-regime, prior-outcomes (entry-time pre-mortem), reflection-diff, **prequential_forecast_score** (running log-loss/Brier forecast skill, provenance-separable — §53 slice 3b-ii), and the **calibration_board** (per-mechanism predicted-vs-actual win-rate — with an optional `data_provenance` filter, §53 slice 3a, so live vs 24/7-replay calibration are separable) by indexed group-by; `experiment_count_by_provenance()` gives the live/replay mix. (Graphiti/Neo4j temporal-KG = documented swap-up for the semantic/multi-hop tier — research/43.)
 - IN: closed §9 experiments (graded prediction + closed trade — **cash AND options**) emitted by the L7 loop, drained by the dashboard service. OUT: calibration / prior-outcome / reflection-diff / calibration-board summaries → dashboard **Reflection panel**.
 - **Wiring:** the L7 loop emits `(graded, trade, kind)` events on close (no L10 import); `dashboard/live_paper_trading_service._drain_closed_experiments_into_memory` records them into `ExperienceMemory` in the writer thread, and publishes the calibration board to the dashboard Reflection panel. Rule-F verified on real closed experiments (2026-07-24) — surfaced that the confident-win "trend-continuation" mechanism ran at 0.05 hit rate while the confident-loss "false-breakout" thesis held at 0.75.
 
@@ -304,6 +304,23 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-25c** — **§53 slice 3b-ii — dense prequential forecast scorer** (no new
+  files; 111 modules, no new cross-feature edge; research/65). New
+  `ExperienceMemory.prequential_forecast_score(data_provenance=None) ->
+  PrequentialForecastScore(experiment_count, mean_log_loss_bits, mean_brier)`
+  (protocol + sqlite): the running predict-then-reveal forecast SKILL (mean
+  log-loss in bits + mean Brier) over the stored prediction stream, provenance-
+  separable (live vs replay). **Sourcing outcome (research/63→65):** River's
+  `LogLoss` accumulator was NOT vendored — we already have the log/Brier formulas
+  (`proper_scoring_rules`, inlined in Layer 10 to avoid a Layer-7 import) and every
+  prediction is persisted, so a query over the stored stream is stateless,
+  restart-safe, and real-data-verifiable now (an in-memory accumulator would be
+  none of those). Service publishes overall + live + replay via the snapshot →
+  read model → server → the Reflection panel note ("Forecast skill (prequential):
+  live … · replay …"). **Rule-F verified** on the real 293-prediction DB: log-loss
+  1.142 bits, Brier 0.252 (overall == live, replay empty); independent Brier
+  recompute matches to 1e-9. Hermetic tests: confident-wrong scores high, live vs
+  replay separated. 414 tests pass (+4). **⇒ slice 3b COMPLETE (3b-i + 3b-ii).**
 - **2026-07-25b** — **§53 slice 3b-i — provenance INTO decisions** (no new files;
   111 modules, no new cross-feature edge; research/64). The slice-3a provenance
   separation now CHANGES what the bot does. New `assumption_registry.

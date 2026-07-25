@@ -171,3 +171,75 @@ def test_real_memory_db_migrates_and_reads_all_live_on_a_copy(tmp_path):
     assert sum(by_provenance.values()) == memory.experiment_count()
     assert memory.experiment_count() > 100  # the real accumulated history
     assert set(by_provenance) == {"live"}
+
+
+def test_prequential_forecast_score_punishes_confident_wrong(tmp_path):
+    """§53 slice 3b-ii: a calibrated-and-right stream scores a low log-loss; a
+    confidently-wrong stream scores a high one."""
+    mem = SqliteExperienceMemory(db_file_path=tmp_path / "e.sqlite3")
+    for i in range(5):  # p=0.6, all WON (the _experiment default)
+        mem.record_closed_experiment(_experiment(f"win-{i}", "live"))
+    calibrated = mem.prequential_forecast_score()
+    assert calibrated.experiment_count == 5
+    assert abs(calibrated.mean_log_loss_bits - 0.737) < 0.01  # -log2(0.6)
+    assert abs(calibrated.mean_brier - 0.16) < 1e-9  # (0.6-1)^2
+
+    mem2 = SqliteExperienceMemory(db_file_path=tmp_path / "e2.sqlite3")
+    for i in range(5):  # p=0.9 but all LOST -> confidently wrong
+        mem2.record_closed_experiment(
+            replace(
+                _experiment(f"loss-{i}", "live"),
+                win_probability=0.9, actual_outcome="loss", prediction_was_correct=False,
+            )
+        )
+    wrong = mem2.prequential_forecast_score()
+    assert abs(wrong.mean_log_loss_bits - 3.322) < 0.01  # -log2(0.1)
+    assert wrong.mean_log_loss_bits > calibrated.mean_log_loss_bits
+
+
+def test_prequential_forecast_score_empty_is_none(tmp_path):
+    mem = SqliteExperienceMemory(db_file_path=tmp_path / "e.sqlite3")
+    score = mem.prequential_forecast_score()
+    assert score == mem.prequential_forecast_score()  # deterministic
+    assert score.experiment_count == 0
+    assert score.mean_log_loss_bits is None and score.mean_brier is None
+
+
+def test_prequential_forecast_score_separates_live_from_replay(tmp_path):
+    mem = SqliteExperienceMemory(db_file_path=tmp_path / "e.sqlite3")
+    for i in range(4):  # live wins at 0.6
+        mem.record_closed_experiment(_experiment(f"live-{i}", "live"))
+    for i in range(4):  # replay: confident 0.9 losses
+        mem.record_closed_experiment(
+            replace(
+                _experiment(f"rep-{i}", "replay_faithful"),
+                win_probability=0.9, actual_outcome="loss", prediction_was_correct=False,
+            )
+        )
+    live = mem.prequential_forecast_score(data_provenance="live")
+    replay = mem.prequential_forecast_score(data_provenance="replay_faithful")
+    assert (live.experiment_count, replay.experiment_count) == (4, 4)
+    assert replay.mean_log_loss_bits > live.mean_log_loss_bits  # replay forecasts worse
+    assert mem.prequential_forecast_score().experiment_count == 8  # pooled
+
+
+def test_real_db_prequential_forecast_score_on_a_copy(tmp_path):
+    if not _REAL_MEMORY_DB.exists():
+        pytest.skip("real experience_memory DB not present")
+    copy_path = tmp_path / "copy.sqlite3"
+    shutil.copy(_REAL_MEMORY_DB, copy_path)
+    mem = SqliteExperienceMemory(db_file_path=copy_path)
+    overall = mem.prequential_forecast_score()
+    live = mem.prequential_forecast_score(data_provenance="live")
+    replay = mem.prequential_forecast_score(data_provenance="replay_faithful")
+    assert overall.experiment_count == mem.experiment_count()
+    assert live.experiment_count == overall.experiment_count  # all real rows are live
+    assert replay.experiment_count == 0 and replay.mean_log_loss_bits is None
+    assert overall.mean_log_loss_bits > 0 and 0.0 <= overall.mean_brier <= 1.0
+    # Independent Brier recompute from the raw rows matches the scorer.
+    rows = sqlite3.connect(str(copy_path)).execute(
+        "SELECT win_probability, "
+        "CASE WHEN actual_outcome='win' THEN 1.0 ELSE 0.0 END FROM experience_nodes"
+    ).fetchall()
+    expected_brier = sum((p - won) ** 2 for p, won in rows) / len(rows)
+    assert abs(overall.mean_brier - expected_brier) < 1e-9
