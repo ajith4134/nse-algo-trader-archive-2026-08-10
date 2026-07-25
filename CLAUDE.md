@@ -246,6 +246,37 @@ This sits on top of the full-universe rule — within each covered segment alway
 FULL universe (all 5 index-option underlyings with near-expiry ATM/ITM/OTM ladders,
 all ~210 stock-option underlyings with ladders, all ~2,000 cash names), never a sample.
 
+## Rule M — Plan Altitude: never tunnel on one topic; keep the WHOLE plan (and the live map) in view
+Going deep on one feature for many slices must never let the rest of the plan
+fall out of view. `docs/MASTER_PROGRESS.md` holds the ENTIRE plan at a glance
+(Layers 1–11, §53 tiers, ADVANCED slices, multi-broker, dashboard, blockers,
+paused items) — an index over PLAN/SYSTEM_MAP/BACKLOG.
+- **Session start:** read `MASTER_PROGRESS.md` (with `BACKLOG.md`) and say where we
+  are in the WHOLE plan before doing anything.
+- **Every sign-off:** after the per-feature open items (Rule K), add a one-line
+  **whole-plan altitude check** — where the finished slice sits in `MASTER_PROGRESS`
+  and the top 2–3 remaining big-rocks across the ENTIRE plan. **Re-pick the next work
+  from `MASTER_PROGRESS` by whole-plan priority, not by whatever is locally adjacent.**
+- **Anti-tunnel trigger:** after ~3 consecutive slices in one feature-area (or before
+  starting a new area), force the zoom-out above and re-confirm this is still the
+  highest-value area.
+- **Keep it TRUE TO THE SERVER, always:** update `MASTER_PROGRESS.md` AND
+  `SYSTEM_MAP.md` in the SAME change as any new/changed feature (pairs with Rule H).
+  The dashboard `/map` page renders `SYSTEM_MAP.md`, so the diagram the user sees must
+  always match what is actually running — never let the map drift behind the code.
+
+## Rule N — Every feature is VISIBLE on the dashboard (built ≠ done until displayed)
+Wiring a feature into the loop is not enough; if the user can't SEE it, it's not done.
+- A user-visible feature is **not "done" until it registers a dashboard SURFACE**
+  (title, status, headline metrics / rows) via the feature-surface registry
+  (`docs/research/91`) AND appears in the dashboard feature-coverage manifest.
+  This is the mirror of Rule K: display-only never satisfied "wired into decisions";
+  now wired-but-invisible never satisfies "shipped" either.
+- A **coverage audit/test** fails when a manifest feature has no surface, and the
+  dashboard shows a **feature-coverage panel** listing every feature's live status —
+  so "is the dashboard up to date with all features?" is answerable at a glance.
+- Pairs with Rule G (no orphans), Rule H/M (keep the map current), Rule K (done-criteria).
+
 ## Non-negotiables carried through every layer
 - Intraday only. Every position auto-squares-off before close. No exceptions
   per-segment, ever, unless a future phase explicitly revisits this.
