@@ -10,6 +10,57 @@ Status key: 🔴 not started · 🟡 in progress · 🟢 done (moved to Done) ·
 
 ---
 
+## Broker historical-data API limits research (research/73) — open verification items
+Full findings: `docs/research/73_broker_api_intraday_historical_data_limits_2026.md`
+(ICICI Breeze, Zerodha Kite, Upstox, Angel One SmartAPI, Dhan, Fyers, Finvasia
+Shoonya, Alice Blue, Motilal Oswal, 5paisa, IIFL — Layer 2 swappable
+data-source candidates per `docs/PLAN.md` §8a.12). Items below are undocumented
+or unreachable via public sources as of 2026-07-25 and need a follow-up pass
+before any of these sources are selected/wired as a data source:
+- 🔴 **Finvasia Shoonya max 1-minute lookback** — docs SPA never rendered
+  (JS-only), FAQ 403'd; only the SDK (`Shoonya-Dev/ShoonyaApi-py`) and interval
+  list were confirmed, no lookback-days number found anywhere public.
+- 🔴 **Alice Blue ANT / Motilal Oswal / IIFL** — official docs domains returned
+  HTTP 402/404 or had no discoverable developer API surface at all; only
+  secondary evidence (PyPI wrapper page for Alice Blue, marketing page for
+  Motilal Oswal) was obtainable. IIFL may be institutional-only/discontinued
+  for retail — unconfirmed.
+- 🔴 **Broader "any other free Indian broker/data vendor" sweep** — the
+  sub-agent covering this exhausted its WebSearch quota before running the
+  open-ended discovery queries; only the named candidates above were checked.
+- 🔴 **ICICI Breeze 1-second OI population for options** — no doc/example
+  confirms whether the `open_interest` field is actually populated (vs.
+  null/placeholder) at 1-second granularity; only 1-minute OI was directly
+  evidenced. Also flagged: 2024 GitHub Issues/TradingQnA reports of empty
+  responses, duplicate rows, and conflicting OHLC specifically on
+  `get_historical_data_v2`/1-second interval — the documented ~3-year window
+  is not independently verified as cleanly achievable at scale (1000-row/
+  request cap + 100-calls/min rate limit).
+- 🔴 **Zerodha Kite Connect request-rate limits (req/sec)** — not verified
+  against a primary source in this pass.
+- 🔴 **Upstox Plus pricing** (paid tier that unlocks expired F&O contract
+  history) — no published price found on any static page; needs an
+  in-app/account-level check.
+
+## Free deep-intraday NSE history — open verification items (research/74)
+Full findings: `docs/research/74_free_deep_intraday_nse_history_ceiling_2026.md`
+(ranked free/legitimate sources for 1-min/1-sec NSE history, cash + F&O + OI).
+- 🔴 **ICICI Breeze 3-year (FAQ) vs. community-claimed "10-year" (Nifty/
+  BankNifty F&O, TradingQnA) conflict** — needs an empirical probe of
+  `get_historical_data_v2` against a pre-2023 date range before planning
+  around either number.
+- 🔴 **HuggingFace `xxparthparekhxx/indian-stock-market-minute-data`
+  provenance/accuracy** — dataset card doesn't disclose source feed; spot-check
+  sample rows against known-good bhavcopy closes before using as a production
+  seed, and don't represent it externally as licensed NSE data.
+- 🔴 **`openchart` (github.com/marketcalls/openchart) real depth** against
+  NSE's own `chart-database` endpoint — unanswered upstream (issue #4); worth
+  an empirical test since it's free and actively maintained.
+- 🔴 **NSE Research Initiative 2.0 academic/non-commercial data-access
+  application** (nseri@nse.co.in) — not yet filed; the only found channel to
+  potentially genuine tick-level (sub-1-second) NSE history for free. Low
+  cost to file, slow/uncertain yield — long-lead item, not a current blocker.
+
 ## Opponent ledger (Layer 10 §10)
 - 🟢 **Slice 1 — divergence → strategy bias.** DONE (2026-07-24): entries opposed
   by institutional positioning (FII lean + retail-trapped divergence) are deferred
@@ -105,6 +156,17 @@ when the build starts:
   precision). Carried here for visibility since they were never logged to
   this file when first found. Done = each mitigated per its own
   research-doc recommendation, or accepted as a permanent fidelity ceiling.
+  **Re-verified 2026-07-25 (`research/71` tick-focused, `research/72`
+  depth-focused, independent 4-angle passes each):** confirmed, with one
+  precision fix — NSE itself *does* sell historical order-level data
+  (Product B, `research/59`) and two academic grant channels exist (IIM
+  Ahmedabad campus licence; NSE-NYU Stern Initiative, new find in
+  `research/72` — competitive, $7,500/yr, institutional-PI-gated); none are
+  free or realistically eligible for this personal trading project, so
+  "record forward only" stands as the practical free-access conclusion.
+  No Kaggle/GitHub/HuggingFace/Zenodo/WRDS/LOBSTER alternative exists
+  (two independent exhaustive passes, `71` + `72`). No new action taken —
+  informational re-confirmation only.
 - Everything above is a **research-verified acquisition target**. The §53
   build has now STARTED (BASE tier, slice plan in research/62); the items
   above are consumed slice-by-slice below. Re-read `research/53-62` when
@@ -262,3 +324,19 @@ when the build starts:
 _(move items here with the commit/date when delivered + verified)_
 - 🟢 **Opponent ledger core** (fetch NSE participant OI + read model + dashboard
   panel) — real-data verified, committed `e042067` (2026-07-24).
+
+## Free-data sourcing — actionable wins (research/77, 2026-07-25)
+The "can we get the paid data free?" deep-research (5 parallel legitimacy-filtered
+sweeps: research/71 tick · 72 depth · 73/74 intraday · 75 corp-actions/ISIN/delisted
+· 76 index membership; consolidated 77) confirmed microstructure (tick + L2/L3
+depth) is genuinely not free for an individual → record-forward (done: Breeze 1s +
+P4b) or license NSE. Net-new actionable wins now tracked:
+- 🔵 **Fyers free History API adapter** — cash + F&O + OI, ~9y since Jul-2017,
+  deeper + free vs Breeze's ~3y. `FyersHistoricalBarSource` behind the existing
+  seam. *(task #11)*
+- 🔵 **HuggingFace 2022+ NSE 1-min seed** (MIT) — bulk backfill of the bars store;
+  verify provenance first. *(task #12)*
+- 🔵 **BSE + Kaggle delisted cross-sources** — BSE ListofScripData (status=delisted)
+  + Kaggle CC-BY-4.0 survivorship-free set; helps the delisted-master blocker. *(task #13)*
+- ⛔ **ISIN-to-ISIN merger lineage** — confirmed no free source (symbolchange.csv
+  has no ISIN column); remains an open gap (per-event manual or paid vendor).

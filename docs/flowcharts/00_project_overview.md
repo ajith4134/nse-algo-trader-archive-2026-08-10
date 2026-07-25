@@ -84,6 +84,27 @@ colliding `56_`), `../research/61` point-in-time market-rules/calendar/news
 sourcing (renamed from a colliding `57_`, pre-existing separate pass). One
 confirmed hard blocker across the whole pass: ISIN-extinguishing
 merger/amalgamation swap-ratio records (no free source) — see BACKLOG.
+`../research/71` **free/academic NSE tick-data sourcing sweep** (2026-07-25,
+4-angle parallel deep-research: WRDS/IIMA/ISI/CMIE/SEBI-academic-policy,
+Kaggle/GitHub/HuggingFace, NSE's-own-free-archives + retail forums,
+free-tier vendors) — confirms **no genuinely free NSE tick/trade-by-trade
+history exists for an individual**: IIMA's real tick licence (CM 1999+,
+F&O 2000+) is campus-only, NSE's free 6-month tick trial is FPI-only, and
+SEBI's Dec-2024 academic data-sharing mandate explicitly excludes tick data
+from its free researcher tier (aggregate/EOD only). Every Kaggle/GitHub/
+HuggingFace "tick data" listing checked was mislabeled 1-min/daily bars.
+The only truly free tick source is recording your own broker websocket
+going forward (Fyers/Upstox/Angel/Kite) — confirms `54`'s Rank-1 plan
+rather than changing it; closes the "is there a free door we missed"
+question with a documented no.
+`../research/77` **CONSOLIDATED free-vs-paid data sourcing** (2026-07-25, 5
+parallel legitimacy-filtered sweeps) indexes the per-dataset files: `71` tick ·
+`72` L2/L3 depth · `73`/`74` deep intraday · `75` corp-actions/ISIN/delisted ·
+`76` point-in-time index membership. Bottom line: **microstructure (tick+depth)
+is genuinely not free → record-forward (done: Breeze 1s + P4b) or license NSE**;
+the bar/reference tiers free-stack. Net-new actionable wins: **Fyers free History
+API** (cash+F&O+OI, ~9y, deeper+free vs Breeze 3y), a HuggingFace 2022+ cash
+1-min seed, and BSE+Kaggle delisted cross-sources (BACKLOG).
 
 ## Scope decided so far
 - Segments in phase 1: NSE cash intraday, NSE options intraday (index +
