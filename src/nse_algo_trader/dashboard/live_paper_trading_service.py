@@ -218,6 +218,9 @@ class LivePaperTradingService:
         breeze_session_token_store=None,
         breeze_historical_source_builder=None,
         autonomous_breeze_replay_call_budget=5000,
+        record_live_market_depth=False,
+        market_depth_focus_size=100,
+        market_depth_recorder=None,
     ) -> None:
         self._kite_client = authenticated_kite_client
         # §53 slice 4 P4a-wire: optional HighFidelityReplayConfig — when injected,
@@ -231,6 +234,13 @@ class LivePaperTradingService:
         self._breeze_session_token_store = breeze_session_token_store
         self._breeze_historical_source_builder = breeze_historical_source_builder
         self._autonomous_breeze_replay_call_budget = autonomous_breeze_replay_call_budget
+        # §53 slice 4 P4b: record live order-book depth forward (the only path to
+        # historical depth). Default OFF (no load/behaviour change); enable to start
+        # accumulating. The store is built lazily in the writer thread (SQLite is
+        # single-thread). market_depth_recorder is a DI seam for tests.
+        self._record_live_market_depth = record_live_market_depth
+        self._market_depth_focus_size = market_depth_focus_size
+        self._market_depth_recorder = market_depth_recorder
         # Layer 10 §10 opponent ledger — real NSE archive fetcher by default;
         # injectable (DI seam) so tests pass an in-memory fake. Fetched once per
         # trade date in the writer thread and cached.
@@ -516,6 +526,7 @@ class LivePaperTradingService:
                     # LIVE half: real Kite feed, wall-clock now.
                     self._feed = self._live_feed
                     self._advance_one_pass(real_now)
+                    self._record_market_depth_best_effort()  # §53 P4b (forward)
                 elif self._replay_feed is not None and self._replay_feed.has_data():
                     # CLOSED -> REPLAY half (PLAN §1.4): step the replay clock
                     # through stored history so paper never idles.
@@ -535,6 +546,36 @@ class LivePaperTradingService:
                 except Exception:
                     pass
             time_module.sleep(self._scan_interval_seconds)
+
+    def _record_market_depth_best_effort(self) -> None:
+        """§53 P4b: snapshot + store the focus set's order book this live pass.
+        Best-effort — depth recording must NEVER disturb trading. The store is built
+        lazily HERE (writer thread) because SQLite objects are single-thread."""
+        if not self._record_live_market_depth:
+            return
+        try:
+            if self._market_depth_recorder is None:
+                from nse_algo_trader.market_data.kite_market_depth_source import (
+                    KiteMarketDepthSource,
+                )
+                from nse_algo_trader.market_data.market_depth_snapshot_store import (
+                    MarketDepthSnapshotStore,
+                )
+                from nse_algo_trader.paper_trading.live_market_depth_recorder import (
+                    LiveMarketDepthRecorder,
+                )
+
+                self._market_depth_recorder = LiveMarketDepthRecorder(
+                    KiteMarketDepthSource(self._kite_client),
+                    MarketDepthSnapshotStore(),
+                )
+            focus_tokens = [
+                instrument.instrument_token
+                for instrument in self._cash_universe[: self._market_depth_focus_size]
+            ]
+            self._market_depth_recorder.record_once(focus_tokens)
+        except Exception:
+            pass  # never let depth recording break the trading loop
 
     def _advance_replay_pass(self) -> None:
         """One replay step: advance the replay clock to the next stored bar

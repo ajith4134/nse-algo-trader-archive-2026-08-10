@@ -225,8 +225,19 @@ when the build starts:
     cash universe (option-underlyings-first), budget-capped". A liquidity/actively-
     watched ranking (replay the names the loop actually trades) would spend the 1s
     budget better. *(task #8)*
-  - 🔴 **P4b — live-depth recorder:** record L2 order-book depth forward (the only
-    path to historical depth).
+  - 🟡 **P4b — live-depth recorder. BUILT + hermetic-verified (2026-07-25).** Full
+    pipeline: `market_depth_types` · `MarketDepthSource` seam · `kite_market_depth_
+    source` (Kite `quote()` depth) · `market_depth_snapshot_store` (own
+    `market_depth.sqlite3`) · `paper_trading/live_market_depth_recorder`. Wired into
+    `_run_forever` behind `record_live_market_depth` (default OFF) — records the
+    focus set's book after each market-open pass, best-effort. 440 tests pass.
+    - ⛔ **Rule-F real-session capture OPEN** — needs an OPEN market + live Kite
+      session (Sat + no token now). Verify real 5-level snapshots persist. *(task #5)*
+    - 🔴 **Enable `record_live_market_depth=True` in the deployed service** — the
+      recorder is inert until turned on; the whole point is to accumulate depth
+      forward. *(task #9)*
+    - 🔵 **Depth-CONSUMING features** (microstructure signals / depth replay) — the
+      recorded depth's purpose-consumer. *(task #10)*
   - 🟢 **Breeze session store + ICICI stock-code map — DONE (2026-07-25, real-data
     verified).** *6b:* `icici_security_master_stock_code_resolver` parses ICICI's
     real SecurityMaster (NSE symbol→ICICI code); injected as the Breeze adapter's

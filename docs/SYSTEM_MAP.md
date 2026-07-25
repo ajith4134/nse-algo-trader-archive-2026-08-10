@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-25g**.
-- **118 Python modules across 14 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-25h**.
+- **122 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -174,6 +174,7 @@ Each block: purpose · files (role) · what flows IN/OUT · internal file→file
 - `kite_historical_bar_source.py` — Kite candles → `PriceBar` (minute…day; raises on sub-minute).
 - `breeze_historical_bar_source.py` — **ICICI Breeze v2 → `PriceBar` at 1-second** fidelity (§53 slice 4 P4a): `BreezeHistoricalBarSource` (injected authenticated client — never imports `breeze_connect`, whose import does network I/O), chunks >1000-candle pulls + de-dupes, cash + option addressing. New `BarInterval.SECOND_1`. WIRED into replay via `paper_trading/historical_source_replay_feed_builder` (P4a-wire).
 - `icici_security_master_stock_code_resolver.py` — **NSE symbol → ICICI stock_code** (§53 #6b): parses ICICI's real `NSEScripMaster.txt` (`ExchangeCode`→`ShortName`, EQ), injected as the Breeze adapter's `stock_code_resolver` (RELIANCE→`RELIND`); pure parser + separate network download.
+- **Order-book DEPTH (§53 P4b — recorded forward, the only path to historical depth):** `market_depth_types.py` (`MarketDepthLevel`/`MarketDepthSnapshot`) · `broker_data_source_protocols.MarketDepthSource` (seam) · `kite_market_depth_source.py` (Kite `quote()` depth → snapshots) · `market_depth_snapshot_store.py` (own `market_depth.sqlite3`). Consumed by `paper_trading/live_market_depth_recorder`.
 - `kite_live_tick_stream_source.py` — KiteTicker adapter (orphaned; superseded by the polling feed).
 - `kite_live_universe_feed.py` — **the live-session feed**: batched-LTP breadth + `recent_intraday_bars` depth; `KiteLiveUniverseFeed`.
 - `market_data_sqlite_store.py` — persists/loads bars + all 5 report types; `MarketDataSqliteStore`.
@@ -307,6 +308,24 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-25h** — **§53 slice 4 P4b — live order-book depth recorder** (118→122
+  modules; no new cross-feature edge; research/70). Records L2 depth FORWARD — the
+  only path to historical depth (no vendor sells it). New: `market_data/
+  market_depth_types.py` (`MarketDepthLevel`/`MarketDepthSnapshot`),
+  `broker_data_source_protocols.MarketDepthSource` (seam), `market_data/
+  kite_market_depth_source.py` (Kite `quote()` depth → snapshots),
+  `market_data/market_depth_snapshot_store.py` (own `market_depth.sqlite3`, JSON
+  sides per row), `paper_trading/live_market_depth_recorder.py`
+  (`record_once(tokens)` → snapshot + persist). Wired: service flag
+  `record_live_market_depth` (default OFF) → `_run_forever` calls
+  `_record_market_depth_best_effort()` after each MARKET-OPEN pass (focus = capped
+  cash universe; store built lazily in the writer thread; best-effort so depth
+  never disturbs trading). **Hermetic (Rule J):** store round-trip, Kite-quote
+  parse, recorder persist, service records-when-on/skips-when-off. 440 pass (+5).
+  **Rule-F OPEN BLOCKER:** real 5-level capture needs an OPEN market + live Kite
+  session (both unavailable — Sat, no token). Open (tasks): enable the flag in the
+  deployed service to accumulate; depth-CONSUMING features (microstructure / depth
+  replay) are the queued purpose-consumer.
 - **2026-07-25g** — **§53 slice 4 task #7 — autonomous unattended Breeze 1s replay**
   (117→118 modules; no new cross-feature edge; research/69). New
   `paper_trading/breeze_replay_focus_planner.py` (`chunks_per_instrument_for`,

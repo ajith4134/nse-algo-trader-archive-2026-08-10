@@ -15,6 +15,7 @@ from nse_algo_trader.market_data.market_data_types import (
     MarketTick,
     PriceBar,
 )
+from nse_algo_trader.market_data.market_depth_types import MarketDepthSnapshot
 from nse_algo_trader.universe_registry import Instrument
 
 
@@ -51,3 +52,13 @@ class LiveTickStreamSource(Protocol):
     def start_streaming(self) -> None: ...
 
     def stop_streaming(self) -> None: ...
+
+
+@runtime_checkable
+class MarketDepthSource(Protocol):
+    """Anything that can return a point-in-time order-book snapshot per instrument
+    (§53 slice 4 P4b — recorded forward, the only path to historical depth)."""
+
+    def fetch_market_depth(
+        self, instrument_tokens: list[int]
+    ) -> dict[int, MarketDepthSnapshot]: ...
