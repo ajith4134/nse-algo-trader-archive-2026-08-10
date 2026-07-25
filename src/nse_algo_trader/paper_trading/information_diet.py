@@ -33,6 +33,14 @@ class InformationDietHealth:
 # Below this many considered decisions the diet read is not yet meaningful.
 _MIN_DECISIONS_FOR_HEALTH = 20
 
+# §53 slice 3b-i (research/64/53 §8.2): when the memory the bot learns from is
+# dominated by 24/7 REPLAY experiences rather than real live sessions, that is an
+# over-reliance the bot should flag — a replayed, era-thin lesson is lower
+# fidelity than a live one. Trips the WARNING once there is enough of an
+# experience base to judge the mix.
+_MAX_HEALTHY_REPLAY_SHARE = 0.5
+_MIN_EXPERIENCES_FOR_REPLAY_MIX = 20
+
 
 @dataclass(frozen=True)
 class InformationDiet:
@@ -48,6 +56,9 @@ class InformationDiet:
     memory_influence_share: float
     health_status: str
     note: str
+    # §53 slice 3b-i: fraction of the learned experience base that is 24/7 replay
+    # (vs live). High = over-reliance on replayed lessons → a WARNING.
+    replay_experience_share: float = 0.0
 
 
 def read_information_diet(
@@ -56,6 +67,8 @@ def read_information_diet(
     antibody_vetoed: int,
     memory_recalibrated: int,
     shadow_probes: int,
+    live_experience_count: int = 0,
+    replay_experience_count: int = 0,
 ) -> InformationDiet:
     """Aggregate the loop's decision-input counters into a diet + health read.
     ADX regime confidence shapes 100% of decisions (it produces every win-
@@ -79,6 +92,15 @@ def read_information_diet(
         InformationDietSource.SHADOW_PROBE: share(shadow_probes),
     }
 
+    total_experiences = max(live_experience_count, 0) + max(replay_experience_count, 0)
+    replay_experience_share = (
+        max(replay_experience_count, 0) / total_experiences if total_experiences else 0.0
+    )
+    over_relies_on_replay = (
+        total_experiences >= _MIN_EXPERIENCES_FOR_REPLAY_MIX
+        and replay_experience_share >= _MAX_HEALTHY_REPLAY_SHARE
+    )
+
     if considered < _MIN_DECISIONS_FOR_HEALTH:
         status = InformationDietHealth.GATHERING
         note = (
@@ -91,6 +113,14 @@ def read_information_diet(
             "Learning is INERT: memory (veto + recalibration) shaped 0 of "
             f"{considered} decisions — the bot is trading purely on the base ADX "
             "signal, ignoring what it has recorded."
+        )
+    elif over_relies_on_replay:
+        status = InformationDietHealth.WARNING
+        note = (
+            f"OVER-RELYING on replay: {replay_experience_share:.0%} of the "
+            f"{total_experiences} learned experiences are 24/7 REPLAY (bar-only, "
+            "lower fidelity) rather than live — replayed lessons are down-weighted "
+            "in the veto/recalibration, but this thin a live base is a caution."
         )
     else:
         status = InformationDietHealth.HEALTHY
@@ -109,4 +139,5 @@ def read_information_diet(
         memory_influence_share=memory_influence_share,
         health_status=status,
         note=note,
+        replay_experience_share=round(replay_experience_share, 3),
     )

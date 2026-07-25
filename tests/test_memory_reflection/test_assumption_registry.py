@@ -1,7 +1,11 @@
 """Layer 10 slice 2 — assumption tripwires fire only with significant evidence."""
 
+import shutil
 from datetime import date, datetime
+from pathlib import Path
 from zoneinfo import ZoneInfo
+
+import pytest
 
 from nse_algo_trader.memory_reflection import (
     AssumptionConfig,
@@ -9,15 +13,18 @@ from nse_algo_trader.memory_reflection import (
     ClosedExperiment,
     SqliteExperienceMemory,
     evaluate_trading_assumptions,
+    learn_mechanism_recalibrations,
+    vetoed_mechanisms,
 )
 
 IST = ZoneInfo("Asia/Kolkata")
+_REAL_MEMORY_DB = Path("~/.nse_algo_trader/experience_memory.sqlite3").expanduser()
 
 
-def _exp(n, *, mechanism, predicted_win_prob, won, ret):
+def _exp(n, *, mechanism, predicted_win_prob, won, ret, data_provenance="live"):
     occurred = datetime(2026, 7, 24, 11, n % 55, n % 60, tzinfo=IST)
     return ClosedExperiment(
-        experiment_id=f"{mechanism}:{n}", occurred_at=occurred,
+        experiment_id=f"{mechanism}:{data_provenance}:{n}", occurred_at=occurred,
         session_date=date(2026, 7, 24), strategy_tag="orb",
         mechanism_name=mechanism, regime_context="normal",
         instrument_token=1000 + n, instrument_kind="cash_equity",
@@ -27,7 +34,7 @@ def _exp(n, *, mechanism, predicted_win_prob, won, ret):
         brier_contribution=0.2, realized_pnl=1.0 if won else -1.0,
         realized_return_fraction=ret, predicted_exit_cause="target",
         actual_exit_cause="exited_target" if won else "exited_stop",
-        kill_criteria="kc",
+        kill_criteria="kc", data_provenance=data_provenance,
     )
 
 
@@ -197,4 +204,69 @@ class TestOutcomeSequenceDependence:
             if v.assumption_name == "calibration"
         )
         assert "errors cluster" in details
+        mem.close()
+
+
+class TestProvenanceWeightedDecisions:
+    """§53 slice 3b-i: replay evidence is weighted BELOW live in the veto +
+    recalibration, so a replay-only lesson can inform but never override live."""
+
+    def test_replay_only_overconfident_mechanism_is_not_vetoed(self, tmp_path):
+        mem = _memory(tmp_path)
+        # 18 REPLAY losses at predicted 0.85 → effective n = 18*0.25 = 4.5 < 12,
+        # so it never reaches the veto threshold on replay evidence alone.
+        for i in range(18):
+            mem.record_closed_experiment(
+                _exp(i, mechanism="trend", predicted_win_prob=0.85, won=False,
+                     ret=-0.01, data_provenance="replay_faithful")
+            )
+        assert "trend" not in vetoed_mechanisms(mem)
+        mem.close()
+
+    def test_identical_evidence_as_live_is_vetoed(self, tmp_path):
+        mem = _memory(tmp_path)
+        # The SAME 18 losses, but LIVE (weight 1.0) → vetoed. Proves it is the
+        # provenance weighting, not the sample size, that spared the replay case.
+        for i in range(18):
+            mem.record_closed_experiment(
+                _exp(i, mechanism="trend", predicted_win_prob=0.85, won=False,
+                     ret=-0.01, data_provenance="live")
+            )
+        assert "trend" in vetoed_mechanisms(mem)
+        mem.close()
+
+    def test_replay_cannot_drag_a_live_good_mechanism_into_a_veto(self, tmp_path):
+        mem = _memory(tmp_path)
+        # 40 LIVE experiences, well-calibrated-to-good (26/40 = 65% vs predicted 60%).
+        for i in range(40):
+            mem.record_closed_experiment(
+                _exp(i, mechanism="orb_break", predicted_win_prob=0.6, won=(i < 26),
+                     ret=0.01 if i < 26 else -0.01, data_provenance="live")
+            )
+        # 20 REPLAY losses on the same mechanism.
+        for i in range(20):
+            mem.record_closed_experiment(
+                _exp(100 + i, mechanism="orb_break", predicted_win_prob=0.6, won=False,
+                     ret=-0.01, data_provenance="replay_faithful")
+            )
+        # Pooled (no discount) the replay losses drag it under → vetoed.
+        assert "orb_break" in vetoed_mechanisms(
+            mem, AssumptionConfig(replay_evidence_weight=1.0)
+        )
+        # Discounted (default 0.25) live dominates → the good mechanism is spared.
+        assert "orb_break" not in vetoed_mechanisms(mem)
+        mem.close()
+
+    def test_real_db_weighting_is_a_noop_when_all_experiences_are_live(self, tmp_path):
+        if not _REAL_MEMORY_DB.exists():
+            pytest.skip("real experience_memory DB not present")
+        copy_path = tmp_path / "copy.sqlite3"
+        shutil.copy(_REAL_MEMORY_DB, copy_path)
+        mem = SqliteExperienceMemory(db_file_path=copy_path)
+        # Every real experience is live → discounting replay changes nothing:
+        # the veto set and recalibration offsets are identical with/without it.
+        discounted = AssumptionConfig()  # replay weight 0.25
+        pooled = AssumptionConfig(replay_evidence_weight=1.0)
+        assert vetoed_mechanisms(mem, discounted) == vetoed_mechanisms(mem, pooled)
+        assert learn_mechanism_recalibrations(mem, discounted) == learn_mechanism_recalibrations(mem, pooled)
         mem.close()

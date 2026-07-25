@@ -497,6 +497,9 @@ class LivePaperTradingService:
         )
 
         state = self._state
+        # §53 slice 3b-i: feed the live-vs-replay experience mix so the diet warns
+        # on over-reliance on 24/7 replay.
+        by_provenance = self._memory_experiment_count_by_provenance()
         return asdict(
             read_information_diet(
                 decisions_considered=state.entry_decisions_considered,
@@ -504,6 +507,8 @@ class LivePaperTradingService:
                 antibody_vetoed=state.vetoed_entry_count,
                 memory_recalibrated=state.recalibrated_entry_count,
                 shadow_probes=state.shadow_entry_count,
+                live_experience_count=by_provenance.get("live", 0),
+                replay_experience_count=by_provenance.get("replay_faithful", 0),
             )
         )
 

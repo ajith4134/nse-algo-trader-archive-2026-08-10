@@ -181,17 +181,22 @@ when the build starts:
   experience with the active feed's provenance. Rule-F verified on the real
   293-experience DB (all `live` post-migration; injected replay cohort stays
   separated). 403 tests pass. *(task #1)*
-- 🔴 **Slice 3b — provenance INTO decisions + dense prequential scorer (queued).**
-  (1) recalibration / antibody / information-diet must WEIGHT replay below live
-  (§8.2) so a replay-only lesson never overrides live evidence, and over-reliance
-  on replay trips the info-diet health WARNING. (2) The dense per-step prequential
-  scorer (§8.1) beyond per-trade grading — sourcing verdict (research/62 + 2026-07-25
-  sourcing pass): **vendor River `LogLoss`** (`river.metrics.LogLoss` + `river.stats.Mean`
-  + `metrics.base` scaffold, BSD-3, ~100 LOC) and hand-write a 15-line `BrierScore`
-  twin; per-cohort = a dict of metric instances keyed by group; River's
-  `progressive_val_score` REJECTED (model-coupled) and depending on the River
-  package rejected (numpy + Python≥3.11 pull-in). Done = provenance actually changes
-  a decision + a running log/Brier accrues over a replay session, Rule-F verified. *(task #2)*
+- 🟢 **Slice 3b-i — provenance INTO decisions.** DONE (2026-07-25, research/64,
+  real-data verified): `provenance_weighted_calibration_board` (live=1.0,
+  replay=0.25) drives `vetoed_mechanisms` + `learn_mechanism_recalibrations`, so a
+  replay-only lesson can inform but never override live evidence; info-diet gains an
+  over-reliance-on-replay WARNING (`replay_experience_share`). Rule-F: on the real
+  293-live DB the weighted veto set + offsets are IDENTICAL to pooled (no
+  regression); hermetic tests prove the discount + the WARNING. 410 tests pass.
+- 🔴 **Slice 3b-ii — dense per-step prequential scorer (queued).** Beyond the
+  existing per-trade §9 grading: a running predict-then-reveal log/Brier over the
+  replay stream (§8.1). Sourcing verdict (research/63): **vendor River `LogLoss`**
+  (`river.metrics.LogLoss` + `river.stats.Mean` + `metrics.base` scaffold, BSD-3,
+  ~100 LOC) + a hand-written 15-line `BrierScore` twin; per-cohort = a dict of
+  metric instances keyed by group; River's `progressive_val_score` REJECTED
+  (model-coupled), depending on the River package REJECTED (numpy + Python≥3.11).
+  Done = a running log/Brier accrues over a replay session + surfaced, Rule-F
+  verified. *(task #2)*
 - 🔴 **Slice 4 — fidelity climb**: ICICI Breeze 1-second source + start
   recording our own live depth forward (the only path to L2/L3).
 - 🔴 **Slice 5+ — ADVANCED**: microstructure features, queue/impact fills,

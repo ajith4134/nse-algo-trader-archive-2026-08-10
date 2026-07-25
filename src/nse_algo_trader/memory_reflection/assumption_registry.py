@@ -58,6 +58,12 @@ class AssumptionConfig:
     # research/51: only recalibrate a mechanism whose calibration bias
     # |actual − predicted| is at least this — ignore trivial offsets.
     recalibration_min_offset: float = 0.05
+    # §53 slice 3b-i (research/64/53 §8.2): weight a replay-derived experience
+    # BELOW a live one when it drives the veto/recalibration, so a bar-only 24/7
+    # replay lesson can inform but never OVERRIDE live evidence. A replay-only
+    # cohort needs ~1/weight× the experiences to reach `minimum_samples`. All-live
+    # data (weight 1.0 for every row) is unaffected — identical to before.
+    replay_evidence_weight: float = 0.25
 
 
 def _overconfidence_z(actual_rate: float, predicted_rate: float, n: int) -> float:
@@ -81,6 +87,88 @@ def _calibration_is_tripped(row, config: AssumptionConfig) -> bool:
         is_over_confident
         and getattr(row, "mean_log_score", 0.0) >= config.confidently_wrong_log_score
     )
+
+
+_LOG_SCORE_PROBABILITY_EPSILON = 1e-9
+
+
+def _calibration_cross_entropy_bits(actual_rate: float, predicted_rate: float) -> float:
+    """Cohort mean log-score in bits, H(actual, predicted) (research/48). Inlined
+    here (not imported from the sqlite backend) to keep Layer-10 logic off a
+    concrete substrate. Predicted is clamped away from 0/1 so log is defined."""
+    predicted = min(
+        1.0 - _LOG_SCORE_PROBABILITY_EPSILON,
+        max(_LOG_SCORE_PROBABILITY_EPSILON, predicted_rate),
+    )
+    return -(
+        actual_rate * math.log2(predicted)
+        + (1.0 - actual_rate) * math.log2(1.0 - predicted)
+    )
+
+
+def provenance_weighted_calibration_board(
+    experience_memory,
+    config: AssumptionConfig = AssumptionConfig(),
+    recency_window: int | None = None,
+) -> list["CalibrationBoardRow"]:
+    """The calibration board used for HARD decisions (veto + recalibration),
+    with each experience weighted by its data provenance (§53 slice 3b-i,
+    research/64): live = 1.0, replay_faithful = `config.replay_evidence_weight`.
+
+    Reuses the slice-3a `calibration_board(data_provenance=…)` per provenance and
+    combines cohorts in Python (no SQL change). A cohort's *effective* sample size
+    is Σ(weight × count); live evidence dominates any live/replay mix and a
+    replay-only cohort needs ~1/weight× the experiences to reach `minimum_samples`,
+    so replay can inform but never override live. With only live experiences (every
+    real row today) the weights are all 1.0 → identical to the raw board."""
+    from nse_algo_trader.memory_reflection.experience_memory import (
+        CalibrationBoardRow,
+    )
+
+    weight_by_provenance = {"live": 1.0, "replay_faithful": config.replay_evidence_weight}
+    provenances = set(experience_memory.experiment_count_by_provenance()) or {"live"}
+    cohorts: dict[tuple[str, str], dict[str, float]] = {}
+    for provenance in provenances:
+        weight = weight_by_provenance.get(provenance, config.replay_evidence_weight)
+        if weight <= 0:
+            continue
+        for row in experience_memory.calibration_board(
+            minimum_experiments=1,
+            recency_window=recency_window,
+            data_provenance=provenance,
+        ):
+            acc = cohorts.setdefault(
+                (row.strategy_tag, row.mechanism_name),
+                {"weight": 0.0, "pred": 0.0, "act": 0.0, "brier": 0.0, "ret": 0.0},
+            )
+            cohort_weight = weight * row.experiment_count
+            acc["weight"] += cohort_weight
+            acc["pred"] += cohort_weight * row.predicted_win_rate
+            acc["act"] += cohort_weight * row.actual_win_rate
+            acc["brier"] += cohort_weight * row.mean_brier
+            acc["ret"] += cohort_weight * row.mean_return_fraction
+
+    board: list[CalibrationBoardRow] = []
+    for (strategy_tag, mechanism_name), acc in cohorts.items():
+        effective = acc["weight"]
+        if effective < config.minimum_samples:
+            continue
+        predicted = acc["pred"] / effective
+        actual = acc["act"] / effective
+        board.append(
+            CalibrationBoardRow(
+                strategy_tag=strategy_tag,
+                mechanism_name=mechanism_name,
+                experiment_count=int(round(effective)),
+                predicted_win_rate=predicted,
+                actual_win_rate=actual,
+                mean_brier=acc["brier"] / effective,
+                mean_return_fraction=acc["ret"] / effective,
+                mean_log_score=_calibration_cross_entropy_bits(actual, predicted),
+            )
+        )
+    board.sort(key=lambda r: r.predicted_win_rate - r.actual_win_rate, reverse=True)
+    return board
 
 
 def evaluate_trading_assumptions(
@@ -145,9 +233,10 @@ def vetoed_mechanisms(
     Same significance test as `evaluate_trading_assumptions`, returned as the
     set of mechanism names for the trading loop to gate on."""
     vetoed: set[str] = set()
-    for row in experience_memory.calibration_board(
-        minimum_experiments=config.minimum_samples,
-        recency_window=config.veto_recency_window,
+    # §53 slice 3b-i: weighted board so a replay-only mechanism can't cross the
+    # veto threshold on replay evidence alone (live evidence dominates any mix).
+    for row in provenance_weighted_calibration_board(
+        experience_memory, config, recency_window=config.veto_recency_window
     ):
         if _calibration_is_tripped(row, config):
             vetoed.add(row.mechanism_name)
@@ -167,9 +256,10 @@ def learn_mechanism_recalibrations(
       resolution ≈ 0 (no discriminating edge) — recalibration can't help, so they
       are hard-vetoed by the caller."""
     offset_by_mechanism: dict[str, float] = {}
-    for row in experience_memory.calibration_board(
-        minimum_experiments=config.minimum_samples,
-        recency_window=config.veto_recency_window,
+    # §53 slice 3b-i: weighted board — a replay-derived bias correction is
+    # discounted vs live, so replay can nudge but not dominate the offset.
+    for row in provenance_weighted_calibration_board(
+        experience_memory, config, recency_window=config.veto_recency_window
     ):
         offset = row.actual_win_rate - row.predicted_win_rate
         if abs(offset) >= config.recalibration_min_offset:

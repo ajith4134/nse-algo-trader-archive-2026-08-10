@@ -264,7 +264,7 @@ flowchart LR
 
 ### L10 · memory_reflection  (4 files)  — episodic experience memory + assumption tripwires
 - `experience_memory.py` — `ExperienceMemory` protocol (swappable substrate boundary), `ClosedExperiment` node, `build_closed_experiment` (from a graded §9 prediction + closed trade), summary types.
-- `assumption_registry.py` — `evaluate_trading_assumptions` (calibration + edge assumptions, TRIPPED only with significant evidence — one-sided binomial z, min 12 trades) + `vetoed_mechanisms` (the tripped set). Feeds the dashboard "Assumption tripwires" panel, a WARNING alert, AND the **antibody auto-veto**: the service sets `LiveUniversePaperState.vetoed_mechanisms` each pass, and the L7 loop refuses new entries on a refuted mechanism (`is_mechanism_vetoed`) — memory feeding back into the trading gate.
+- `assumption_registry.py` — `evaluate_trading_assumptions` (calibration + edge assumptions, TRIPPED only with significant evidence — one-sided binomial z, min 12 trades) + `vetoed_mechanisms` (the tripped set). Feeds the dashboard "Assumption tripwires" panel, a WARNING alert, AND the **antibody auto-veto**: the service sets `LiveUniversePaperState.vetoed_mechanisms` each pass, and the L7 loop refuses new entries on a refuted mechanism (`is_mechanism_vetoed`) — memory feeding back into the trading gate. **§53 slice 3b-i:** the veto + recalibration read a **provenance-weighted** board (`provenance_weighted_calibration_board`, replay=0.25×live) so a replay-only lesson never overrides live evidence; the information-diet warns on over-reliance on replay.
 - `sqlite_experience_memory.py` — `SqliteExperienceMemory`: typed experiment nodes in one `.db`; serves calibration-by-regime, prior-outcomes (entry-time pre-mortem), reflection-diff, and the **calibration_board** (per-mechanism predicted-vs-actual win-rate — with an optional `data_provenance` filter, §53 slice 3a, so live vs 24/7-replay calibration are separable) by indexed group-by; `experiment_count_by_provenance()` gives the live/replay mix. (Graphiti/Neo4j temporal-KG = documented swap-up for the semantic/multi-hop tier — research/43.)
 - IN: closed §9 experiments (graded prediction + closed trade — **cash AND options**) emitted by the L7 loop, drained by the dashboard service. OUT: calibration / prior-outcome / reflection-diff / calibration-board summaries → dashboard **Reflection panel**.
 - **Wiring:** the L7 loop emits `(graded, trade, kind)` events on close (no L10 import); `dashboard/live_paper_trading_service._drain_closed_experiments_into_memory` records them into `ExperienceMemory` in the writer thread, and publishes the calibration board to the dashboard Reflection panel. Rule-F verified on real closed experiments (2026-07-24) — surfaced that the confident-win "trend-continuation" mechanism ran at 0.05 hit rate while the confident-loss "false-breakout" thesis held at 0.75.
@@ -304,6 +304,26 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-25b** — **§53 slice 3b-i — provenance INTO decisions** (no new files;
+  111 modules, no new cross-feature edge; research/64). The slice-3a provenance
+  separation now CHANGES what the bot does. New `assumption_registry.
+  provenance_weighted_calibration_board` weights each experience by provenance
+  (live=1.0, `replay_faithful`=`AssumptionConfig.replay_evidence_weight`=0.25);
+  `vetoed_mechanisms` + `learn_mechanism_recalibrations` (the two hard-action
+  consumers the service calls each pass → the L7 veto/recalibration gate) now read
+  the WEIGHTED board, so a replay-only lesson can inform but never override live
+  (a replay-only cohort needs ~4× the evidence to trip; live dominates any mix).
+  `evaluate_trading_assumptions` stays raw/pooled (the transparency surface).
+  Information-diet gains an **over-reliance-on-replay WARNING**
+  (`read_information_diet(live_experience_count, replay_experience_count)` →
+  `replay_experience_share`; WARN when replay ≥50% of a ≥20-experience base),
+  fed from `_memory_experiment_count_by_provenance()`. **Rule-F verified** on the
+  real 293-live DB: weighted veto set + recalibration offsets are IDENTICAL to
+  pooled (all-live ⇒ weight 1.0 ⇒ no regression), and hermetic tests prove the
+  discount (replay-only not vetoed; same evidence as live IS; replay can't drag a
+  live-good mechanism into a veto; over-reliance warns). 410 tests pass (+7).
+  **⇒ slice 3a's purpose-consumer is now wired (Rule K).** Queued: slice 3b-ii —
+  dense per-step prequential scorer (vendor River `LogLoss`, research/63).
 - **2026-07-25a** — **§53 slice 3a — provenance-separable memory** (no new files;
   111 modules, no new cross-feature edge). `ExperienceMemory.calibration_board`
   gains a `data_provenance` filter (protocol + sqlite) so LIVE vs REPLAY
