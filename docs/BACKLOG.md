@@ -334,9 +334,19 @@ when the build starts:
       today → 1 regime. As the slice-5a curriculum replays trending/range/indecisive
       sessions, the multi-regime cohorts fill in and the differentiated queries become
       multi-valued. No code owed — accrues as the always-on loop runs.
+  - 🟢 **5c-i — champion-challenger over ORB configs — DONE, Rule-F VERIFIED (2026-07-25,
+    research/87).** `replay_session_orb_backtester` + `champion_challenger_orb_evaluator`
+    (reuses the Deflated-Sharpe `strategy_promotion_gate`) + `champion_configuration_store`,
+    WIRED into the live scan pass (`_champion_orb_config` → `strategy_config=`). Real pass:
+    23 real sessions, champion (18 trades / 77.8% hit / Sharpe 0.539) KEPT, top challenger
+    rejected on insufficient trades (conservative gate). 524 tests pass. *(task #9)*
+    - 🔴 **Scheduled auto-re-eval (queued):** run the tournament every N replayed sessions
+      and auto-update the champion store, so promotions happen autonomously (today the
+      evaluator + store + live-read exist; nothing periodically RUNS the tournament).
+    - 🔴 **Options/credit-spread configs in the tournament (queued):** needs option-chain
+      replay data; ORB (cash) only today.
   - 🔴 **5c+ (deeper ADVANCED, not started):** microstructure features (OFI/VPIN — depends
-    on P4b depth accruing), queue-position & market-impact fills (hftbacktest-style),
-    parallel multi-day → champion-challenger. *(task TBD)*
+    on P4b depth accruing), queue-position & market-impact fills (hftbacktest-style). *(task TBD)*
 
 ## Open real-data blockers (Rule F/J — sim-verified, real pass pending)
 - ⛔ **Shadow-arm recovery (slice 4) live pass.** Functionally verified via sim

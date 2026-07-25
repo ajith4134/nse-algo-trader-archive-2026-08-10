@@ -249,6 +249,9 @@ class LivePaperTradingService:
         # each closed experience is tagged with the ADX regime of its session without
         # re-classifying every drain pass. Populated lazily from the bar store.
         self._market_regime_cache_by_date: dict = {}
+        # §53 slice 5c-i: the champion ORB config (promoted by the champion-challenger
+        # tournament), loaded once from its store; None until first read.
+        self._champion_orb_config_cache = None
         # §53 slice 4 P4b: record live order-book depth forward (the only path to
         # historical depth). Default OFF (no load/behaviour change); enable to start
         # accumulating. The store is built lazily in the writer thread (SQLite is
@@ -787,6 +790,27 @@ class LivePaperTradingService:
         self._feed = self._replay_feed
         self._advance_one_pass(replay_now, replay_mode=True)
 
+    def _champion_orb_config(self):
+        """The ORB config the loop trades with — the champion promoted by the
+        champion-challenger tournament (§53 slice 5c-i), or the built-in default when none
+        has been promoted. Loaded once and cached; best-effort (a bad file → default)."""
+        if self._champion_orb_config_cache is None:
+            from nse_algo_trader.paper_trading.champion_configuration_store import (
+                ChampionConfigurationStore,
+            )
+
+            try:
+                self._champion_orb_config_cache = (
+                    ChampionConfigurationStore().load_champion_or_default()
+                )
+            except Exception:
+                from nse_algo_trader.strategy_engine.opening_range_breakout_strategy import (  # noqa: E501
+                    OpeningRangeBreakoutConfig,
+                )
+
+                self._champion_orb_config_cache = OpeningRangeBreakoutConfig()
+        return self._champion_orb_config_cache
+
     def _current_data_provenance(self) -> str:
         """Provenance of the data the loop is trading on right now — the active
         feed's stamp in replay, "live" otherwise (research/53 §8.2). A trade
@@ -992,6 +1016,7 @@ class LivePaperTradingService:
             risk_budget,
             now,
             max_new_cash_seeds_per_pass=seeds_this_pass,
+            strategy_config=self._champion_orb_config(),
             market_clock=self._clock,
         )
         # Options credit-spread half (index + stock options): regime-gated,

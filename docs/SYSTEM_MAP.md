@@ -11,8 +11,8 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-25t**.
-- **135 Python modules across 14 features** (packages under
+  true to what is actually on the server. Last regenerated: **2026-07-25u**.
+- **138 Python modules across 14 features** (packages under
   `src/nse_algo_trader/`).
 
 ---
@@ -220,9 +220,10 @@ Each block: purpose · files (role) · what flows IN/OUT · internal file→file
 - IN: signals (L4), `RiskGateDecision` (L5), `Instrument`. OUT: `OrderIntent`s, fills, atomic exec → paper_trading + session_management.
 - Internal: `atomic_multi_leg_executor → {broker_client_protocol, order_types}`; `signal_to_order_intents → order_types`; sim/kite clients → order_types.
 
-### L7 · paper_trading  (27 files)  — the integration hub + live loop
+### L7 · paper_trading  (30 files)  — the integration hub + live loop
 - **Router/feed:** `nse_market_clock` (is-NSE-open authority) · `historical_bar_replay_source` · `market_clock_gated_data_source_router` (replay↔live) · `replay_universe_feed` (market-CLOSED universe feed — now firewalled: refuses any bar/moment past the replay clock, and carries a provenance stamp) · `historical_source_replay_feed_builder` (§53 P4a-wire: `build_replay_bars_by_token_from_source` + `HighFidelityReplayConfig` — builds the replay feed's bars from any `HistoricalBarSource`, used to feed **Breeze 1-second** bars in when the service's `high_fidelity_replay` is injected; store-5m path otherwise) · `breeze_replay_focus_planner` (§53 task #7: `plan_breeze_replay_focus` — caps the 1s focus set to Breeze's 5000-calls/day budget; `rank_instruments_by_liquidity` orders the focus by real cash-bhavcopy turnover (§53 task #8); drives the service's autonomous self-activation of Breeze replay from a stored session token; the focus spans all 3 segments in **Rule-L order** — index options → stock options → cash — via `_rule_l_prioritized_focus_candidates`, task #16).
 - **Deficit-driven replay CURRICULUM (§53 slice 5a — ADVANCED tier; research/86):** `historical_session_market_regime_classifier` (`classify_session_market_regime` — reuses `indicators.compute_average_directional_index` + `strategy_engine.classify_adx_market_regime` to label a session TRENDING/RANGE_BOUND/INDECISIVE) · `deficit_driven_replay_session_selector` (`select_deficit_replay_session` — pick the candidate whose regime is least-covered; tie-break most-recent) · `replayed_session_regime_ledger` (own `replay_curriculum.sqlite3`; `record_replayed_session` + `covered_regime_counts` so coverage rotates). WIRED into `live_paper_trading_service._curriculum_pick_replay_session`: the autonomous multi-broker replay now picks the session whose market regime the bot has learned LEAST about (best-effort → most-recent fallback), records the pick's regime. Real-data verified: 23 real sessions → 12 trending / 6 range / 5 indecisive; deficit selector avoids the saturated regime. **Slice 5b DONE:** the session's ADX market regime is now stamped onto each experience (`_current_session_market_regime` → `_market_regime_for_date`, cached per date; passed into `build_closed_experiment`), so the Layer-10 memory's multi-regime read has a populated `market_regime` axis.
+- **Champion-challenger over ORB configs (§53 slice 5c-i — ADVANCED tier; research/87):** `replay_session_orb_backtester` (`backtest_orb_session_return` — deterministic per-session ORB outcome on real bars, reuses `detect_opening_range_breakout`) · `champion_challenger_orb_evaluator` (`score_orb_configuration` → `ConfigurationScorecard`; `evaluate_champion_vs_challengers` → `ChampionChallengerDecision`, promotes a challenger ONLY if it is top-Sharpe AND clears the reused Deflated-Sharpe `strategy_promotion_gate`, deflated by #configs tried) · `champion_configuration_store` (JSON; persists the promoted `OpeningRangeBreakoutConfig`). WIRED into the live loop: `_champion_orb_config()` reads the store (fallback default) → `run_live_universe_scan_pass(strategy_config=…)`, so a promoted config drives ORB decisions. Real-data verified: over 23 real sessions the champion (18 trades, 77.8% hit, Sharpe 0.539) is KEPT — top challenger rejected on insufficient trades (conservative gate). **Queued:** scheduled auto-re-eval trigger + options configs.
 - **Market-open simulation causal spine (§53 build slices 1–2, research/62):** `historical_trading_day_walker` (today→inception real-NSE-trading-day walk, P1) · `causal_leakage_firewall` (structural no-future-leak gate + `assert_no_future_leak`, P5) · `replay_experience_provenance` (`DataProvenance`/`ReplayFidelityTier` tags so replayed experience is never mistaken for live, P6) · `point_in_time_universe_resolver` (survivorship-free per-date universe from the stored cash+F&O bhavcopy — the real EQ names + option underlyings/contracts that traded THAT day, P2) · `historical_archive_replay_planner` (WIRED into `live_paper_trading_service._build_replay_feed_from_store`: keeps each replayed bar only if its instrument was in the REAL cash universe on that bar's own date — survivorship-free — passing through dates with no ingested bhavcopy) · `corporate_action_adjustment` (P3: `CorporateActionAdjustmentEngine` keeps the replay LOOKBACK series continuous across real split/bonus ex-dates — WIRED into `replay_universe_feed.recent_intraday_bars`; the current price stays RAW). Still queued: full walker-driven backward session stepping; provenance stamp→slice-3 memory-drain (BACKLOG).
 - **Engines:** `opening_range_breakout_paper_engine` (replay ORB) · **`live_universe_paper_loop`** (the live cash loop: open/hold/manage/breakout-watch/L8 square-off) · **`option_credit_spread_live_path`** (options: regime-gated credit spreads + directional long options).
 - **Ledger/fills:** `paper_trading_ledger` · `fill_slippage_model`.
@@ -315,6 +316,19 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-07-25u** — **Champion-challenger over ORB configs (§53 slice 5c-i; research/87;
+  135→138 modules, no new cross-feature edge — 3 new `paper_trading` files reusing
+  strategy_engine/market_data). `replay_session_orb_backtester` (deterministic per-session
+  ORB outcome on real bars) + `champion_challenger_orb_evaluator` (`ConfigurationScorecard`
+  + `evaluate_champion_vs_challengers`, reusing the Deflated-Sharpe `strategy_promotion_gate`
+  with `number_of_strategy_trials`=#configs) + `champion_configuration_store` (JSON). WIRED:
+  the service's `_champion_orb_config()` feeds the champion into `run_live_universe_scan_pass
+  (strategy_config=…)` — a promoted config actually drives ORB. **Rule-F PASS**
+  (`scripts/verify_champion_challenger_realdata.py`): over 23 real sessions the champion
+  (18 trades, 77.8% hit, Sharpe 0.539) is KEPT — the top challenger (Sharpe 0.620) is
+  rejected on `insufficient_trades` (conservative overfitting-safety verified on real data).
+  10 hermetic tests. **524 pass** (+10). Queued: scheduled auto-re-eval trigger + options
+  configs in the tournament.
 - **2026-07-25t** — **Market-regime TAG on experiences (§53 slice 5b; research/86; no
   module/edge change — edits to `memory_reflection/{experience_memory,sqlite_experience_
   memory}.py` + `dashboard/live_paper_trading_service.py` + tests). `ClosedExperiment`
