@@ -130,9 +130,12 @@ when the build starts:
   (a) `historical_trading_day_walker` → **slice-2 archive-walk driver** that
   steps the live service backward through historical sessions (today it is
   built + verified but not yet driving the service's session selection);
-  (b) `replay_experience_provenance` stamp → **slice-3 memory-drain** that
-  writes the tag onto each replayed experience so calibration/antibody weight
-  replay below live. Done = each wired into the loop + real-data verified.
+  ~~(b) `replay_experience_provenance` stamp → **slice-3 memory-drain** that
+  writes the tag onto each replayed experience~~ **DONE (2026-07-25, slice 3a):**
+  the drain stamps each experience with the active feed's provenance and the
+  memory is now provenance-separable (calibration_board filter + dashboard
+  live/replay mix). Making calibration/antibody actually WEIGHT replay below live
+  is slice 3b (below).
 - 🟢 **Slice 2 — point-in-time universe** (P2+P3): DONE (2026-07-24), real-data
   verified & wired into the loop. Only the low-priority walker-session-stepping
   refinement (task #7) remains under §53.
@@ -170,8 +173,25 @@ when the build starts:
   - Deep-history refinements (delisted master, index-constituent history) still
     tracked in the sourcing items above — bhavcopy already gives correct
     traded-that-day sets for ingested dates without them.
-- 🔴 **Slice 3 — prequential learning** (P7+P9): predict-then-reveal scoring
-  into the existing §9/Layer-10 calibration; consumes the provenance stamp.
+- 🟢 **Slice 3a — provenance-separable memory.** DONE (2026-07-25, real-data
+  verified): `calibration_board(data_provenance=...)` filter (protocol + sqlite)
+  separates live vs replay calibration; the service publishes
+  `experiment_count_by_provenance` → Reflection panel header (live/replay mix) —
+  the first dashboard consumer of the slice-1 watermark; drain stamps each
+  experience with the active feed's provenance. Rule-F verified on the real
+  293-experience DB (all `live` post-migration; injected replay cohort stays
+  separated). 403 tests pass. *(task #1)*
+- 🔴 **Slice 3b — provenance INTO decisions + dense prequential scorer (queued).**
+  (1) recalibration / antibody / information-diet must WEIGHT replay below live
+  (§8.2) so a replay-only lesson never overrides live evidence, and over-reliance
+  on replay trips the info-diet health WARNING. (2) The dense per-step prequential
+  scorer (§8.1) beyond per-trade grading — sourcing verdict (research/62 + 2026-07-25
+  sourcing pass): **vendor River `LogLoss`** (`river.metrics.LogLoss` + `river.stats.Mean`
+  + `metrics.base` scaffold, BSD-3, ~100 LOC) and hand-write a 15-line `BrierScore`
+  twin; per-cohort = a dict of metric instances keyed by group; River's
+  `progressive_val_score` REJECTED (model-coupled) and depending on the River
+  package rejected (numpy + Python≥3.11 pull-in). Done = provenance actually changes
+  a decision + a running log/Brier accrues over a replay session, Rule-F verified. *(task #2)*
 - 🔴 **Slice 4 — fidelity climb**: ICICI Breeze 1-second source + start
   recording our own live depth forward (the only path to L2/L3).
 - 🔴 **Slice 5+ — ADVANCED**: microstructure features, queue/impact fills,

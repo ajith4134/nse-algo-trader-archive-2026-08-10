@@ -112,6 +112,7 @@ class DashboardSnapshot:
     opponent_ledger: dict | None = None
     positioning_deferred_count: int = 0
     information_diet: dict | None = None
+    experiment_count_by_provenance: dict | None = None
 
     def to_json_dict(self) -> dict:
         return {
@@ -145,6 +146,7 @@ class DashboardSnapshot:
             "opponent_ledger": self.opponent_ledger,
             "positioning_deferred_count": self.positioning_deferred_count,
             "information_diet": self.information_diet,
+            "experiment_count_by_provenance": self.experiment_count_by_provenance,
         }
 
 
@@ -173,6 +175,7 @@ def build_dashboard_snapshot(
     opponent_ledger: dict | None = None,
     positioning_deferred_count: int = 0,
     information_diet: dict | None = None,
+    experiment_count_by_provenance: dict | None = None,
 ) -> DashboardSnapshot:
     """When `precomputed_*` summaries are supplied (by the live service's
     writer thread, which is the sole mutator of the ledger/scoreboard),
@@ -271,6 +274,7 @@ def build_dashboard_snapshot(
         opponent_ledger=opponent_ledger,
         positioning_deferred_count=positioning_deferred_count,
         information_diet=information_diet,
+        experiment_count_by_provenance=experiment_count_by_provenance,
     )
 
 

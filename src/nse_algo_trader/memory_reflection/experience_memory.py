@@ -184,6 +184,7 @@ class ExperienceMemory(Protocol):
         minimum_experiments: int = 1,
         limit: int = 20,
         recency_window: int | None = None,
+        data_provenance: str | None = None,
     ) -> list[CalibrationBoardRow]: ...
 
     def reliability_decomposition(

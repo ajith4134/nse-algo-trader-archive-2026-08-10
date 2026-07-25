@@ -122,6 +122,10 @@ class LivePaperPublishedSnapshot:
     opponent_ledger: dict | None = None  # OpponentLedgerReading as a dict
     positioning_deferred_count: int = 0
     information_diet: dict | None = None  # InformationDiet as a dict
+    # §53 slice 3a: live-vs-replay experience mix, so over-reliance on 24/7
+    # replay is visible ({"live": n, "replay_faithful": m}). Empty until replay
+    # experiences accrue.
+    experiment_count_by_provenance: dict | None = None
 
     @property
     def open_position_count(self) -> int:
@@ -681,6 +685,7 @@ class LivePaperTradingService:
             ),
             strategy_readiness=_strategy_readiness_summaries(self._state),
             memory_experiment_count=self._memory_experiment_count(),
+            experiment_count_by_provenance=self._memory_experiment_count_by_provenance(),
             calibration_board=self._memory_calibration_board(),
             assumption_verdicts=self._memory_assumption_verdicts(),
             vetoed_mechanism_count=len(self._state.vetoed_mechanisms),
@@ -834,6 +839,19 @@ class LivePaperTradingService:
             return self._experience_memory.experiment_count() if self._experience_memory else 0
         except Exception:
             return 0
+
+    def _memory_experiment_count_by_provenance(self) -> dict:
+        """The live-vs-replay experience mix (§53 slice 3a) — so the dashboard can
+        show whether the brain is over-relying on 24/7 replay vs real live sessions
+        (writer thread — owns the memory's SQLite connection)."""
+        try:
+            return (
+                self._experience_memory.experiment_count_by_provenance()
+                if self._experience_memory
+                else {}
+            )
+        except Exception:
+            return {}
 
     def _memory_calibration_board(self) -> tuple:
         """The reflection surface: per-mechanism predicted-vs-actual calibration

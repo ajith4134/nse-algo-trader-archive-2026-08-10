@@ -9,6 +9,7 @@ itself — the running old-code service still writes it).
 
 import shutil
 import sqlite3
+from dataclasses import replace
 from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -87,6 +88,75 @@ def test_migration_adds_column_and_defaults_old_rows_to_live(tmp_path):
 
     memory = SqliteExperienceMemory(db_file_path=db_path)  # triggers migration
     assert memory.experiment_count_by_provenance() == {"live": 1}
+
+
+def test_calibration_board_separates_live_from_replay(tmp_path):
+    """The slice-3a separability payoff: the same mechanism winning live but
+    losing in replay must NOT be pooled into one misleading calibration row."""
+    memory = SqliteExperienceMemory(db_file_path=tmp_path / "e.sqlite3")
+    for i in range(3):  # live: all wins
+        memory.record_closed_experiment(_experiment(f"live-{i}", "live"))
+    for i in range(3):  # replay: all losses (same "orb"/"breakout" cohort)
+        loss = replace(
+            _experiment(f"replay-{i}", "replay_faithful"),
+            actual_outcome="loss", prediction_was_correct=False,
+        )
+        memory.record_closed_experiment(loss)
+
+    live = memory.calibration_board(minimum_experiments=1, data_provenance="live")
+    replay = memory.calibration_board(
+        minimum_experiments=1, data_provenance="replay_faithful"
+    )
+    pooled = memory.calibration_board(minimum_experiments=1)
+
+    live_row = next(r for r in live if r.mechanism_name == "breakout")
+    replay_row = next(r for r in replay if r.mechanism_name == "breakout")
+    pooled_row = next(r for r in pooled if r.mechanism_name == "breakout")
+    assert (live_row.experiment_count, live_row.actual_win_rate) == (3, 1.0)
+    assert (replay_row.experiment_count, replay_row.actual_win_rate) == (3, 0.0)
+    # Pooling (no filter) would hide the replay-only failure behind a 0.5 average.
+    assert pooled_row.experiment_count == 6
+    assert pooled_row.actual_win_rate == 0.5
+
+
+def test_real_memory_db_calibration_board_is_provenance_separable_on_a_copy(tmp_path):
+    if not _REAL_MEMORY_DB.exists():
+        pytest.skip("real experience_memory DB not present (CI / fresh checkout)")
+    copy_path = tmp_path / "experience_memory_copy.sqlite3"
+    shutil.copy(_REAL_MEMORY_DB, copy_path)
+    memory = SqliteExperienceMemory(db_file_path=copy_path)
+
+    # All real experiences are live → the replay-only board is empty, and the
+    # live-only board equals the pooled board (nothing to separate out yet).
+    pooled_keys = {
+        (r.strategy_tag, r.mechanism_name, r.experiment_count)
+        for r in memory.calibration_board(minimum_experiments=3)
+    }
+    live_keys_before = {
+        (r.strategy_tag, r.mechanism_name, r.experiment_count)
+        for r in memory.calibration_board(minimum_experiments=3, data_provenance="live")
+    }
+    assert live_keys_before == pooled_keys
+    assert memory.calibration_board(minimum_experiments=3, data_provenance="replay_faithful") == []
+
+    # Inject replayed experiences: they surface ONLY in the replay board and
+    # leave the real live calibration byte-for-byte unchanged (no leakage).
+    for i in range(3):
+        memory.record_closed_experiment(
+            replace(
+                _experiment(f"replay-real-{i}", "replay_faithful"),
+                actual_outcome="loss", prediction_was_correct=False,
+            )
+        )
+    replay_after = memory.calibration_board(
+        minimum_experiments=3, data_provenance="replay_faithful"
+    )
+    assert any(r.mechanism_name == "breakout" and r.experiment_count == 3 for r in replay_after)
+    live_keys_after = {
+        (r.strategy_tag, r.mechanism_name, r.experiment_count)
+        for r in memory.calibration_board(minimum_experiments=3, data_provenance="live")
+    }
+    assert live_keys_after == live_keys_before
 
 
 def test_real_memory_db_migrates_and_reads_all_live_on_a_copy(tmp_path):

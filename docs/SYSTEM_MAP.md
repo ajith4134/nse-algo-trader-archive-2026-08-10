@@ -245,7 +245,7 @@ flowchart LR
 - `dashboard_read_model.py` — assembles `DashboardSnapshot` (+ `OpenPositionSummary`, `SegmentBoard`, `StrategyReadinessSummary`).
 - `monitoring_alerts.py` — time-gated alerts (open intraday=INFO, after-15:15=CRITICAL).
 - `project_status_data.py` — layer roadmap + 16-trunk concept tree (static).
-- `render_dashboard_html.py` — snapshot → standalone interactive HTML (3 §9 tables, scrollable; segment boards; closed trades; 20s poll; a "🗺️ System Map" header link → `/map`).
+- `render_dashboard_html.py` — snapshot → standalone interactive HTML (3 §9 tables, scrollable; segment boards; closed trades; 20s poll; a "🗺️ System Map" header link → `/map`). The Reflection panel header shows the live-vs-replay experience mix (§53 slice 3a) once replay experiences accrue.
 - `render_system_map_html.py` — renders THIS map (`docs/SYSTEM_MAP.md`) as its own page at `/map` (marked + mermaid, client-side); `render_system_map_html`, `load_system_map_markdown`.
 - `dashboard_server.py` — FastAPI (`/`, `/map`, `/api/snapshot`, `/api/config`, capability-token gated).
 - IN: everything (reads L1–L8 via the service) + `trading_control_config.json`. OUT: HTML/JSON → operator browser; `POST /api/config` writes the config store.
@@ -265,7 +265,7 @@ flowchart LR
 ### L10 · memory_reflection  (4 files)  — episodic experience memory + assumption tripwires
 - `experience_memory.py` — `ExperienceMemory` protocol (swappable substrate boundary), `ClosedExperiment` node, `build_closed_experiment` (from a graded §9 prediction + closed trade), summary types.
 - `assumption_registry.py` — `evaluate_trading_assumptions` (calibration + edge assumptions, TRIPPED only with significant evidence — one-sided binomial z, min 12 trades) + `vetoed_mechanisms` (the tripped set). Feeds the dashboard "Assumption tripwires" panel, a WARNING alert, AND the **antibody auto-veto**: the service sets `LiveUniversePaperState.vetoed_mechanisms` each pass, and the L7 loop refuses new entries on a refuted mechanism (`is_mechanism_vetoed`) — memory feeding back into the trading gate.
-- `sqlite_experience_memory.py` — `SqliteExperienceMemory`: typed experiment nodes in one `.db`; serves calibration-by-regime, prior-outcomes (entry-time pre-mortem), reflection-diff, and the **calibration_board** (per-mechanism predicted-vs-actual win-rate) by indexed group-by. (Graphiti/Neo4j temporal-KG = documented swap-up for the semantic/multi-hop tier — research/43.)
+- `sqlite_experience_memory.py` — `SqliteExperienceMemory`: typed experiment nodes in one `.db`; serves calibration-by-regime, prior-outcomes (entry-time pre-mortem), reflection-diff, and the **calibration_board** (per-mechanism predicted-vs-actual win-rate — with an optional `data_provenance` filter, §53 slice 3a, so live vs 24/7-replay calibration are separable) by indexed group-by; `experiment_count_by_provenance()` gives the live/replay mix. (Graphiti/Neo4j temporal-KG = documented swap-up for the semantic/multi-hop tier — research/43.)
 - IN: closed §9 experiments (graded prediction + closed trade — **cash AND options**) emitted by the L7 loop, drained by the dashboard service. OUT: calibration / prior-outcome / reflection-diff / calibration-board summaries → dashboard **Reflection panel**.
 - **Wiring:** the L7 loop emits `(graded, trade, kind)` events on close (no L10 import); `dashboard/live_paper_trading_service._drain_closed_experiments_into_memory` records them into `ExperienceMemory` in the writer thread, and publishes the calibration board to the dashboard Reflection panel. Rule-F verified on real closed experiments (2026-07-24) — surfaced that the confident-win "trend-continuation" mechanism ran at 0.05 hit rate while the confident-loss "false-breakout" thesis held at 0.75.
 
@@ -303,6 +303,23 @@ via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 ---
 
 ## §4 · MAINTENANCE LEDGER
+
+- **2026-07-25a** — **§53 slice 3a — provenance-separable memory** (no new files;
+  111 modules, no new cross-feature edge). `ExperienceMemory.calibration_board`
+  gains a `data_provenance` filter (protocol + sqlite) so LIVE vs REPLAY
+  calibration are separable (a replay-only lesson never pooled into the live read,
+  research/53 §8.2). The service publishes `experiment_count_by_provenance` through
+  the snapshot → read model → server → the **Reflection panel header** (the live-vs-
+  replay experience mix, shown once replay experiences accrue) — the first
+  DASHBOARD consumer of the slice-1 provenance watermark (the drain already stamps
+  each experience via `_current_data_provenance`). Rule-F verified on the REAL
+  293-experience DB (on a copy): all `live` post-migration, live board == pooled,
+  replay board empty; an injected replay cohort surfaces ONLY in the replay board
+  and never perturbs the live calibration. 403 tests pass (+2). **Slice 3a done;
+  slice 3b queued** (provenance INTO decisions — down-weight replay below live +
+  info-diet WARNING on over-reliance — and the dense per-step prequential scorer:
+  vendor River `LogLoss` + a hand-written `BrierScore`, BSD-3, per research/62 +
+  the sourcing pass; River's `progressive_val_score` rejected as model-coupled).
 
 - **2026-07-24u** — **Market-open simulation §53 — slice 2 COMPLETE (P3
   corporate-action adjustment).** New files `market_data/

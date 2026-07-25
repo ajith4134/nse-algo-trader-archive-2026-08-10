@@ -251,6 +251,7 @@ class SqliteExperienceMemory:
         minimum_experiments: int = 1,
         limit: int = 20,
         recency_window: int | None = None,
+        data_provenance: str | None = None,
     ) -> list[CalibrationBoardRow]:
         """Per (strategy × mechanism): predicted vs actual win-rate + Brier —
         the reflection surface. Ordered by the calibration gap (predicted −
@@ -258,17 +259,25 @@ class SqliteExperienceMemory:
 
         `recency_window` (slice 4): when set, aggregate only each mechanism's
         LAST N experiments (by occurred_at) — so fresh shadow-probe evidence can
-        lift a veto (recovery). None = all-time (the Reflection display)."""
+        lift a veto (recovery). None = all-time (the Reflection display).
+
+        `data_provenance` (§53 slice 3a): when set (e.g. "live" or
+        "replay_faithful"), restrict the board to experiences from that source —
+        so live calibration and 24/7-replay calibration are SEPARABLE and a
+        replay-only lesson is never mixed into the live read (research/53 §8.2).
+        None = all provenances pooled (back-compatible)."""
+        provenance_where = "WHERE data_provenance = ?" if data_provenance else ""
+        provenance_params: tuple = (data_provenance,) if data_provenance else ()
         if recency_window is None:
-            source = "experience_nodes"
-            params: tuple = (minimum_experiments, limit)
+            source = f"experience_nodes {provenance_where}".rstrip()
+            params: tuple = provenance_params + (minimum_experiments, limit)
         else:
             source = (
                 "(SELECT *, ROW_NUMBER() OVER (PARTITION BY mechanism_name "
-                "ORDER BY occurred_at DESC) AS rn FROM experience_nodes) "
+                f"ORDER BY occurred_at DESC) AS rn FROM experience_nodes {provenance_where}) "
                 "WHERE rn <= ?"
             )
-            params = (recency_window, minimum_experiments, limit)
+            params = provenance_params + (recency_window, minimum_experiments, limit)
         cursor = self._connection.execute(
             "SELECT strategy_tag, mechanism_name, COUNT(*) AS n, "
             "AVG(win_probability) AS pred, "

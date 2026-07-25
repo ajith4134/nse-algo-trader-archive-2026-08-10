@@ -492,7 +492,12 @@ function renderLive(snap){
   document.getElementById("readynote").innerHTML="Each strategy's realized per-trade returns run through CPCV → the Deflated-Sharpe gate (min 30 trades). A 'promote candidate' is a statistical readiness signal only — paper, not live capital.";
   // --- Reflection: per-mechanism predicted-vs-actual calibration (L10 memory) ---
   const rb=snap.reflection_board||[];
-  document.getElementById("reflectaside").textContent=(snap.memory_experiment_count||0).toLocaleString()+" experiences";
+  // §53 slice 3a: show the live-vs-replay experience mix so over-reliance on
+  // 24/7 historical replay is visible (only when replay experiences exist).
+  const prov=snap.experiment_count_by_provenance||{};
+  const liveExp=prov.live||0, replayExp=prov.replay_faithful||0;
+  const provMix=replayExp>0?` (${liveExp.toLocaleString()} live · ${replayExp.toLocaleString()} replay)`:"";
+  document.getElementById("reflectaside").textContent=(snap.memory_experiment_count||0).toLocaleString()+" experiences"+provMix;
   // The gap is over-confidence when predicted >> actual (the danger). Binary
   // signed status, not a 3-way magnitude scale (the red↔amber pair fails CVD
   // separation; the bar shows the gap geometrically instead).

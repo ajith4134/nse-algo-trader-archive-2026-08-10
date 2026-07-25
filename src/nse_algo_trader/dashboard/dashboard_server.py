@@ -176,6 +176,7 @@ def build_dashboard_app() -> FastAPI:
             opponent_ledger=published.opponent_ledger,
             positioning_deferred_count=published.positioning_deferred_count,
             information_diet=published.information_diet,
+            experiment_count_by_provenance=published.experiment_count_by_provenance,
         )
 
     @app.get("/", response_class=HTMLResponse)
