@@ -1648,6 +1648,7 @@ class LivePaperTradingService:
                     status="active",
                     metrics=(("providers", str(configured)),
                              ("lead lane", lead_label),
+                             ("pool", names),
                              ("served by", reflection.served_by),
                              ("findings", str(len(reflection.findings))),
                              ("distrust", ", ".join(reflection.distrust_mechanisms[:3]) or "—")),

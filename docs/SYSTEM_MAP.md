@@ -473,6 +473,18 @@ queued, calibration-gated next slice (research/96).
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-08-02 (B49 fix — LLM Gateway PROMINENT panel; the subscription lane made visible)** — the
+  earlier B49 slice surfaced the subscription-led cost ladder only as one row buried deep in the
+  Feature-coverage table — the user reported "nothing changed" because the change sat below the fold.
+  Fixed by promoting it to a dedicated **LLM Gateway** card placed 3rd from top (after Controls,
+  before Open positions) in `dashboard/render_dashboard_html.py`: a big LEAD-LANE badge
+  (`claude-code-subscription · claude-haiku-4-5`), the ordered ladder rendered as ranked chips
+  (subscription highlighted → groq → google-ai-studio → cerebras → sambanova → openrouter),
+  providers/served-by/findings/status mini-KPIs, and the failover note. Reuses the existing card /
+  chip / `featColor` design system (no new tokens). Also added the `("pool", names)` metric to the
+  `_strategic_llm` ACTIVE branch in `live_paper_trading_service.py` so the ladder shows in every
+  state. No new files/modules/edges; module count unchanged. **Verified by eye (Rule N):** cropped
+  the live screenshot and confirmed the panel is prominent and correct, not just text-present in HTML.
 - **2026-08-01 (no-profit diagnosis + broken-module repair)** — read-only diagnosis of the
   −₹190k net P&L saved to `docs/research/no_profit_diagnosis_2026-08-01.md`. While clearing the
   quality gate, repaired `predictive_core/index_direction_features.py`, which did not type-check

@@ -201,6 +201,16 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
   .branches span.built{color:var(--profit);background:var(--profitsoft);border-color:color-mix(in srgb,var(--profit) 40%,var(--line))}
   .branches span.partial{color:var(--warnc);background:var(--warnsoft);border-color:color-mix(in srgb,var(--warnc) 40%,var(--line))}
   .gated{font-size:.58rem;font-weight:700;color:var(--warnc);background:var(--warnsoft);padding:.12em .4em;border-radius:5px}
+  /* LLM gateway (prominent, subscription-backed pool) */
+  .llmcard{border-color:color-mix(in srgb,var(--brand) 32%,var(--line))}
+  .llmlead{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;margin-bottom:.9rem}
+  .llmlead .leadlbl{font-size:.66rem;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:700}
+  .llmlead .leadbadge{font-family:var(--mono);font-weight:800;font-size:1.02rem;padding:.42em .85em;border-radius:10px;background:var(--brandsoft);color:var(--brand);border:1px solid color-mix(in srgb,var(--brand) 42%,var(--line))}
+  .llmladder{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin-bottom:1rem}
+  .llmladder .lane{font-family:var(--mono);font-size:.78rem;background:var(--surface);border:1px solid var(--line);padding:.3em .62em;border-radius:8px;color:var(--dim);display:flex;align-items:center;gap:.4rem}
+  .llmladder .lane.lead{color:var(--brand);background:var(--brandsoft);border-color:color-mix(in srgb,var(--brand) 45%,var(--line));font-weight:700}
+  .llmladder .lane .rank{font-size:.62rem;opacity:.55;font-weight:700}
+  .llmladder .sep{color:var(--faint);font-size:.8rem}
   .alerts{display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.5rem}
   .alert{display:flex;align-items:flex-start;gap:.6rem;padding:.7rem .9rem;border-radius:11px;font-size:.85rem;border:1px solid}
   .alert .ic{flex:none;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:.7rem;font-weight:800;color:#fff;margin-top:1px}
@@ -249,6 +259,16 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
         <span class="saved" id="savestate"></span>
       </div>
       <details class="cfg"><summary>View raw config JSON</summary><pre id="cfgPreview"></pre></details>
+    </div>
+  </div>
+
+  <div class="card llmcard" id="llmGatewayCard">
+    <div class="head"><span class="bar"></span><h2>LLM Gateway — subscription-backed provider pool</h2><span class="aside" id="llmaside"></span></div>
+    <div class="body">
+      <div class="llmlead" id="llmLead"></div>
+      <div class="llmladder" id="llmLadder"></div>
+      <div class="minikpis" id="llmkpis"></div>
+      <p class="note" id="llmnote"></p>
     </div>
   </div>
 
@@ -779,6 +799,28 @@ function renderLive(snap){
         `<td>${metrics||'<span style="color:var(--faint)">—</span>'}</td></tr>`;
     });
     document.getElementById("featTbl").innerHTML=rows;
+  }
+  // --- LLM Gateway (prominent): the subscription-led cost ladder (idea #8) ---
+  const llm=feats.find(f=>f.key==='strategic_llm_analyst');
+  const llmCard=document.getElementById('llmGatewayCard');
+  if(!llm){ if(llmCard) llmCard.style.display='none'; }
+  else {
+    if(llmCard) llmCard.style.display='';
+    const mget=k=>{const m=(llm.metrics||[]).find(x=>x[0]===k);return m?m[1]:'';};
+    const lc=featColor[llm.status]||'var(--faint)';
+    document.getElementById('llmaside').innerHTML=`<span style="color:${lc};font-weight:700">${featIcon[llm.status]||'—'} ${llm.status}</span>`;
+    const lead=mget('lead lane')||'—';
+    document.getElementById('llmLead').innerHTML=
+      `<span class="leadlbl">Lead lane</span><span class="leadbadge">${lead}</span>`+
+      `<span class="leadlbl">flat-cost · Haiku · auto-failover on cap</span>`;
+    const pool=(mget('pool')||lead).replace(/…\s*$/,'').split(',').map(s=>s.trim()).filter(Boolean);
+    document.getElementById('llmLadder').innerHTML=pool.map((p,i)=>
+      `<span class="lane${i===0?' lead':''}"><span class="rank">${i+1}</span>${p}</span>`+
+      (i<pool.length-1?'<span class="sep">›</span>':'')).join('');
+    const lk=[['providers',mget('providers')||'—'],['served by',mget('served by')||'idle'],['findings',mget('findings')||'0'],['status',llm.status]];
+    document.getElementById('llmkpis').innerHTML=lk.map(([k,v])=>
+      `<div class="minikpi"><div class="lab">${k}</div><div class="v">${v}</div></div>`).join('');
+    document.getElementById('llmnote').textContent=llm.note||'';
   }
   document.getElementById("featnote").innerHTML="Every feature must register a surface (Rule N) — a “▲ unknown / not yet surfaced” row fails the coverage audit. Wired-but-invisible ≠ shipped.";
   document.getElementById("sub").textContent="live dashboard · updated "+snap.generated_at.slice(11,16)+(LIVE_API_KEY?" · auto-refresh 20s":"");
