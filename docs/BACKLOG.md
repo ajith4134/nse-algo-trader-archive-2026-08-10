@@ -10,6 +10,75 @@ Status key: 🔴 not started · 🟡 in progress · 🟢 done (moved to Done) ·
 
 ---
 
+## B40 — Items surfaced by the verification cockpit (`scripts/verification_cockpit.py`, 2026-08-02) — 🟡 OPEN
+The new cockpit ran all 63 `verify_*_realdata` checks and surfaced real open items (Rule K — not
+silently skipped). None block the cockpit slice itself, which is delivered + tested.
+- 🔴 **Genuine engine defect:** `verify_cross_modal_binding_realdata` raises
+  `AttributeError: 'NoneType' object has no attribute 'summary'` (bp is None then `.summary` accessed).
+  Real bug in the cross-modal-binding verify path or its engine — needs a fix (guard for the empty
+  case or fix why the binding returns None on the real series). Cockpit correctly classes it FAIL.
+- 🔴 **5 heavy checks unverified (timed out at 180s under 8-way load), classed SKIPPED not FAIL:**
+  `verify_metacognition_scoreboard`, `verify_self_model_attention_schema`, `verify_workspace_attention`,
+  `verify_workspace_decision_consumer`, `verify_workspace_rumination` — all load torch/HF weights.
+  Re-run to actually verify: `python scripts/verification_cockpit.py --only workspace --jobs 2 --timeout 600`
+  (and per name). OPEN until each is confirmed PASS on real data.
+- ⚠️ Note: `verify_multi_broker_gap_fill` (Angel One) and `verify_breeze_1s` are live-broker-auth
+  gated — they PASS when a session exists, SKIP (not FAIL) when it doesn't. Working as intended.
+
+## B45 — Idea #4 dual directional AI bots (BULL/BEAR) — 🟡 RESEARCH COMPLETE, finalize pending §6 picks
+`docs/ideas/dual_directional_ai_agents.md`. All research done (re-ran after session reset): §7 = order-book/
+volume-profile · news acquisition · news-NLP · Dual-LLM security · ML/DL+arbiter+online-learning; §2c Kronos
+candlestick model; §2d online-research organ (crawl4ai/browser-use/local-VLM); §8 full synthesis. Each of
+BULL/BEAR = own autonomous bot (own arch + own data), decides both segments. Governing invariant: no
+web→capital without the deterministic gate. mlfinlab STUBBED → reimplement AFML pieces. Ready to build once
+user confirms §6 (first model class · segment · cadence · autonomy). Feeds idea #1 brain + #2 radar.
+- 🔴 OWED research (WebSearch exhausted 2026-08-02): verify exact API/RSS endpoints + rate-limits + free/paid
+  for the §2e data-target catalog (corporate actions, analyst data, FII/DII & participant OI flows, macro/
+  global cues, USDINR, options-derived, social, fundamentals/concalls/ratings). Re-run when budget resets.
+- Online-research organ (§2d/§2e) = SHARED external-data acquisition subsystem (feeds #1/#2/#4), behind the
+  Dual-LLM quarantine; reuse existing news_sentiment/participant_positioning/universe_registry.
+
+## B44 — Full option universe scope (idea #3 finalized 2026-08-02) — 🟢 SCOPE-LOCKED (reuse instrument-master)
+`docs/ideas/full_option_universe_scope.md` §8. Scan WIDE (Kite /instruments/NFO daily, ~20–30k contracts,
+reuse kite_instrument_master B34, key on exchange+tradingsymbol), trade LIQUIDITY-GATED subset. Tiers:
+NIFTY weekly + Bank Nifty monthly + top ~20 liquid stocks. Stock options = directional/vertical/covered-
+call only (NO naked selling — physical settlement/gap) [open user choice, default OFF]. Never hardcode
+lot sizes. Feeds idea #1 engines + idea #2 radar.
+
+## B43 — Full-universe opportunity radar (idea #2 finalized 2026-08-02) — 🔴 QUEUED (perception layer; feeds idea #1's brain; build after/with B42)
+Finalized: `docs/ideas/full_universe_opportunity_radar.md` §8. LOCKED: radar SURFACES gated candidates →
+brain decides (not standalone scalper); liquid subset first → multi-key sharding. 4 mandatory gates:
+net-EV (Wall-1, lives in L1 cost engine) · Benjamini-Yekutieli FDR + DSR≥0.95 (Wall-2, L2 validation) ·
+streaming+sharding (Wall-3) · RMT→HRP→CVXPY knapsack→TTL-queue→bandit selection (Wall-4). Honest blocker
+(Rule O): naive "any small profit" scalping is a documented loser — value is finding+routing cost-clearing
+validated ops; maker-order spread-capture is the only durable small-edge lever. Shares idea #1 prereqs.
+
+## B42 — Idea #1: regime-weighted brain + engine PER REGIME (ALL market types from the start) — 🔴 QUEUED (build after seed ideas in)
+`docs/ideas/main_ai_brain_all_strategies.md` §8. **SCOPE REVISED 2026-08-02: all regimes from the start,
+NOT flat-first** (aligns Rule L equal-coverage + Rule Q fullest-function/gate-activation). Committed target =
+full regime-weighted brain + an engine per regime (bull momentum/bull-call · bear breakdown/bear-put ·
+volatile long-straddle/gamma · flat iron-condor/premium-seller · cash + options). Autonomy = auto within
+hard limits. **Shared prereqs built ONCE (serve all regimes):** (1) L1 cost engine · (2) L2 validation
+(Deflated Sharpe+CPCV+trial registry) · (3) Greeks/IV engine (extend black_scholes IV) · (4) cash+options
+risk gate · (5) regime classifier + bandit router (the brain) · (6) the idea-#4 directional bots.
+**Then 4 regime engines ARM one-verified-at-a-time via the Rule-Q maturity ladder** (Rule A/F — can't
+verify 4 deep engines at once; none deferred out of scope, brain abstains for un-armed regimes, automatic).
+First to arm (ordering only, not scope): flat premium-seller. Next: institutional SPEC (full 4-regime brain). Next step when
+greenlit: institutional SPEC via idea-to-institutional-spec → building-engine-grade-features.
+
+## B41 — Wire the two validated PreToolUse deny-hooks (enforcement-hook audit, 2026-08-02) — 🟢 DONE (wired + tested in place 2026-08-02, user approved "wire both")
+Audit: `docs/enforcement_hook_audit_2026-08-02.md`. The only never-do gaps with ZERO enforcement today
+are secret-file protection and dangerous-bash. Both proposed hooks are written + **tested in isolation
+and passing** (deny .env/keys/SSH/.claude.json; deny rm -rf ~//, plain --force, curl|sh, chmod 777;
+ALLOW --force-with-lease, normal files/commands). PreToolUse fails CLOSED so neither can wedge a turn.
+- 🔴 **Not wired** — editing the live `~/.claude/settings.json` enforcement layer is ask-first. On
+  user approval: wire `protect-secrets` (3a) + `block-dangerous-bash` (3b) via the update-config skill,
+  then re-test each in-place (`printf '{...}' | <hook>; echo $?`) before relying on it.
+- Decision recorded: do NOT convert rules A–Q to more hooks (appropriately guides / already Stop-gated)
+  and do NOT add Stop hooks (Stop fails OPEN → risk of un-endable turns).
+
+---
+
 ## B34 — Full option universe (all contracts × every index + full stock breadth) + option-segment dashboard surfacing (2026-07-30) — 🟡 IN PROGRESS
 Operator ask 2026-07-30: "option index and option stocks are not opening … i need full universe in
 option stocks and all contracts in options every index." Clarified via forced MCQ: symptom = BOTH
