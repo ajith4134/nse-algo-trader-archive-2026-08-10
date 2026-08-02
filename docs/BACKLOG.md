@@ -2601,3 +2601,12 @@ PASS + REAL end-to-end subscription call verified (Rule F). Owed: warm-persisten
 Ollama+cloud lane + cap→fallback integration test; confirm costUSD is telemetry not billing.
 - 🔴 OWED (WebSearch reset): fresh deep-research on INSTITUTIONAL-GRADE code standards (user's new #1 rule);
   anchor exists = docs/research/155 (SOTA depth bar).
+
+## B49 — Screenshot-after-every-change rule + slice-0.1 dashboard surface — 🟢 tool + 🔴 owed surface
+Standing rule saved (`feedback_screenshot_dashboard_after_every_change`): screenshot the advanced dashboard
+after every feature/edit + visually confirm it landed. Reusable tool built: `scripts/screenshot_dashboard.py`
+(--expect <text> scans the rendered page). Slice-0.1 check: dashboard RENDERS clean ✅ (verified 2026-08-02).
+- 🔴 OWED (Rule N): slice-0.1 subscription lane has NO dashboard surface yet — the running server predates
+  the code + no LLM-pool/served-by panel found. Add an LLM-pool status panel (served-by: claude-code-
+  subscription + failover trail) [frontend-design + dataviz], restart server, re-screenshot with
+  `--expect claude-code-subscription`.
