@@ -19,7 +19,7 @@ Model IDs are sensible current free-tier defaults; override per-provider via
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Mapping
+from collections.abc import Callable, Mapping
 
 from nse_algo_trader.llm_strategy.openai_compatible_chat_provider import (
     HttpPost,
@@ -157,6 +157,7 @@ def build_free_tier_provider_pool(
     paid_configs: tuple[LlmProviderConfig, ...] = PAID_PROVIDER_CONFIGS,
     market_is_open: bool | None = None,
     local_provider_factory: Callable[[Mapping[str, str]], LlmProvider | None] | None = None,
+    subscription_provider_factory: Callable[[Mapping[str, str]], LlmProvider | None] | None = None,
 ) -> list[LlmProvider]:
     """Instantiate a provider for every config whose API key is present in `env`, in COST ORDER.
 
@@ -172,6 +173,15 @@ def build_free_tier_provider_pool(
     surfaced as blocked on the dashboard).
     """
     providers: list[LlmProvider] = []
+
+    # SUBSCRIPTION RUNG (idea #8) — the Claude Code Max/Pro subscription (flat, already paid). Operator
+    # directive: MAXIMIZE it → it LEADS the pool, so every call tries it first; when it hits its
+    # 5-hour/weekly cap it raises LlmRateLimitError and the swappable client fails over to the local/
+    # free/paid rungs below (a cap DEGRADES, never HALTS). Absent SDK / CLAUDE_SUBSCRIPTION_DISABLED →
+    # None → the rung is simply omitted. Verified end-to-end on the real subscription (research/llm_gateway_spec §6).
+    subscription_provider = (subscription_provider_factory or _build_subscription)(env)
+    if subscription_provider is not None:
+        providers.append(subscription_provider)
 
     # LOCAL RUNG (B33) — free and unmetered, so it always outranks PAID; whether it also outranks the
     # free CLOUD tiers is decided by the market clock, per the operator's rule: local off-market
@@ -257,6 +267,14 @@ def _build_local_ollama(env: Mapping[str, str]) -> LlmProvider | None:
     )
 
     return build_local_ollama_provider(env)
+
+
+def _build_subscription(env: Mapping[str, str]) -> LlmProvider | None:
+    from nse_algo_trader.llm_strategy.claude_code_subscription_provider import (
+        build_claude_code_subscription_provider,
+    )
+
+    return build_claude_code_subscription_provider(dict(env))
 
 
 def _present(env: Mapping[str, str], key: str) -> str:

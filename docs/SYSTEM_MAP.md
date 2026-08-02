@@ -13,10 +13,18 @@ moves file-to-file inside it" without grepping the tree.
 - **Generated from the real code** (AST import graph), not memory — so it is
   true to what is actually on the server. Last regenerated: **2026-07-27** (nodes + edges reconciled
   against the §0 extractor — every feature package has a node, every material data-flow edge drawn).
-- **288 Python modules across 25 feature packages** (`src/nse_algo_trader/`; +1 top-level `__init__`): broker_credentials(3),
+- **289 Python modules across 25 feature packages** (`src/nse_algo_trader/`; +1 top-level `__init__`): broker_credentials(3),
   broker_sessions(8), universe_registry(6), market_data(33), indicators(13), strategy_engine(10),
   risk_management(6), broker_oms(8), paper_trading(57), session_management(3), dashboard(12),
-  memory_reflection(7), participant_positioning(5), llm_strategy(15), conscience(15), sentience(10), epistemics(3), predictive_core(13), society(3), news_sentiment(22), axiology(3), will(3), capital_allocation(9), intrinsic_motivation(6), autopoiesis(14).
+  memory_reflection(7), participant_positioning(5), llm_strategy(16), conscience(15), sentience(10), epistemics(3), predictive_core(13), society(3), news_sentiment(22), axiology(3), will(3), capital_allocation(9), intrinsic_motivation(6), autopoiesis(14).
+
+> **Build-order slice 0.1 (idea #8 LLM gateway, 2026-08-02):** added
+> `llm_strategy/claude_code_subscription_provider.py` — the Claude Code Max/Pro **subscription** as an
+> `LlmProvider` (Agent SDK, Haiku+minimal, subscription OAuth verified end-to-end). Wired FIRST in
+> `llm_provider_registry.build_free_tier_provider_pool` (new `subscription_provider_factory` seam +
+> `_build_subscription`): the subscription LEADS the swappable pool (maximized), and on its cap raises
+> `LlmRateLimitError` so the existing `SwappableMultiProviderLlmClient` fails over to local/free/paid.
+> Spec: `docs/research/llm_gateway_spec_2026-08-02.md`. Reuses the whole existing failover/cost-ladder.
 
 ---
 

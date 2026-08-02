@@ -16,3 +16,5 @@ Status key: 🔵 exploring · 🟢 finalized · 🔨 building · ✅ done
 | 5 | Advanced-intelligence software catalog (cognition/learning/memory/knowledge) | 🟡 researched | [advanced_intelligence_stack_catalog.md](advanced_intelligence_stack_catalog.md) |
 | 6 | Global / cross-market linkage engine (GIFT Nifty + world markets → NSE) | 🔵 exploring | [global_market_linkage_engine.md](global_market_linkage_engine.md) |
 | 7 | Community/tipster harvesting → paper-trading experiment harness | 🔵 exploring | [community_tip_experiment_harness.md](community_tip_experiment_harness.md) |
+| 8 | Universal LLM gateway (Claude-subscription→endpoint, Ollama-style) | 🟢 spec'd → [../research/llm_gateway_spec_2026-08-02.md](../research/llm_gateway_spec_2026-08-02.md) | [../research/llm_gateway_spec_2026-08-02.md](../research/llm_gateway_spec_2026-08-02.md) |
+| 9 | Conversational assistant — dashboard chat box → LLM gateway | 🔵 exploring | [conversational_assistant_chat_interface.md](conversational_assistant_chat_interface.md) |

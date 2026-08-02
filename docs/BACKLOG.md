@@ -2567,3 +2567,37 @@ the SYSTEM_MAP module-count fix were authored this turn). Logged here per Rule K
   page has not been re-verified this turn. No dashboard code was changed by the
   diagnosis; marker touched to proceed. Done-looks-like: start the service, GET / (200)
   + /api/snapshot populated, when a real/replay session is available.
+
+## B46 — Universal LLM gateway (idea #8, spec'd 2026-08-02) — 🟢 SPEC READY + SUBSCRIPTION SPIKE PASSED / 🔴 build queued
+SPIKE 2026-08-02: `claude -p` (4s) AND Agent SDK v0.2.128 both served a real completion under the
+SUBSCRIPTION (no API key, OAuth creds) → flat-cost premise PROVEN. ⚠️ but Agent SDK loads the full Claude
+Code harness per call (~33.7k tokens, Opus-5 default, costUSD≈0.34/call) → burns caps fast; build MUST set
+cheap model + strip system prompt/tools for simple calls + route bulk to Ollama/local (cost-ladder).
+MEASURED FIX (user directive, 2026-08-02): Haiku+minimal-opts = $0.037/call, cache-warm = $0.0006 (vs
+$0.34 Opus) → Claude lane defaults Haiku→Sonnet, NEVER Opus; exact model IDs (aliases mis-resolve).
+SPEED (measured): latency ~4-9s is HARNESS-STARTUP-dominated not model → build a PERSISTENT WARM gateway
+(long-lived client/session-reuse/streaming); thinking-off+effort-low for simple organs; LLM proposes, the
+deterministic gate does the math (catches slips). Owed:
+Ollama+cloud lanes + forced-cap→fallback verification; confirm costUSD is telemetry not metered billing.
+Spec: `docs/research/llm_gateway_spec_2026-08-02.md`. ADOPT LiteLLM (gateway) + Ollama (local) + wrap
+`claude -p`/Agent-SDK as the subscription lane (maximize) + auto-fallback. Replaces ALL metered LLM API
+usage; every organ calls the one endpoint (Rule G).
+- 🔴 OWED sourcing triage (WebSearch exhausted): mechanical-fact check of Claude-Code-CLI→OpenAI wrapper
+  repos (installs? SUBSCRIPTION-OAuth vs API-key? maintained? streaming/tool passthrough?) before vendoring.
+- ⚠️ Honest blocker surfaced (user accepted, personal-use): Max/Pro-as-backend = likely ToS violation +
+  usage-capped → fallback lanes are the mitigation. Never on the hot trade path.
+
+## B47 — Conversational assistant chat panel (idea #9, 2026-08-02) — 🔴 QUEUED (build after idea #8 gateway)
+`docs/ideas/conversational_assistant_chat_interface.md`. Dashboard chat box → assistant agent (Haiku,
+streaming, grounded in real state via read-only tools + idea-#5 memory) → idea-#8 gateway. READ-ONLY over
+trades (propose→confirm→risk-gate for any action); never expose secrets. Reuse existing dashboard_server/
+render_dashboard_html/feature-surface + add /chat stream. Build-time: dataviz skill for the panel.
+
+## B48 — Build order + slice 0.1 DONE (LLM gateway subscription lane) — 🟢 + 🔴 owed
+`docs/MASTER_BUILD_ORDER.md` created (reuse-first, combines existing 289-module bot + 9 ideas + 3 gaps).
+Auto-plugin-routing hook added (UserPromptSubmit → frontend-design/dataviz/etc self-invoke). SLICE 0.1 ✅:
+`llm_strategy/claude_code_subscription_provider.py` built + wired first in the pool + 8 tests + quality-gate
+PASS + REAL end-to-end subscription call verified (Rule F). Owed: warm-persistent SDK client (speed opt);
+Ollama+cloud lane + cap→fallback integration test; confirm costUSD is telemetry not billing.
+- 🔴 OWED (WebSearch reset): fresh deep-research on INSTITUTIONAL-GRADE code standards (user's new #1 rule);
+  anchor exists = docs/research/155 (SOTA depth bar).
