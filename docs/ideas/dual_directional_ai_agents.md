@@ -111,6 +111,7 @@ ALL behind the Dual-LLM quarantine (§7-security): the reader is tool-less/crede
 |---|---|---|
 | **1. HTML scrape → clean data** | **crawl4ai** ⭐75.8k Apache-2.0 (ALREADY in project) · firecrawl ⭐159k AGPL (installed as MCP, needs key) | default: fast, LLM-friendly markdown from a page/RSS link |
 | **2. Agentic browser (TYPES + navigates like a human)** | **browser-use** ⭐107.6k **MIT** (the standout for "typing + accessing pages") · Skyvern ⭐22.6k AGPL (vision+LLM, unseen sites) · stagehand ⭐23.7k MIT (Playwright+AI) · Playwright (base) | when a page needs login/search/JS clicks (Moneycontrol live quote, screener) |
+| **2b. ANTI-DETECTION browser (defeat anti-bot gates)** | **Camoufox** (`daijro/camoufox`) ⭐10.7k **MPL-2.0** — Firefox fork w/ **C++-level fingerprint spoofing**, Playwright-compatible **Python** API (user IG find, verified 2026-08-02) | **THE fix for the 403/anti-bot walls the news agent hit on NSE/BSE/Moneycontrol** + tipster sources (idea #7). Drive browser-use/Playwright THROUGH Camoufox so scrapes look like a real browser. Still behind the Dual-LLM quarantine. |
 | **3. SCREENSHOT → local vision-LLM → structured data** | **MiniCPM-V** ⭐26k Apache · **Qwen-VL** ⭐19.7k Apache · moondream ⭐9.9k Apache · GOT-OCR2.0 ⭐8.2k · markitdown ⭐170k (img→md) | robust fallback when scraping is blocked/anti-bot or the number is only rendered as an image — Playwright/browser-use screenshots the panel → **local install** VLM reads it → JSON |
 
 **Recommended stack:** **crawl4ai (have it) for scrape → browser-use (MIT) for agentic type/navigate →
@@ -149,6 +150,12 @@ point-in-time **evidence store** → the bots/brain/radar consume from the store
 (#4) and macro/global cues (#5) are especially high-value for *direction* (FII/DII + global cues drive the
 NSE open) — prioritize those beyond raw news. Low-trust sources (#8 social) get heavier corroboration + the
 FDR/net-EV gate before they ever size a trade.
+
+**Connector-mining source (user IG find, verified 2026-08-02):** **Fincept Terminal**
+(`Fincept-Corporation/FinceptTerminal`) ⭐29.4k — an open-source "Bloomberg alternative" advertising
+**100+ data sources** + AI research + institutional workflows. **Mine its data-source connectors** (esp.
+any Indian/NSE feeds) as ready adapters for this catalog (sourcing-oss-parts, owed), and use its
+terminal UX as a dashboard reference. Evaluate — don't adopt the whole app; we build our own.
 
 **⚠️ Owed (Rule K):** exact per-source API/RSS endpoints, rate limits, and free-vs-paid for targets 2–9
 were NOT freshly verified (WebSearch exhausted this session) — a source-verification research pass is

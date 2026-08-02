@@ -1626,6 +1626,18 @@ class LivePaperTradingService:
                     status="blocked", metrics=(("providers", "0"),),
                     note="No LLM provider keys configured — add free-tier keys to .env.",
                 )
+            # Lane structure: the pool is ordered by the cost ladder (idea #8) — the flat-cost Claude
+            # subscription leads (maximized), then local Ollama → free cloud → paid last, with
+            # swap-on-cap auto-failover. Surface the LEAD lane + its model so the subscription is visible.
+            lead = pool[0]
+            lead_model = getattr(lead, "model_name", "") or ""
+            lead_label = f"{lead.provider_name}" + (f" · {lead_model}" if lead_model else "")
+            leads_with_subscription = lead.provider_name == "claude-code-subscription"
+            ladder_note = (
+                "Flat-cost Claude Max/Pro subscription leads (Haiku); auto-fails-over local→free-cloud→"
+                "paid on cap. " if leads_with_subscription else
+                "Cost-ladder pool (local→free-cloud→paid). "
+            )
             names = ", ".join(p.provider_name for p in pool[:6]) + (
                 "…" if configured > 6 else ""
             )
@@ -1635,18 +1647,21 @@ class LivePaperTradingService:
                     title="Strategic LLM analyst (swappable multi-provider)",
                     status="active",
                     metrics=(("providers", str(configured)),
+                             ("lead lane", lead_label),
                              ("served by", reflection.served_by),
                              ("findings", str(len(reflection.findings))),
                              ("distrust", ", ".join(reflection.distrust_mechanisms[:3]) or "—")),
-                    note=(reflection.findings[0][:160] if reflection.findings
-                          else "Advisory (read-only); gate consumption queued."),
+                    note=ladder_note + (reflection.findings[0][:140] if reflection.findings
+                                        else "Advisory (read-only); gate consumption queued."),
                 )
             return DashboardFeatureSurface(
                 key="strategic_llm_analyst",
                 title="Strategic LLM analyst (swappable multi-provider)",
                 status="gathering",
-                metrics=(("providers", str(configured)), ("pool", names)),
-                note="Swap-on-limit pool ready; reflection runs on a daily cadence. "
+                metrics=(("providers", str(configured)),
+                         ("lead lane", lead_label),
+                         ("pool", names)),
+                note=ladder_note + "Swap-on-limit pool ready; reflection runs on a daily cadence. "
                      "Advisory (read-only); gate consumption queued.",
             )
         _add(_strategic_llm)

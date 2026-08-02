@@ -26,6 +26,12 @@ moves file-to-file inside it" without grepping the tree.
 > test_kite_boundary.py` fails if any module outside broker_credentials/broker_sessions/broker_oms/
 > market_data imports `kiteconnect` — locking the Kite-decoupled boundary. Rule `feedback_kite_decoupled_architecture`.
 >
+> **Build-order slice B49 (idea #8 dashboard surface, 2026-08-02):** enhanced the `strategic_llm_analyst`
+> feature surface in `dashboard/live_paper_trading_service.py` to surface the cost-ladder **lane structure**
+> — a `lead lane` metric (shows `claude-code-subscription · claude-haiku-4-5` leading the pool) + a note
+> that the flat-cost subscription leads with auto-failover to local→free-cloud→paid. Verified live on the
+> dashboard (`--expect claude-code-subscription` ✅). Completes slice 0.1's Rule-N dashboard visibility.
+>
 > **Build-order slice 0.1 (idea #8 LLM gateway, 2026-08-02):** added
 > `llm_strategy/claude_code_subscription_provider.py` — the Claude Code Max/Pro **subscription** as an
 > `LlmProvider` (Agent SDK, Haiku+minimal, subscription OAuth verified end-to-end). Wired FIRST in

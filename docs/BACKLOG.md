@@ -2602,7 +2602,7 @@ Ollama+cloud lane + cap→fallback integration test; confirm costUSD is telemetr
 - 🔴 OWED (WebSearch reset): fresh deep-research on INSTITUTIONAL-GRADE code standards (user's new #1 rule);
   anchor exists = docs/research/155 (SOTA depth bar).
 
-## B49 — Screenshot-after-every-change rule + slice-0.1 dashboard surface — 🟢 tool + 🔴 owed surface
+## B49 — LLM-pool dashboard panel (surface subscription lane) — 🟢 DONE 2026-08-02 (lead-lane metric + ladder note; verified on live dashboard --expect claude-code-subscription)
 Standing rule saved (`feedback_screenshot_dashboard_after_every_change`): screenshot the advanced dashboard
 after every feature/edit + visually confirm it landed. Reusable tool built: `scripts/screenshot_dashboard.py`
 (--expect <text> scans the rendered page). Slice-0.1 check: dashboard RENDERS clean ✅ (verified 2026-08-02).
@@ -2618,3 +2618,11 @@ Slice: (1) move that broker-client builder into `broker_sessions`; dashboard get
 core-first (dashboard + all surfaces render with NO Kite session; Live/Paper panel shows broker state). (3)
 architecture guard TEST: fail if `kiteconnect` imported outside `broker_*`. (4) optional DataSourceAdapter
 (Kite/Upstox/Angel/stored) so analysis is source-agnostic. Screenshot dashboard after (Rule N).
+
+## B51 — OSS from user IG finds (2026-08-02) — 🟡 recorded, sourcing-triage owed
+Camoufox (daijro/camoufox ⭐10.7k MPL-2.0) = anti-detect browser → adopt for the online-research organ
+(idea #4 §2d) to defeat NSE/BSE/Moneycontrol anti-bot 403s; drive browser-use/Playwright through it, still
+behind the Dual-LLM quarantine. Fincept Terminal (Fincept-Corporation/FinceptTerminal ⭐29.4k) = mine its
+100+ data-source connectors for the §2e catalog (esp. Indian/NSE) + dashboard/terminal UX reference.
+Owed: mechanical triage (install? Python API? NSE coverage?) via sourcing-oss-parts when built. Rejected
+(not relevant): Cubby Clipboard (personal Windows OCR clipboard), Arkor (no-code TS ML training, alpha).
