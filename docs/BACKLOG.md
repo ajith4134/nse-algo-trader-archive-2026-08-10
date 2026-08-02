@@ -2610,3 +2610,11 @@ after every feature/edit + visually confirm it landed. Reusable tool built: `scr
   the code + no LLM-pool/served-by panel found. Add an LLM-pool status panel (served-by: claude-code-
   subscription + failover trail) [frontend-design + dataviz], restart server, re-screenshot with
   `--expect claude-code-subscription`.
+
+## B50 — Kite-decoupled architecture (idea #10) — 🟢 DONE 2026-08-02 (leak moved to seam + guard test + dashboard Kite-independent + screenshot verified)
+`docs/ideas/kite_decoupled_architecture.md` + rule `feedback_kite_decoupled_architecture`. Audit: only 1
+leak (`dashboard/dashboard_server.py` `_build_authenticated_kite_client`→`from kiteconnect import KiteConnect`).
+Slice: (1) move that broker-client builder into `broker_sessions`; dashboard gets it via the seam. (2) boot
+core-first (dashboard + all surfaces render with NO Kite session; Live/Paper panel shows broker state). (3)
+architecture guard TEST: fail if `kiteconnect` imported outside `broker_*`. (4) optional DataSourceAdapter
+(Kite/Upstox/Angel/stored) so analysis is source-agnostic. Screenshot dashboard after (Rule N).

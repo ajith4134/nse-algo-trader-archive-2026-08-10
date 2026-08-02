@@ -1,5 +1,8 @@
 """Daily broker session/token management (Kite first; other brokers later)."""
 
+from nse_algo_trader.broker_sessions.authenticated_kite_client_builder import (
+    build_authenticated_kite_client_if_valid,
+)
 from nse_algo_trader.broker_sessions.kite_access_token_store import (
     KiteAccessTokenFileStore,
     KiteAccessTokenRecord,
@@ -11,6 +14,7 @@ from nse_algo_trader.broker_sessions.kite_totp_auto_login import (
 )
 
 __all__ = [
+    "build_authenticated_kite_client_if_valid",
     "KiteAccessTokenFileStore",
     "KiteAccessTokenRecord",
     "KiteAutoLoginError",

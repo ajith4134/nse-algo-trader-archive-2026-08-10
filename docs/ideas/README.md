@@ -18,3 +18,4 @@ Status key: 🔵 exploring · 🟢 finalized · 🔨 building · ✅ done
 | 7 | Community/tipster harvesting → paper-trading experiment harness | 🔵 exploring | [community_tip_experiment_harness.md](community_tip_experiment_harness.md) |
 | 8 | Universal LLM gateway (Claude-subscription→endpoint, Ollama-style) | 🟢 spec'd → [../research/llm_gateway_spec_2026-08-02.md](../research/llm_gateway_spec_2026-08-02.md) | [../research/llm_gateway_spec_2026-08-02.md](../research/llm_gateway_spec_2026-08-02.md) |
 | 9 | Conversational assistant — dashboard chat box → LLM gateway | 🔵 exploring | [conversational_assistant_chat_interface.md](conversational_assistant_chat_interface.md) |
+| 10 | Kite-decoupled architecture (independent dashboard + bounded broker adapter) | 🔵 exploring | [kite_decoupled_architecture.md](kite_decoupled_architecture.md) |

@@ -13,11 +13,19 @@ moves file-to-file inside it" without grepping the tree.
 - **Generated from the real code** (AST import graph), not memory — so it is
   true to what is actually on the server. Last regenerated: **2026-07-27** (nodes + edges reconciled
   against the §0 extractor — every feature package has a node, every material data-flow edge drawn).
-- **289 Python modules across 25 feature packages** (`src/nse_algo_trader/`; +1 top-level `__init__`): broker_credentials(3),
-  broker_sessions(8), universe_registry(6), market_data(33), indicators(13), strategy_engine(10),
+- **290 Python modules across 25 feature packages** (`src/nse_algo_trader/`; +1 top-level `__init__`): broker_credentials(3),
+  broker_sessions(9), universe_registry(6), market_data(33), indicators(13), strategy_engine(10),
   risk_management(6), broker_oms(8), paper_trading(57), session_management(3), dashboard(12),
   memory_reflection(7), participant_positioning(5), llm_strategy(16), conscience(15), sentience(10), epistemics(3), predictive_core(13), society(3), news_sentiment(22), axiology(3), will(3), capital_allocation(9), intrinsic_motivation(6), autopoiesis(14).
 
+> **Build-order slice 0.0 (idea #10 Kite-decouple, 2026-08-02):** moved the ONLY Kite leak outside the
+> broker seam — `dashboard_server._build_authenticated_kite_client`'s `from kiteconnect import KiteConnect`
+> — into `broker_sessions/authenticated_kite_client_builder.py` (`build_authenticated_kite_client_if_valid`,
+> exported from the `broker_sessions` package). `dashboard_server` now delegates to the seam and imports
+> WITHOUT loading `kiteconnect` (verified). New **architecture guard test** `tests/test_architecture/
+> test_kite_boundary.py` fails if any module outside broker_credentials/broker_sessions/broker_oms/
+> market_data imports `kiteconnect` — locking the Kite-decoupled boundary. Rule `feedback_kite_decoupled_architecture`.
+>
 > **Build-order slice 0.1 (idea #8 LLM gateway, 2026-08-02):** added
 > `llm_strategy/claude_code_subscription_provider.py` — the Claude Code Max/Pro **subscription** as an
 > `LlmProvider` (Agent SDK, Haiku+minimal, subscription OAuth verified end-to-end). Wired FIRST in

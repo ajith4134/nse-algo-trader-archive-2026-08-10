@@ -64,3 +64,6 @@ the right plugin/skill per task** (frontend-design=UI, dataviz=charts, building-
 code-review=review, firecrawl=web, context7=lib-docs).
 
 **START: slice 0.1 — LLM gateway subscription lane** (highest-ready, most reuse, unblocks chat + organs).
+
+## CROSS-CUTTING ARCHITECTURAL GATE (Phase 0, idea #10)
+**Kite-decoupled:** no module outside broker_oms/broker_sessions/broker_credentials imports kiteconnect; dashboard + all features run Kite-independent on stored/replay; only Live/Paper trading needs the broker. Audit 2026-08-02: only 1 leak (dashboard_server). Slice 0.0: move dashboard_server _build_authenticated_kite_client into the broker seam + core-first boot + an architecture guard test (fail on kiteconnect import outside broker_*). Governs every slice.

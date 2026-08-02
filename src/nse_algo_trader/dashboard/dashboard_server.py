@@ -53,25 +53,12 @@ def get_or_create_access_token() -> str:
 
 
 def _build_authenticated_kite_client():
-    """A live-authenticated KiteConnect, or None if no valid token exists
-    (the dashboard still serves; it just shows no live positions)."""
-    from kiteconnect import KiteConnect
+    """A live-authenticated KiteConnect, or None if no valid token exists (the dashboard still serves;
+    it just shows no live positions). Delegates to the broker seam so the dashboard carries NO direct
+    `kiteconnect` dependency — Kite lives only behind `broker_sessions` (idea #10, Kite-decoupled)."""
+    from nse_algo_trader.broker_sessions import build_authenticated_kite_client_if_valid
 
-    from nse_algo_trader.broker_credentials import (
-        BrokerName,
-        load_broker_api_credentials,
-        load_env_file_into_environ,
-    )
-    from nse_algo_trader.broker_sessions import KiteAccessTokenFileStore
-
-    load_env_file_into_environ()
-    token_record = KiteAccessTokenFileStore().load_if_still_valid()
-    if token_record is None:
-        return None
-    credentials = load_broker_api_credentials(BrokerName.ZERODHA_KITE)
-    kite_client = KiteConnect(api_key=credentials.api_key)
-    kite_client.set_access_token(token_record.access_token)
-    return kite_client
+    return build_authenticated_kite_client_if_valid()
 
 
 def _start_live_paper_trading_service(account_virtual_capital: float):
@@ -247,7 +234,7 @@ def build_dashboard_app() -> FastAPI:
         try:
             config = TradingControlConfig.from_json_dict(await request.json())
         except (ValueError, KeyError) as invalid:
-            raise HTTPException(status_code=400, detail=str(invalid))
+            raise HTTPException(status_code=400, detail=str(invalid)) from invalid
         save_trading_control_config(config)
         return {"status": "saved", "config": config.to_json_dict()}
 
