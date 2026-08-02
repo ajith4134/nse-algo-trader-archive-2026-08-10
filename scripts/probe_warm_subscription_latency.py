@@ -16,6 +16,7 @@ import time
 
 from nse_algo_trader.llm_strategy.claude_code_subscription_provider import (
     build_claude_code_subscription_provider,
+    subscription_transport_telemetry,
 )
 from nse_algo_trader.llm_strategy.strategy_llm_client import (
     LlmProviderError,
@@ -62,6 +63,12 @@ def main(argv: list[str]) -> int:
         )
         print("PASS: warm reuse beat cold start." if warm_best < cold else
               "UNEXPECTED: warm not faster — investigate (harness may have cached the subprocess).")
+    # task #1: prove the LIVE transport telemetry the LLM Gateway panel reads climbs on REAL serves,
+    # and print the exact label the panel formats from it.
+    tele = subscription_transport_telemetry()
+    panel_label = f"warm {tele['warm_calls']} · cold {tele['cold_calls']}"
+    print(f"\ntelemetry after {tele['total_calls']} real serves: {tele}")
+    print(f"panel transport label → {panel_label!r}")
     return 0
 
 

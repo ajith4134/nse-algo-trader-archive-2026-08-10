@@ -11,8 +11,13 @@ import json
 
 import pytest
 
+from nse_algo_trader.llm_strategy import claude_code_subscription_provider as sub_mod
 from nse_algo_trader.llm_strategy.claude_code_subscription_provider import (
+    ClaudeCodeSubscriptionProvider,
     _extract_text_and_model,
+    _shared_warm_session_for,
+    build_claude_code_subscription_provider,
+    subscription_transport_telemetry,
 )
 from nse_algo_trader.llm_strategy.strategy_llm_client import (
     LlmRateLimitError,
@@ -208,6 +213,60 @@ class _HealthyFallbackProvider:
             served_by_model=self.model_name,
             raw_text="{}",
         )
+
+
+# ---- B48 task #1: shared warm-session singleton + live transport telemetry -------------------------
+
+
+class _FakeWarmSession:
+    """A warm session that always serves via 'warm' without any subprocess."""
+
+    def run_structured(self, system_instruction, user_prompt, model, extract):
+        return json.dumps({"ok": True}), "claude-haiku-4-5"
+
+
+def test_shared_warm_session_is_a_process_singleton() -> None:
+    # reset the module singleton so the assertion is about identity, not prior test state
+    sub_mod._shared_warm_session = None
+    first = _shared_warm_session_for("claude-haiku-4-5")
+    second = _shared_warm_session_for("claude-haiku-4-5")
+    try:
+        assert first is second  # ONE warm subprocess process-wide, reused by every provider instance
+    finally:
+        first.close()
+        sub_mod._shared_warm_session = None
+
+
+def _request() -> StrategyLlmRequest:
+    return StrategyLlmRequest(
+        system_instruction="s", user_prompt="u", response_json_schema={"type": "object"}
+    )
+
+
+def test_telemetry_records_a_warm_serve() -> None:
+    before = subscription_transport_telemetry()["warm_calls"]
+    provider = ClaudeCodeSubscriptionProvider(warm_session=_FakeWarmSession())
+    provider.generate_structured(_request())
+    after = subscription_transport_telemetry()
+    assert provider.last_transport == "warm"
+    assert after["warm_calls"] == before + 1  # the REAL serve was counted for the live panel
+
+
+def test_telemetry_records_a_cold_serve() -> None:
+    async def _fake_query(prompt, options):  # one-shot cold path (no warm subprocess)
+        class _Msg:
+            content = [type("B", (), {"text": json.dumps({"ok": True})})()]
+
+        yield _Msg()
+
+    before = subscription_transport_telemetry()["cold_calls"]
+    # sdk_query injected → provider takes the cold one-shot path (no warm session)
+    provider = build_claude_code_subscription_provider(sdk_query=_fake_query)
+    assert provider is not None
+    provider.generate_structured(_request())
+    after = subscription_transport_telemetry()
+    assert provider.last_transport == "cold"
+    assert after["cold_calls"] == before + 1
 
 
 def test_capped_subscription_fails_over_to_the_next_lane() -> None:

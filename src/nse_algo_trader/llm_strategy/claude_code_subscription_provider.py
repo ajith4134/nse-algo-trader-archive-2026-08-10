@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 from typing import Any
 
 import anyio
@@ -43,6 +44,64 @@ DEFAULT_SUBSCRIPTION_MODEL = os.environ.get("CLAUDE_SUBSCRIPTION_MODEL", "claude
 _CAP_SIGNALS = ("usage limit", "rate limit", "429", "quota", "exceeded", "capacity", "overloaded",
                 "resets", "try again")
 _TRANSIENT_SIGNALS = ("timeout", "timed out", "connection", "econnreset", "network", "500", "503")
+
+
+# ---- process-shared warm session + live transport telemetry (B48 follow-up, task #1) -----------------
+# ONE warm subprocess per process (every provider instance — the serving pool AND the throwaway pool the
+# dashboard builds each render — reuses it) + a process-wide counter of REAL serves by transport, so the
+# LLM Gateway panel shows the actual warm/cold mix rather than a configured flag.
+_shared_warm_lock = threading.Lock()
+_shared_warm_session: Any = None
+
+
+class _SubscriptionTransportTelemetry:
+    """Thread-safe process-wide tally of successful subscription serves, split by transport."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self.warm_calls = 0
+        self.cold_calls = 0
+        self.last_transport = ""
+
+    def record(self, transport: str) -> None:
+        with self._lock:
+            if transport == "warm":
+                self.warm_calls += 1
+            elif transport == "cold":
+                self.cold_calls += 1
+            self.last_transport = transport
+
+    def snapshot(self) -> dict:
+        with self._lock:
+            return {
+                "warm_calls": self.warm_calls,
+                "cold_calls": self.cold_calls,
+                "total_calls": self.warm_calls + self.cold_calls,
+                "last_transport": self.last_transport,
+            }
+
+
+_TRANSPORT_TELEMETRY = _SubscriptionTransportTelemetry()
+
+
+def subscription_transport_telemetry() -> dict:
+    """Live snapshot of how the subscription lane has actually been served (warm vs cold). Read by the
+    dashboard's LLM Gateway surface so it reflects the REAL serving pool, not the configured transport."""
+    return _TRANSPORT_TELEMETRY.snapshot()
+
+
+def _shared_warm_session_for(model_name: str) -> Any:
+    """The process-shared `WarmClaudeSubscriptionSession` (built once, thread-safe). Keeps a single warm
+    `claude` subprocess alive across every provider instance so telemetry + speed are consistent."""
+    global _shared_warm_session
+    with _shared_warm_lock:
+        if _shared_warm_session is None:
+            from nse_algo_trader.llm_strategy.warm_claude_subscription_session import (
+                WarmClaudeSubscriptionSession,
+            )
+
+            _shared_warm_session = WarmClaudeSubscriptionSession(model_name)
+        return _shared_warm_session
 
 
 def _extract_text_and_model(messages: list[Any]) -> tuple[str, str]:
@@ -163,12 +222,7 @@ class ClaudeCodeSubscriptionProvider:
         if self._sdk_query is not None:
             return None  # injected fake query → no warm subprocess to keep alive
         try:
-            from nse_algo_trader.llm_strategy.warm_claude_subscription_session import (
-                WarmClaudeSubscriptionSession,
-            )
-
-            self._warm_session = WarmClaudeSubscriptionSession(self.model_name)
-            return self._warm_session
+            return _shared_warm_session_for(self.model_name)  # ONE warm subprocess process-wide
         except Exception:  # noqa: BLE001 — no warm engine available → degrade to cold, never halt
             self._warm_build_failed = True
             return None
@@ -211,6 +265,7 @@ class ClaudeCodeSubscriptionProvider:
                 raise LlmProviderUnavailableError("claude-code-subscription", f"transient: {exc}") from exc
             raise LlmProviderUnavailableError("claude-code-subscription", f"sdk error: {exc}") from exc
         parsed = _first_json_object(text)
+        _TRANSPORT_TELEMETRY.record(self.last_transport)  # count the REAL serve for the live panel
         return StrategyLlmResponse(
             parsed_output=parsed,
             served_by_provider=self.provider_name,

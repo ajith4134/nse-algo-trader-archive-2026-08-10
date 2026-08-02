@@ -101,3 +101,19 @@ and the cold-path fallback — each closes a real failure mode, none is padding.
 ## Dashboard surface + wiring (Rule G/N)
 Consumer: the existing `strategic_llm_analyst` surface + LLM Gateway panel. Add a `transport` metric
 (`warm` / `cold`) so the panel shows whether the fast path is live. No new panel needed.
+
+## Follow-up (task #1) — LIVE transport telemetry from the ACTUAL serving pool
+**Gap in the first cut:** `_strategic_llm` builds a THROWAWAY pool each render, so its subscription
+provider never serves — the panel could only show the *configured* transport (warm/cold from env), not
+what really happened. Two problems: (a) telemetry read off a non-serving instance; (b) each provider
+instance lazily built its OWN warm session ⇒ multiple `claude` subprocesses process-wide.
+**Fix — process-shared singletons in `claude_code_subscription_provider`:**
+- `_shared_warm_session_for(model)` — ONE `WarmClaudeSubscriptionSession` per process (thread-safe), so
+  every provider instance (serving pool + throwaway surface pool) reuses the same warm subprocess.
+- `_TransportTelemetry` — a process-wide thread-safe counter (`warm_calls`, `cold_calls`, `last_transport`)
+  incremented on each SUCCESSFUL serve in `generate_structured`. Exposed via `subscription_transport_
+  telemetry()`.
+- The surface reads that snapshot: `transport = "<last> · warm W/cold C"` once any call has served, else the
+  configured label. This is a REAL live flag, not a config echo.
+**Verify:** Rule-F — drive real serves (probe), assert the telemetry counts climb and the panel shows
+`warm N`. Rule-J — a unit test that the counter records warm/cold and the shared session is a singleton.

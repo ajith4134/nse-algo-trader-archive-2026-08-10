@@ -473,6 +473,22 @@ queued, calibration-gated next slice (research/96).
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-08-02 (B48 task #1 — LIVE warm/cold transport telemetry from the ACTUAL serving pool)** — the
+  LLM Gateway panel showed the *configured* transport, not what really served, because `_strategic_llm`
+  builds a throwaway pool each render. Fixed in `llm_strategy/claude_code_subscription_provider.py`:
+  process-shared `_shared_warm_session_for(model)` (ONE warm `claude` subprocess for every provider
+  instance) + a thread-safe `_SubscriptionTransportTelemetry` counter incremented on each SUCCESSFUL
+  serve, exposed via `subscription_transport_telemetry()`. The `_strategic_llm` surface now reads the live
+  snapshot → `transport = "warm W · cold C"` once anything served, else `warm-persistent (idle)`. No new
+  modules (291). **Verified REAL (Rule F):** 3 live subscription serves → telemetry warm=3/cold=0
+  (`scripts/probe_warm_subscription_latency.py`); an in-process end-to-end drove one real serve then called
+  the ACTUAL `_build_feature_surfaces()` → the strategic_llm_analyst surface rendered `transport='warm 1 ·
+  cold 0'`. **Hermetic (Rule J):** +3 tests (warm-serve counted, cold-serve counted, shared session is a
+  singleton). Live panel eye-verified (shows `(idle)` truthfully until the dashboard's own daily reflection
+  serves). Gate: ruff+mypy clean on changed files; 104 llm_strategy tests green. Grounded finding for the
+  subscription limit model: `rateLimitTier=default_claude_max_5x`; SDK `RateLimitInfo` exposes
+  `utilization`/`resets_at`/`overage_status` (rolling-window usage limit) and `ResultMessage.total_cost_usd`
+  is telemetry, not per-call billing.
 - **2026-08-02 (B48 — warm-persistent subscription client; ~3× faster LLM lane + cap→fallback verified)**
   — the subscription lane cold-spawned a fresh `claude` subprocess per call (~4–9 s). New engine
   `llm_strategy/warm_claude_subscription_session.py` (291 modules; llm_strategy 16→17) keeps ONE

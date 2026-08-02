@@ -1633,10 +1633,21 @@ class LivePaperTradingService:
             lead_model = getattr(lead, "model_name", "") or ""
             lead_label = f"{lead.provider_name}" + (f" · {lead_model}" if lead_model else "")
             leads_with_subscription = lead.provider_name == "claude-code-subscription"
+            from nse_algo_trader.llm_strategy.claude_code_subscription_provider import (
+                subscription_transport_telemetry,
+            )
+
             warm_on = _os.environ.get(
                 "CLAUDE_SUBSCRIPTION_WARM_DISABLED", ""
             ).strip().lower() not in {"1", "true", "yes"}
-            transport_label = "warm-persistent" if (leads_with_subscription and warm_on) else "cold one-shot"
+            tele = subscription_transport_telemetry()
+            if leads_with_subscription and tele["total_calls"] > 0:
+                # LIVE: the real warm/cold mix from the ACTUAL serving pool (task #1), not a config flag.
+                transport_label = f"warm {tele['warm_calls']} · cold {tele['cold_calls']}"
+            elif leads_with_subscription and warm_on:
+                transport_label = "warm-persistent (idle)"
+            else:
+                transport_label = "cold one-shot"
             ladder_note = (
                 "Flat-cost Claude Max/Pro subscription leads (Haiku), warm-persistent client "
                 "(~3× faster than cold start); auto-fails-over local→free-cloud→paid on cap. "

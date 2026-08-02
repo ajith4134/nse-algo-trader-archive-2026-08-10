@@ -2604,12 +2604,18 @@ PASS + REAL end-to-end subscription call verified (Rule F).
   6.39s → warm 2.03s (×3.2). 7 hermetic tests incl. cap→fail-over through the real swappable pool.
   Dashboard `transport` metric surfaced + eye-verified. Design `docs/research/b48_warm_persistent_
   subscription_client_2026-08-02.md`.
-- 🔴 OWED — **live transport telemetry**: the LLM Gateway panel shows the *configured* transport
-  (warm/cold from env), not a per-call live flag, because `_strategic_llm` builds a fresh pool each render.
-  Wire a shared warm-session singleton + served-call counter into the ACTUAL serving pool so the panel
-  reports real warm/cold ratio + served-call count. (Task created.)
-- 🔴 OWED — confirm `costUSD` from the Agent SDK ResultMessage is telemetry, not subscription billing
-  (spec §8 assumption); verify against one billing cycle.
+- 🟢 DONE 2026-08-02 (task #1) — **live transport telemetry**: process-shared warm-session singleton +
+  `_SubscriptionTransportTelemetry` counter in `claude_code_subscription_provider.py`; surface shows
+  `warm W · cold C` from the ACTUAL serving pool. Rule-F: 3 real serves counted + in-process
+  `_build_feature_surfaces()` rendered `transport='warm 1 · cold 0'`. +3 hermetic tests.
+- 🟡 PARTIAL — confirm `total_cost_usd` from the Agent SDK ResultMessage is telemetry, not subscription
+  billing. Evidence gathered 2026-08-02: `rateLimitTier=default_claude_max_5x`; SDK `RateLimitInfo` exposes
+  `utilization`/`resets_at`/`overage_status` (usage-window governor, not a $ balance), so `total_cost_usd`
+  reads as equivalent-API-cost telemetry. Remaining: watch one full billing/usage cycle to confirm no
+  balance is drawn down; wire `RateLimitInfo.utilization`/`resets_at` onto the panel as a cap gauge.
+- 🔴 OWED — **lint debt**: `dashboard/live_paper_trading_service.py` carries 23 PRE-EXISTING ruff
+  violations (19 F841 unused-vars, 2 SIM118, 1 SIM105, 1 B905) present in committed HEAD, unrelated to B48.
+  The gate checks changed regions so they never blocked; clean them (F841 may hide dead computations).
 - 🔴 OWED (WebSearch reset): fresh deep-research on INSTITUTIONAL-GRADE code standards (user's new #1 rule);
   anchor exists = docs/research/155 (SOTA depth bar).
 
