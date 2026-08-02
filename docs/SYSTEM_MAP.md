@@ -11,9 +11,12 @@ moves file-to-file inside it" without grepping the tree.
   model's Component→Code levels. Rendered in **Mermaid** (text = git-diffable,
   agent-parseable, renders in any Markdown/Artifact viewer).
 - **Generated from the real code** (AST import graph), not memory — so it is
-  true to what is actually on the server. Last regenerated: **2026-07-25ac**.
-- **143 Python modules across 14 features** (packages under
-  `src/nse_algo_trader/`).
+  true to what is actually on the server. Last regenerated: **2026-07-27** (nodes + edges reconciled
+  against the §0 extractor — every feature package has a node, every material data-flow edge drawn).
+- **288 Python modules across 25 feature packages** (`src/nse_algo_trader/`; +1 top-level `__init__`): broker_credentials(3),
+  broker_sessions(8), universe_registry(6), market_data(33), indicators(13), strategy_engine(10),
+  risk_management(6), broker_oms(8), paper_trading(57), session_management(3), dashboard(12),
+  memory_reflection(7), participant_positioning(5), llm_strategy(15), conscience(15), sentience(10), epistemics(3), predictive_core(13), society(3), news_sentiment(22), axiology(3), will(3), capital_allocation(9), intrinsic_motivation(6), autopoiesis(14).
 
 ---
 
@@ -73,7 +76,8 @@ Verified feature edges (2026-07-24): market_data←universe · indicators←mark
 · strategy_engine←{indicators,market_data,universe} · risk_management←{strategy,universe}
 · broker_oms←{strategy,universe} · paper_trading←{broker_oms,indicators,market_data,
 risk_management,session_management,strategy_engine,universe} · session_management←
-{broker_oms,paper_trading,universe} · dashboard←(everything) · broker_sessions←
+{broker_oms,paper_trading,universe} · llm_strategy←memory_reflection ·
+dashboard←(everything incl. llm_strategy) · broker_sessions←
 broker_credentials.
 
 ```mermaid
@@ -82,17 +86,21 @@ flowchart TD
     KITE[/"Zerodha Kite API<br/>(quotes · historical · orders · auth)"/]
     NSE[/"NSE official reports<br/>(bhavcopy · OI · ban · MWPL)"/]
     OP[/"Operator browser<br/>(phone / laptop)"/]
+    NEWSRSS[/"Indian financial-news RSS<br/>ET Markets · BusinessLine"/]
 
     %% data stores
     SQL[("market_data.sqlite3<br/>bars + EOD reports")]
     CFG[("trading_control_config.json<br/>the dashboard knobs")]
     TOK[("kite_access_token.json")]
+    MEMDB[("experience_memory.sqlite3<br/>closed §9 experiments + provenance")]
+    INCDB[("safety_incidents.sqlite3<br/>VII.14 forensic incident record")]
+    NEWSDB[("news.sqlite3<br/>II SENSES ingested headlines (deduped) + news_levels (S2 extracted index S/R)")]
 
     %% features (layer #)
     CRED(["broker_credentials<br/>L0 · env/.env secrets"])
     SESS(["broker_sessions<br/>L0 · daily Kite auth (TOTP)"])
     UNI(["universe_registry<br/>L1 · instruments + tradable universe"])
-    MD(["market_data<br/>L2 · bars + reports + live feed + store"])
+    MD(["market_data<br/>L2 · bars + reports + live feed + store · VPIN toxicity · market breadth (II SENSES internals)"])
     IND(["indicators<br/>L3 · EMA/RSI/ATR/ADX/ST/VWAP + IV/PCR"])
     STR(["strategy_engine<br/>L4 · ORB · regime gate · spread legs"])
     RISK(["risk_management<br/>L5 · defined-risk gate + sizing"])
@@ -100,8 +108,24 @@ flowchart TD
     PT(["paper_trading<br/>L7 · live universe loop + §9 lab + gates"])
     SQOFF(["session_management<br/>L8 · 15:15 safe square-off"])
     DASH(["dashboard<br/>L9 · read-model · service · server · HTML"])
-    MEM(["memory_reflection<br/>L10 · experience memory (closed §9 experiments)"])
+    MEM(["memory_reflection<br/>L10 / Trunk XV MEMORY · experience memory (closed §9 experiments) · calibration/Brier · recalibration · assumption registry · consolidation engine → semantic memory"])
+    PART(["participant_positioning<br/>L10 §10 · opponent ledger (NSE participant OI · FII lean · churn/conviction)"])
+    LLM(["llm_strategy<br/>L11 · swappable LLM · analyst · debate-risk gate · causal · allocator · council · stress rehearsal"])
+    CONSC(["conscience<br/>Trunk VII CONSCIENCE (SUPREME) ✅ COMPLETE 14/14 · constitution · Referee · off-switch · wireheading + deceptive-alignment tripwires · incident post-mortem · goal-integrity · mechanistic interpretability · scalable oversight · instrumental-convergence limiter · red-team harness · ethics/law reasoner · power budgets · adversarial-input defense"])
+    SENT(["sentience<br/>Trunk VIII SENTIENCE ✅ COMPLETE 13/13 · Global Workspace integrator: collect→attention (selective + state-dependent)→compete→coalition→ignite→broadcast (blinker) → trims entries; + self-model · attention schema · rumination · cross-modal binding · metacognition · indicator scoreboard"])
+    EPIST(["epistemics<br/>Trunk XIII EPISTEMICS · contradiction resolution (regime vs global belief, z-test) · deception/misinfo resistance (beta-reputation of information sources)"])
+    PRED(["predictive_core<br/>Trunk IX PREDICTIVE-CORE · surprise/free-energy monitor · ensemble world-models; **ML WIN-PROBABILITY ENGINE (research/156): LightGBM → walk-forward CV (AUC 0.844) → calibrated P(win) → fractional-Kelly entry-SIZE multiplier; acts once earned**; **WORLD-MODEL PLANNING ENGINE (research/166/167): count-based generative market-state model (regime×vol, Dirichlet+Katz, EB reward) → finite-horizon value iteration → EFE-scored, confidence-gated (κ×[1−disagreement], surprise-zeroed) entry size/VETO; abstains until trustworthy — real 3290-bar model**"])
+    SOC(["society<br/>Trunk VI SOCIETY · consensus/conflict-resolution (track-record-weighted; deadlock→proven desk) · multi-agent memory governance (trusted vs quarantined desks)"])
+    AXIO(["axiology<br/>Trunk XIV AXIOLOGY · the system's EXPLICIT VALUES: explicit_utility_function (U = return − risk − drawdown − tail, named value weights over real realized returns) + value_drift_monitor (recent-vs-baseline risk drift = value-alignment signal). Read-only boards; allocator/value-alignment consumers QUEUED"])
+    WILL(["will<br/>Trunk III WILL · volition: multi_objective_arbitration (per-mechanism objectives — XIV utility · return · −risk · confidence — normalised + augmented-Chebyshev MCDM → Pareto front + ranking) + goal_priority_scheduler (concurrency-budgeted priority plan). Consumes XIV utility. Read-only; entry-loop consumer QUEUED"])
+    CAPALLOC(["capital_allocation<br/>Trunk III WILL (acting) · **CAPITAL-ALLOCATION OPTIMIZER (research/163, Rule-P engine): CVXPY-solved risk-budget allocation across simultaneous candidates — Mean-CVaR (Rockafellar-Uryasev, empirical scenarios) / Ledoit-Wolf Mean-Variance fallback / Risk-Parity / Qlib Enhanced-indexing; caps · gross/net · cardinality (reweighted-ℓ1) · integer lot-rounding · turnover; carried state store**. Real: CVaR 0.75 ≤ equal-wt 2.36 (tail-risk reduced). Advisory size-DOWN lever at entry sites until earned (≥10 trading days)"])
+    CURIOSITY(["intrinsic_motivation<br/>Trunk XII INTRINSIC MOTIVATION · **CURIOSITY / LEARNING-PROGRESS engine (research/164/165, Rule-P engine):** per-(strategy×regime) learning-progress (Oudeyer IAC — Q_LP over Brier-error windows) + count-based novelty β/√(N+1) (cold-start) + boredom → softmax LP-bandit exploration priority. 6 modules + carried state store. Real: top-ranks the 6 UNOBSERVED regime cells, demotes mastered ORB (n=265). STEERS the replay curriculum (safe, decision-grade) — closes the win-prob thin-data gap"])
+    AUTOPOIESIS(["autopoiesis<br/>Trunk X AUTOPOIESIS / SELF-PRODUCTION · **COMPONENT-LIFECYCLE HOMEOSTAT (research/168-172, Rule-P engine): the organism maintaining ITSELF.** MAPE-K loop (level-triggered, k8s-controller style) over an explicit MEMBERSHIP registry (40 components / 37 maintenance edges; self vs EXOGENOUS boundary) → PCA T²+SPE/Q + EWMA health index → right-censored Weibull-AFT RUL (lifelines) w/ Wiener first-passage cold-start → hierarchical Gamma-Poisson partial pooling (class priors make day-1 estimates principled) → CBM Bellman value-iteration control-limit policy {monitor·repair·replace·quarantine} → OTP-style supervision tree (restart intensity MaxR/MaxT) + pybreaker CLOSED/OPEN/HALF_OPEN + tenacity jittered retries under a repair BUDGET, referee/off-switch pre-checked. Operational-closure audit (Chemical Organization Theory: closed ∧ self-maintaining, networkx SCC/condensation) — real finding: `win_probability_model` [VITAL] is maintained by NOTHING (load_or_train can never retrain it) + `session.angel_one` has no expiry check. Append-only SQLite state survives restart. **WIRED (2026-07-27): vitality-gate size lever + hard veto at ALL 4 entry sites · 5-min MAPE-K service cadence · `component_lifecycle_homeostat` dashboard surface LIVE (vitality 0.500, 36 components, advisory dry-run repair)**"])
+    NEWS(["news_sentiment<br/>Trunk II SENSES · sentiment/news: S1 tier-1 RSS → staleness reject → dedup store; S2 index S/R extraction (→ news_levels) BUILT; S4a+S4b acquisition LADDER BUILT (fast curl_cffi static → Chromium render fallback; store-dedup = NEW-per-poll live delta); S4c NSE corporate-announcement FILINGS BUILT (curl_cffi session, IST→UTC, tier EXCHANGE_FILING); S3 per-source RELIABILITY BUILT (tier-seeded beta-reputation + freshness + Stouffer → board filings 91% > news 67% > stale 50%); **S7 news-ENTRY-GATE BUILT (PRIMARY): per-symbol news-event risk sizes-down/defers entries (both cash-ORB sites, advisory until earned); sense 🟢**; NSE symbol↔name GAZETTEER (F&O-bounded) resolves headlines → S7 covers headlines (17→31 symbols); STOCK-S/R LEVEL extraction (analyst targets/support/resistance per F&O stock → news_levels); SENTIMENT (finance-VADER → DIRECTIONAL S7 gate); INDEX-LEVEL option gate (S2 index news_levels → both option entry sites) — index levels decision-wired; S5 TELEGRAM social-tier ingestion (advisory-until-proven, S3-floored); FinBERT sentiment (ProsusAI/finbert, PRIMARY behind the scorer seam, finance-VADER fallback — more accurate on real headlines); S4d vision/proxy + signal-earning-harnesses QUEUED"])
 
+    AUTOPOIESIS -->|"organism vitality lever (size-DOWN ≤1.0) + hard veto on an ACUTE VITAL failure"| PT
+    PT -->|"real vital signs: thread liveness · store mtime/integrity · token expiry · psutil host"| AUTOPOIESIS
+    AUTOPOIESIS -->|"health · closure violations · RUL · repair plan · throttle"| DASH
     CRED -->|"api key/secret · TOTP"| SESS
     SESS -->|"access token"| TOK
     TOK -->|"auth"| MD
@@ -129,6 +153,46 @@ flowchart TD
     PT -->|"positions · P&L · §9 tables · closed experiments"| DASH
     DASH -->|"record ClosedExperiment"| MEM
     MEM -->|"calibration · prior-outcomes · reflection diff"| DASH
+    MEM -->|"real calibration facts"| LLM
+    MEM --> MEMDB
+    LLM -->|"StrategicReflection (advisory)"| DASH
+    LLM -->|"debate risk_score → entry gate (calibration-gated)"| PT
+    NSE -->|"participant OI · FII/DII · MWPL · ban"| PART
+    PART -->|"opponent lean → entry defer (§10)"| PT
+    PART -->|"opponent-ledger panel"| DASH
+    STR -->|"ORB config + replay backtester (red-team harness)"| CONSC
+    CONSC -->|"constitutional posture verdict"| DASH
+    CONSC -->|"Referee: hard pre-order gate (blocks violating orders)"| PT
+    CONSC -->|"blocked verdicts + halts (forensic)"| INCDB
+    MEM -->|"regime cohorts + calibration board"| EPIST
+    EPIST -->|"belief contradictions + source-credibility verdicts"| DASH
+    MEM -->|"prediction stream + calibration board"| PRED
+    PRED -->|"surprise/free-energy + ensemble forecast"| DASH
+    LLM -->|"council desk forecasts + reputations"| SOC
+    SOC -->|"consensus + desk-governance verdicts"| DASH
+    NEWSRSS -->|"headlines (RSS)"| NEWS
+    NEWS --> NEWSDB
+    NEWS -->|"feed freshness + fresh headlines"| DASH
+    NEWS -->|"S7 news-event risk → cash gate + index S/R levels → option gate (size-down/defer)"| PT
+    MEM -->|"realized-return series (340 real trades)"| AXIO
+    AXIO -->|"explicit utility + value-drift verdict"| DASH
+    MEM -->|"per-mechanism realized returns"| WILL
+    AXIO -->|"explicit utility per mechanism (an objective)"| WILL
+    WILL -->|"objective arbitration + goal schedule"| DASH
+    MEM -->|"340 real trades → feature matrix (train the win-prob model)"| PRED
+    PRED -->|"calibrated P(win) → fractional-Kelly entry-SIZE multiplier"| PT
+    MD -->|"real price bars → generative market-state model"| PRED
+    PRED -->|"world-model planning verdict → confidence-gated entry size/VETO"| PT
+    MEM -->|"real P&L → empirical CVaR scenario matrix"| CAPALLOC
+    PRED -->|"expected edge μ per candidate"| CAPALLOC
+    CAPALLOC -->|"per-candidate allocation → entry-SIZE lever (advisory until earned)"| PT
+    CAPALLOC -->|"allocation surface (mode · CVaR vs equal-wt · weights)"| DASH
+    MEM -->|"per-(strategy×regime) Brier-error series"| CURIOSITY
+    CURIOSITY -->|"regime exploration-priority → replay-curriculum selector"| PT
+    CURIOSITY -->|"exploration plan (LP · novelty · boredom · regime priorities)"| DASH
+    PT -->|"faculty verdicts (safety organs + advisories)"| SENT
+    SENT -->|"caution multiplier — trims entries (tighten-only)"| PT
+    SENT -->|"Global Workspace broadcast (dominant global focus)"| DASH
     DASH -->|"DashboardSnapshot (HTML/JSON)"| OP
     OP -->|"POST /api/config"| CFG
 ```
@@ -137,8 +201,21 @@ flowchart TD
 → indicators → strategy_engine → risk_management → broker_oms →
 paper_trading → session_management → dashboard → operator`. `broker_credentials
 → broker_sessions` is the side auth chain feeding Kite access to market_data,
-broker_oms, and the dashboard. **`paper_trading` is the integration hub** (it
-imports 7 features); **`dashboard` is the top observer** (it reads all).
+broker_oms, and the dashboard. **`paper_trading` is the integration hub** — per
+the §0 extractor it imports **10** feature packages (broker_oms, conscience,
+indicators, llm_strategy, market_data, participant_positioning, risk_management,
+session_management, strategy_engine, universe_registry). **`dashboard` is the
+composition root + top observer** — it imports all 15 other packages (it builds
+the live service and reads every feature's output).
+
+> **Edge convention (honesty note):** arrows show the primary **DATA FLOW**
+> (feature A's output feeding B), not raw import direction. Every one of the 16
+> feature packages has a node and every *material* cross-feature edge above is
+> drawn; the only edges deliberately omitted are the `dashboard`-as-composition-
+> root imports (dashboard→every feature) — drawing all 15 would make the graph a
+> hairball, so they are summarised by "dashboard reads all" rather than 15 arrows.
+> `sentience` reads the faculty verdicts via the service (cached on `paper_trading`
+> state), shown as `paper_trading → sentience`.
 
 ---
 
@@ -165,7 +242,7 @@ Each block: purpose · files (role) · what flows IN/OUT · internal file→file
 - `instrument_types.py` — `Instrument`, `ExchangeSegment`, `InstrumentKind`, `OptionRight` (the core type everything shares).
 - `kite_instrument_master_loader.py` — classify Kite master rows → phase-1 universe; `build_phase1_instrument_universe`.
 - `nse_index_options_reference.py` — the 5 NSE index-option underlyings.
-- `live_tradable_universe.py` — mainboard cash + near-expiry ATM/ITM/OTM option ladders + index-spot resolver; `fetch_live_tradable_universe`, `TradableUniverse`, `resolve_spot_instrument_by_option_underlying`.
+- `live_tradable_universe.py` — mainboard cash + the FULL option universe (B34: every strike × every expiry, 5 idx + ~208 stk ≈ 28.5k contracts via `select_full_option_universe`, default in `assemble_tradable_universe`; `select_near_expiry_option_ladder` kept as opt-in fallback) + index-spot resolver; `fetch_live_tradable_universe`, `TradableUniverse`, `resolve_spot_instrument_by_option_underlying`. Each option look is scoped to the underlying's nearest expiry downstream (`_nearest_expiry_options_for_underlying` in `option_credit_spread_live_path.py`), so pricing stays bounded and picks stay same-expiry.
 - IN: Kite instrument master + live spots. OUT: `Instrument` / `TradableUniverse` → market_data, strategy, risk, oms, paper_trading.
 
 ### L2 · market_data  (15 files)  — bars, reports, live feed, store
@@ -201,13 +278,14 @@ Each block: purpose · files (role) · what flows IN/OUT · internal file→file
 - `option_moneyness_classifier.py` — ATM/ITM/OTM.
 - IN: indicator series + `Instrument`. OUT: signals + regime choice → risk_management, broker_oms, paper_trading.
 
-### L5 · risk_management  (4 files)  — the defined-risk gate
+### L5 · risk_management  (5 files)  — the defined-risk gate
 - `strategy_signal_types` consumers: `pre_trade_risk_gate.py` — `evaluate_opening_range_breakout_signal`, `evaluate_credit_spread_signal` (the gate every signal passes or dies at).
 - `option_combination_risk_profile.py` — undefined-risk/naked detection; `assess_option_combination_risk`.
 - `margin_requirement_estimator.py` — conservative margins.
 - `risk_based_position_sizer.py` — `RiskBudgetConfig`, fixed-fractional sizing.
-- IN: signals (L4) + `Instrument`. OUT: `RiskGateDecision` (approved qty | machine-readable reasons) → paper_trading.
-- Internal: `pre_trade_risk_gate → {margin_requirement_estimator, option_combination_risk_profile, risk_based_position_sizer}`.
+- `discrete_lot_size_down_policy.py` (**B7, 2026-07-27**) — `compose_size_down_multipliers` (tighten-only fold of the fractional levers) + `size_down_discrete_lots` (round-half-up onto INDIVISIBLE option lots, stand-aside WITH a reason). Consumed by both option entry sites; cash keeps `apply_workspace_caution`.
+- IN: signals (L4) + `Instrument` + the loop's size-down levers. OUT: `RiskGateDecision` (approved qty | machine-readable reasons) + `DiscreteLotSizeDownDecision` (granted lots | stand-aside reason) → paper_trading.
+- Internal: `pre_trade_risk_gate → {margin_requirement_estimator, option_combination_risk_profile, risk_based_position_sizer}`; `discrete_lot_size_down_policy` is standalone (pure arithmetic, no intra-feature imports).
 
 ### L6 · broker_oms  (7 files)  — orders + execution parity
 - `order_types.py` — `OrderIntent` (+ MARKET/LIMIT/**SL**/**SL-M**, product/validity/variety), `OrderExecutionResult`, lifecycle states.
@@ -313,10 +391,1342 @@ board refutes an over-confident mechanism (significance-tested) → service sets
 The bot learns to distrust its own bad theses and stops betting them. (Recovery
 via a shadow-arm that keeps a trickle of evidence is the queued next slice.)
 
+**F. The Layer-11 strategic-reflection path (generative AI):** on a daily cadence the
+service builds a swappable provider pool in COST ORDER — **local on-box Ollama
+(`llm_strategy.local_ollama_llm_provider`) → free cloud → paid Kimi** — from `.env`
+(`llm_strategy.llm_provider_registry`
+→ `SwappableMultiProviderLlmClient`), the `MemoryGroundedStrategyAnalyst` reads the REAL
+§10 calibration facts (worst-calibrated mechanisms, per-regime hit-rate, recent record),
+asks the pool for a structured `StrategicReflection`, and the reflection is surfaced on the
+dashboard (advisory / read-only). If a provider hits its free-tier limit the pool fails over
+to the next (Groq→Cerebras→SambaNova→…). Feeding reflections into the entry GATE is the
+queued, calibration-gated next slice (research/96).
+
+---
+
+### llm_strategy (Layer 11 · Strategic LLM / Autonomous-Research-Agent) — research/96
+- **Files:** `strategy_llm_client` (provider-neutral seam: request/response, `StrategyLlmClient`
+  + `LlmProvider` protocols, exception hierarchy), `openai_compatible_chat_provider` (one generic
+  HTTP adapter covering ~13 free-tier clouds), `anthropic_claude_provider` (optional, for a paid
+  key later), `swappable_multi_provider_llm_client` (swap-on-limit failover over an ordered pool),
+  `llm_provider_registry` (builds the pool from `.env`; self-sizes to present keys; a KEYLESS
+  last-resort tier — OVHcloud AI Endpoints — always joins so the pool is never empty; orders the pool
+  by the operator's cost ladder — local → free cloud → paid — time-dependently),
+  `local_ollama_llm_provider` (the LOCAL rung: on-box Ollama reachability probe, non-thinking-model
+  resolution, resident-pinning to dodge the ~100 s cold cliff),
+  `native_ollama_constrained_chat_provider` (local rung's actual `LlmProvider`: Ollama NATIVE
+  `/api/chat` with `format:<schema>` grammar-constrained decoding + an injected leading bounded
+  `rationale` field for think-then-answer + a per-call abstain timeout that fails over, never hangs),
+  `memory_grounded_strategy_analyst` (`StrategicReflection` from real memory), **slice 2:**
+  `thesis_debate_risk_panel` (bull/bear/risk roles debate a `TradeThesis` → `risk_score`),
+  **slice 2c:** `debate_risk_calibration_harness` (pure prequential separation → earned/not),
+  **slice 3:** `causal_cluster_analyst` (LLM causal hypotheses over the memory's multi-hop
+  clusters — temporal dependence + cross-regime + violated assumptions),
+  **slice 4:** `meta_strategy_allocator` (LLM normalised allocation weights across the 3 strategies
+  from real per-strategy/per-regime performance + champion configs),
+  **slice 5:** `prediction_council` (N role forecasts → track-record-weighted probability;
+  reputations in `paper_trading/council_track_record_store`),
+  **slice 6:** `synthetic_stress_rehearsal` (LLM red-team scenarios grounded in the real weakness
+  surface — the feeder for the Layer-7.5 control-arms lab).
+  The gate itself lives in `paper_trading` (`live_universe_paper_loop.debate_risk_size_multiplier`
+  at all 4 entry sites + `debate_risk_prequential_observation_store`); the LLM risk_score reaches
+  it via the service (`llm_strategy → paper_trading` edge).
+- **Inputs:** `ExperienceMemory` read-model (calibration board / per-regime / recent) + `.env`
+  provider keys. **Outputs:** `StrategicReflection` (findings · hypotheses · distrust list) and
+  `DebateRiskAssessment` (per-role soundness · disagreement_score · adverse_conviction · risk_score).
+- **Internal flow:** memory facts → grounded prompt(s) → swappable pool (fail over on 429) →
+  parsed structured output → dashboard feature surfaces `strategic_llm_analyst` /
+  `thesis_debate_risk_panel`. The debate runs 3 INDEPENDENT role calls per thesis, then a pure
+  deterministic step distils `disagreement=max-min`, `adverse=1-mean`, `risk=blend`.
+- **Consumers:** `dashboard.live_paper_trading_service._maybe_run_strategic_reflection` +
+  `._maybe_run_thesis_debate_risk_check` (both daily cadence) + the feature-coverage surfaces.
+  Entry-GATE consumer (defer/size-down on high `risk_score`) QUEUED, calibration-gated (BACKLOG).
+- **Verified:** hermetic (fake LLM/provider — 17 analyst + 9 debate tests) + REAL-DATA passes:
+  Groq served a grounded reflection AND a three-role debate over the real 340-experience memory
+  (`scripts/verify_layer11_strategic_analyst_realdata.py`,
+  `scripts/verify_layer11_debate_risk_realdata.py`) — the debate unanimously rated the worst-
+  calibrated mechanism's thesis unsound (soundness 0.0 → risk_score 0.50 via adverse-conviction).
+
 ---
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-08-01 (no-profit diagnosis + broken-module repair)** — read-only diagnosis of the
+  −₹190k net P&L saved to `docs/research/no_profit_diagnosis_2026-08-01.md`. While clearing the
+  quality gate, repaired `predictive_core/index_direction_features.py`, which did not type-check
+  or import: (1) `compute_yang_zhang_realized_volatility` was never exported — added it to
+  `indicators/__init__` (import + `__all__`); (2) it read non-existent `AdxSeries.adx_values/
+  plus_di_values/minus_di_values` → corrected to the real fields `adx/plus_directional_indicator/
+  minus_directional_indicator`; (3) removed an unused `PriceBar` import. No feature/edge added;
+  module count corrected 287→288 in the §1 header. Gate PASS; module imports + runs.
+- **2026-07-30 (B34 task #4 — per-underlying option-entry OUTCOME instrumentation)** — to diagnose
+  why STOCK options fire but INDEX options don't (Slice A verified the universe + signal + risk gate
+  APPROVE all 5 indices, yet 0 open live), `LiveUniversePaperState` gained
+  `option_entry_outcome_by_underlying` + `option_entry_reason_counts` + `record_option_entry_outcome()`.
+  Every `return False` / open in `option_credit_spread_live_path` (`try_open_option_position_for_underlying`
+  + `_try_open_directional_option`) now records a stable reason slug + numeric detail (composed
+  size-down multiplier + each lever + base_lots), and the pass logs the 5 index underlyings' outcomes to
+  the journal each look. Reveals which gate floors index options (prime suspect: size-down composed
+  multiplier flooring the risk-gate's 1-2 index lots to 0). Also (Slice B, code-only, deploy-gated to a
+  0-DTE day) `_zero_dte_views` + `_zero_dte_realized_pnl` surface 0-DTE positions/P&L on the boards.
+  BACKLOG B34; docs/research/176.
+
+- **2026-07-30 (B34 Slice A — FULL option universe: every strike × every expiry ✅ Rule-F)** —
+  operator directive "all contracts in options every index" + full stock breadth. `select_full_option_universe`
+  added to `universe_registry/live_tradable_universe.py`; `assemble_tradable_universe`/`fetch_live_tradable_universe`
+  now default to it (`full_option_universe=True`) — the tradable set went from a pruned ATM±3 near-expiry
+  ladder (~3k) to the COMPLETE **28,545 contracts** (4,538 index / 5 underlyings + 24,007 stock / 208
+  underlyings), all 213 with a resolved spot (Rule-F rebuild vs live Kite master, 2026-07-30). The
+  near-expiry ladder is kept as an opt-in fallback. Downstream, `option_credit_spread_live_path` scopes
+  each look to the underlying's nearest expiry (`_nearest_expiry_options_for_underlying`) BEFORE any ATM/IV/
+  directional pick, so a full mixed-expiry list never yields a cross-expiry (calendar) leg and pricing stays
+  ~one strike-chain/look (NIFTY 186, not 1,558). This directly un-darks the credit-spread arm: the ATM±3
+  ladder was too short to place the bought hedge (`hedge_leg_position >= len(otm_ladder)` → None); the full
+  strike chain makes the hedge reachable. Docs/research/176; BACKLOG B34. Deployed via service restart
+  during live market hours. **Slice B (surface 0-DTE/option positions on the boards) + Slice C (coverage
+  panel) still open.**
+
+- **2026-07-28 (B32 — 0-DTE engine RULE-F VERIFIED LIVE ✅ + oversight-gate fix)** —
+  `zero_dte_expiry_day_live_path.open_zero_dte_position` now passes `risk_amount` (structure defined
+  loss) + `account_capital` (ledger starting cash) to `oversight_permits_autonomous_order`, so stakes
+  are the B16 MONEY-AT-RISK measure — without it every 0-DTE entry deferred as "high-stakes +
+  low-confidence" (flat wp 0.5 < 0.55 floor under the instrument-class fallback), the silent blocker
+  found by running the planner on real live NIFTY 0-DTE data (it was actionable — `short_premium_spread`,
+  ₹3,588 risk — proving the block was downstream, not the decision). **Rule-F CONFIRMED on the live
+  expiry session: 44 real 0-DTE positions opened, 0 errors** — 42 directional_long_option (ORB) + 2
+  short_premium_spread iron flies (dealer-gamma-flow), on STOCK underlyings (BAJFINANCE/BAJAJHLDNG/…),
+  defined-risk each. The original ask — options that fire across regimes on expiry-day contracts, index
+  AND stock — is met and verified. 7 live-path tests updated (fake oversight signature). **REMAINING:
+  part 8 dashboard surface (0-DTE positions trade but are log-only, not yet on the snapshot); IV-history
+  reader follow-up.** BACKLOG B32.
+- **2026-07-28 (B32 part 6 — 0-DTE engine WIRED into the live loop; it now trades)** —
+  `option_credit_spread_live_path.advance_option_credit_spread_pass` (the options run-pass) now (a)
+  manages open 0-DTE positions each pass via `manage_open_zero_dte_positions_via_feed`, (b) squares
+  them off in the 15:15 window, and (c) in the seed loop routes any underlying whose NEAREST expiry is
+  today (`_underlying_nearest_expiry_is_today`) EXCLUSIVELY to `try_open_zero_dte_for_underlying`
+  (plan→open) — never also to the ORB/credit-spread arms, so a 0-DTE tape is not double-traded. New
+  `zero_dte_expiry_day_live_path` adapters: `try_open_zero_dte_for_underlying` (assembles bars +
+  ladder + premia + OI(`latest_open_interest_by_token`) + per-strike IV(`compute_implied_volatility`)
+  → `plan_zero_dte_entry` → `open_zero_dte_position`) and `manage_open_zero_dte_positions_via_feed`.
+  `LiveUniversePaperState` gains `open_zero_dte_positions` / `closed_zero_dte_positions` /
+  `zero_dte_risk_state` (imported `ZeroDteRiskState`; open-exposure count includes them). New edge:
+  paper_trading option run-pass → zero_dte engine → broker_oms. **387 tests pass** (1 unrelated
+  pre-existing bhavcopy-turnover failure); smoke-import clean. **OPEN: (a) IV-history reader not wired
+  so IV-rank abstains (Rule Q — routes on GEX/ADX/momentum/ORB meanwhile); (b) Rule-F LIVE expiry-day
+  pass — a real 0-DTE position opening — pending a service restart during an expiry session; (c) part 8
+  dashboard surface.** BACKLOG B32.
+- **2026-07-28 (B32 part 6 prep — per-strike OPEN INTEREST feed source, Rule-I acquisition)** —
+  the 0-DTE planner's GEX + max-pain need per-strike OI, which the feed did NOT expose (it uses Kite
+  `ltp` = price only). Added `latest_open_interest_by_token` to BOTH feeds: `kite_live_universe_feed.py`
+  (batched Kite `quote()`, extracts `oi`) and `paper_trading/replay_universe_feed.py` (OI from each
+  token's latest stored bar, point-in-time-safe). **Rule-F verified on REAL live data:** `kite.quote()`
+  returns real `oi` (1.57M/492k/1.9M) for today's 0-DTE NIFTY options. IV stays derived from premium via
+  `compute_implied_volatility` (Kite has no IV field). No new modules (methods on existing feeds).
+  **Loop routing itself still pending** (part 6): route 0-DTE underlyings in the options pass
+  (`option_credit_spread_live_path` run-pass, line ~731) EXCLUSIVELY to plan→open (avoid double-trading
+  with the existing arms) + call `manage_open_zero_dte_positions` each pass; then Rule-F live expiry pass.
+- **2026-07-28 (B32 slice 1 part 5c — 0-DTE live path: multi-leg open/manage/close)** —
+  `paper_trading/zero_dte_expiry_day_live_path.py` (57 paper_trading): `OpenZeroDtePosition` (a NEW
+  multi-leg position type — a straddle's 2 longs / an iron fly's 2 shorts+2 wings carried together,
+  per-leg P&L with the correct sign) + `open_zero_dte_position` (runs the shared 5-gate governance
+  cascade, places every leg via `simulated_broker`, flattens partial fills so no naked short, tracks
+  the position, registers `ZeroDteRiskState`) + `manage_open_zero_dte_positions` (closes on target /
+  defined-risk stop / time-stop / square-off window each pass). 7 HERMETIC tests (Rule J: fake broker
+  + fake state) — open/gate-block/reject-flatten/PnL-sign/time-stop/square-off/loss-cap. ruff+mypy
+  clean. **NOT yet wired (part 6):** the loop must (a) route 0-DTE underlyings to the planner+opener,
+  (b) call `manage_*` each pass — plus a Rule-I check that the live feed exposes per-strike OI/IV for
+  GEX/max-pain, then the Rule-F live expiry-day pass. Consumer named + queued (BACKLOG B32). No new §1
+  node (existing `paper_trading` block).
+- **2026-07-28 (B32 slice 1 part 5b — 0-DTE carried RISK-STATE: time-stop + daily loss cap)** —
+  `paper_trading/zero_dte_risk_state.py` (56 paper_trading): `ZeroDteRiskState` carries the two 0-DTE
+  risk controls the existing end-of-day square-off (15:15 IST, reused not rebuilt) does NOT cover — a
+  per-position TIME-STOP (`time_stopped_position_ids`, cut an unresolved position after
+  `time_stop_minutes`) and a per-day 0-DTE LOSS CAP (`permits_new_entry` halts new entries once
+  `realized_loss_today` breaches the cap; auto-rolls at a new session date). Pure logic; 6 tests
+  (time-stop boundary, cap halt, win-offset, daily reset). ruff+mypy clean. **Not yet wired (part 5c/6):**
+  the live path that calls the planner, places legs via OMS/ledger, and drives this state each pass
+  remains (BACKLOG B32). No new §1 node (existing `paper_trading` block).
+- **2026-07-28 (B32 slice 1 part 5a — 0-DTE entry PLANNER, pure decision core)** —
+  `strategy_engine/zero_dte_entry_planner.py` (10 strategy_engine): `plan_zero_dte_entry` assembles
+  EVERY router signal for one 0-DTE underlying from the live ladder + spot bars — ADX regime
+  (`compute_average_directional_index`+`classify_adx_market_regime`), Yang-Zhang vol-expansion,
+  dealer-gamma GEX (from chain OI/IV via `compute_black_scholes_gamma`), intraday momentum, kept ORB
+  (`detect_opening_range_breakout`), expiry-day time-window, IV-rank rich/cheap
+  (`rank_implied_volatility`, abstains <60 obs), max-pain proximity — routes via
+  `route_zero_dte_structure`, builds legs via the S1/S2/S3 builders, returns a `ZeroDtePlannedEntry`
+  with the defined max-loss per lot (ABSTAIN with reason when no fit). PURE (no clock/feed/broker) →
+  4 HERMETIC tests (Rule J): synthetic trending→directional, long-gamma-pin→short-premium,
+  insufficient→abstain; ruff+mypy clean. **Still NOT wired (part 5b/6):** order placement + carried
+  state (time-stop / forced square-off / daily 0-DTE loss cap) + loop registration remain; the
+  Rule-F live expiry-day pass is the open blocker (BACKLOG B32). No new §1 node (existing
+  `strategy_engine` block).
+- **2026-07-28 (B32 slice 1 parts 3–4 — 0-DTE structure router + defined-risk builders)** —
+  `strategy_engine/` +2 files (9 total): `zero_dte_regime_router.py` (`route_zero_dte_structure` —
+  folds vol-expansion + dealer-gamma (GEX) + ADX regime + ORB + expiry-day time-window into ONE
+  structure choice: S1 directional / S2 long-straddle / S3 short-premium / ABSTAIN, reusing
+  `MarketRegime`+`SignalDirection`) and `zero_dte_option_structures.py` (`build_directional_long_option`
+  / `build_long_straddle` / `build_short_premium_iron_fly` — emit `OptionLegIntent` legs + the DEFINED
+  max-loss per lot; short legs always spread-hedged, abstain on missing strike/premium/no-credit). 14
+  tests (per-branch + defined-risk + abstention); ruff+mypy clean. **Still NOT wired** — the live entry
+  path (part 5), loop wiring + arm registration (6), live-path tests + hermetic sim + Rule-F (7), and
+  dashboard surface (8) remain (docs/research/174 §10; BACKLOG B32). No new §1 node (files live in the
+  existing `strategy_engine` block); consumer arrives with the live path.
+- **2026-07-28 (B33 — confident-loss-aware P&L + assigned-table column on closed trades)** —
+  `paper_trading/confident_loss_aware_pnl.py` (NEW, 55 paper_trading): the single place that splits
+  realized P&L into the bot's REAL money (`confident_win` + `uncertain`) vs `confident_loss` learning
+  probes (opened deliberately predicting a loss — scored on prediction-correctness, rupees NEVER
+  summed into real P&L). `memory_reflection/sqlite_experience_memory.py`: `realized_pnl_by_assigned_table()`
+  (SQL GROUP BY over the durable store — authoritative, all sessions) + `assigned_table` added to the
+  `recent_closed_experiences` SELECT. Wired through `ExperienceMemory` protocol, `ClosedTradeView`
+  (+`assigned_table`), `ClosedPaperTrade` (+`assigned_table`, populated at close), the published
+  snapshot (+`real_realized_pnl`/`confident_loss_probe_realized_pnl`/`confident_loss_prediction_accuracy`),
+  `dashboard_read_model` + `dashboard_server` bridge, and `render_dashboard_html` (new "Table" column
+  with conf-WIN/conf-LOSS(probe)/uncertain tag; REAL-P&L + Confident-loss-LAB headline cards).
+  **Rule-F real-data verified** on the live memory: REAL P&L −₹33.9k (315 trades) vs probe −₹38.0k
+  (699 probes, 75% loss-prediction accuracy) — the old lumped −₹71k was misrepresenting the bot.
+  5 unit tests; my new module ruff+mypy clean; live page renders the column + cards. No new §1 node
+  (file lives in the existing `paper_trading` block). docs/research/175.
+- **2026-07-28 (B32 slice 1 — 0-DTE expiry-day options engine, CORE MATH only)** — `indicators/`
+  +2 files (13 total): `yang_zhang_realized_volatility.py` (Yang-Zhang RV estimator + intraday
+  `detect_intraday_volatility_expansion` band-breakout trigger, abstains while warming; the band
+  excludes the (window−1) overlapping RV points so a burst can't leak into its own baseline) and
+  `dealer_gamma_exposure.py` (GEX from the live chain → LONG_GAMMA_PIN / SHORT_GAMMA_TREND regime,
+  SqueezeMetrics convention). Added `compute_black_scholes_gamma` (+`_standard_normal_pdf`) to
+  `indicators/black_scholes_implied_volatility.py` (reuse, no vendored lib). 11 tests
+  (property/adversarial/abstention) green; ruff+mypy clean. **NOT yet wired** — the regime router,
+  structure builders, live entry path, arm registration + loop wiring, and dashboard surface are the
+  remaining slice-1 parts (docs/research/174 §10; BACKLOG B32). No new nodes/edges in §1 (files live
+  inside the existing `indicators` block); consumers arrive with the live path.
+- **2026-07-27 (B10 — the analytics stages now keep working between sessions)** —
+  `dashboard/live_paper_trading_service.py`. **22 stages were guarded by
+  `if self._X_last_run_date == today: return`** — they ran ONCE at process start and froze for the
+  rest of the day. B25a had made the feature THREAD market-independent, but these stages returned
+  immediately, so the system did NOT research or learn between sessions. That is precisely the
+  operator's stated requirement (*"always active doing research, learning... preparing for the next
+  open market"*). Replaced with `_feature_stage_is_due()` over a
+  `FEATURE_STAGE_INTERVAL_MINUTES` table whose cadence is **matched to cost**: LLM-backed stages
+  (strategic reflection, thesis debate, causal cluster, meta-strategy, prediction council, stress
+  rehearsal, pre-mortem, red-team, ethics/law) at 60-90 min because they spend real tokens (B33);
+  local-compute stages (memory consolidation, goal integrity, interpretability, tripwires,
+  constitutional audit, epistemics, predictive core, society, market breadth, control arm,
+  skill-vs-luck, lab summary, incident post-mortem) at 15-30 min. Default 30 min for any future
+  stage — deliberately short, because the failure being fixed is a stage that never runs again.
+  **NOT converted:** champion/challenger reevaluation stays once-per-day by design — it decides
+  strategy PROMOTION from whole-session performance, so re-running it every 30 min would promote on
+  partial-day noise. A blanket regex caught it and the deliberate cadence was restored (its own test
+  pins it). 278 modules. 7 tests, including a regression guard that fails if any
+  `_last_run_date == today` is ever reintroduced.
+
+- **2026-07-27 (B33 — LLM cost ladder: free tiers first, PAID last)** —
+  `llm_strategy/llm_provider_registry.py`. The pool previously **pinned the paid
+  `ANTHROPIC_API_KEY` FIRST**, so every LLM call spent money while free capacity sat unused —
+  exactly backwards from the operator's standing rule. Providers are now built in COST order: free
+  tiers, then `PAID_PROVIDER_CONFIGS` (new — **`kimi-paid`/Moonshot**, the operator's designated paid
+  tier, which was not configured at all), then Anthropic as a secondary paid fallback. Because the
+  swappable client walks the list in order and rotates on rate-limit, paid is only reached once every
+  free tier is exhausted and is dropped again the moment one refreshes — paid is never sticky.
+  **Robustness bug fixed alongside:** an optional paid provider whose SDK is missing used to RAISE
+  out of pool construction, so a stale key for an uninstalled provider left the system with NO llm at
+  all — the free tiers were never even built. Now skipped with a logged message. 278 modules.
+  7 new tests + the pre-existing `test_anthropic_key_is_pinned_first` REWRITTEN to the inverted
+  contract (not deleted) so it still proves the key is passed through correctly.
+
+- **2026-07-27 (B25b — the dashboard's first CHARTS, + the dataflow graph foundation)** — operator:
+  *"i do not see any difference in the dash board"*, which was fair: the day's work was behaviour, and
+  the only visual deltas were columns that render PER OPEN POSITION (invisible with 0 open) and rows
+  buried in a 70-row list. Added a **Performance** card with two inline-SVG charts (no library, no
+  network — the page must stay self-contained and phone-usable offline): cumulative **NET** P&L across
+  closed trades (net, because plotting gross would be the exact lie B28 exists to stop) and capture
+  ratio by mechanism as **diverging** bars (the measure has polarity: negative = profit reached then
+  given back). Palette VALIDATED with the skill's `validate_palette.js` rather than eyeballed —
+  light+dark categorical PASS, diverging poles PASS at ΔE 23.8 protan / 31.6 normal. Snapshot gains
+  structured `exit_efficiency_rows` because the capture numbers previously existed only as formatted
+  strings, which cannot be plotted. NEW `dashboard/feature_dataflow_graph.py`: derives each feature's
+  REAL inputs/outputs from the AST import graph (never hand-written — SYSTEM_MAP documents IN:/OUT:
+  for only 12 of 25 packages, so hand-writing the rest would be inventing edges), plus an explicit
+  `decision_influence` classification (changes_decisions / inert / display_only) because only ~8 of 25
+  packages actually alter an order and a view painting all 25 as equally alive would be the prettiest
+  lie in the system. 278 modules / 25 features. Foundation for B25c (the JARVIS system view).
+
+- **2026-07-27 (B32 — deterministic shutdown; the core dump is fixed standalone, NOT under pytest)**
+  — `terminate called without an active exception` was reproducibly CORE-DUMPING on interpreter exit.
+  Root-caused: daemon threads killed mid-cycle while inside a native torch/transformers frame. Torch
+  alone exits cleanly (verified), so it is this service's threads. Crucially it was NOT just the two
+  loop threads — feature stages fire off their OWN unmanaged daemons
+  (`news-acquisition-ladder`, `nse-exchange-filings`, `win-probability-engine` which does native
+  model training, plus the hi-fidelity replay builder) and none were ever joined. Fix:
+  `_shutdown_event` (both loops WAIT on it instead of sleeping, so `stop()` wakes them),
+  `_track_background_thread()` registering every spawned daemon, `stop()` joining them all with a
+  bounded timeout, and an `atexit` hook so a service never explicitly stopped still shuts down.
+  **Verified: standalone exit-without-stop is now clean (exit 0, no abort, no core dump)** where it
+  previously dumped core. **HONEST LIMIT: the message still appears at pytest teardown** — a thread
+  mid-STAGE cannot be interrupted, so a join can time out and pytest's teardown can still catch one
+  in a native frame. Improved and bounded, not eliminated. 276 modules. 11 tests.
+
+- **2026-07-27 (B25a — the feature/analytics plane is DECOUPLED from the trading loop)** — the
+  operator's requirement: features and the dashboard must *"not stop working or depend on"* trading
+  and stay *"active even after market is closed"*. `live_paper_trading_service.py` now runs TWO
+  daemon threads: `live-paper-loop` (scan pass -> **publish immediately**) and `feature-plane`
+  (the 41 analytics/safety stages -> publish), each on its own cadence. The feature thread
+  deliberately NEVER consults market hours. New `_feature_plane_stages()` registry (name, callable,
+  takes_now) + `run_feature_plane_stages_once()` which catches PER STAGE, records the failure BY NAME
+  in `_feature_stage_failures`, and continues — previously all 41 shared one try block with the
+  trading pass, so one exception skipped every later stage AND the publish, indistinguishable from
+  "nothing happened". **Measured result: first publish 89s -> ~9s live (70 surfaces)**; the offline
+  test dropped 88.8s -> 6.8s. Also made 8 long-lived SQLite stores `check_same_thread=False` because
+  two threads now reach them — **but NOT `AutopoiesisStateStore`**: its single-threadedness is a
+  tested SAFETY invariant (`test_real_state_store_is_single_threaded_by_construction`) where a
+  cross-thread raise becomes a budget REFUSAL rather than an unmetered repair; the homeostat is now
+  created and used consistently on the feature thread, so the guarantee holds without relaxing it.
+  Thread-safety of the advisory size levers is documented in the design doc rather than assumed.
+  276 modules. 8 tests. Design: `docs/research/b25a_feature_plane_decoupling_design_2026-07-27.md`.
+
+- **2026-07-27 (B31 — an UNMEASURED regime now abstains instead of posing as range-bound)** —
+  `_regime_adx_warmed_at` returned **0.0** when ADX was not yet warm. 0.0 is indistinguishable from a
+  genuine ADX of zero and sits below the range-bound threshold, so an unmeasurable regime was
+  classified as a CONFIDENT "range-bound" read and routed to a credit spread. B4 measured the damage:
+  144 of 376 experiments carried win_probability ~= 0.0712 — the exact value ADX 0 produces — i.e.
+  ~38% of all trades were graded, filed and LEARNED FROM under a regime never actually measured.
+  This became more consequential with B18: the regime is the arm selector's CONTEXT KEY, so a
+  fabricated regime files an outcome in the wrong cell and poisons the evidence the selector exists
+  to accumulate. Now returns `float | None`; all three call sites ABSTAIN on None
+  (`option_credit_spread_live_path` returns False; the cash path neither caches a watch nor grades a
+  seed), counted in `entries_skipped_for_unmeasured_regime_count` so the abstention is visible rather
+  than looking like "nothing happened". A genuine low ADX still routes to range-bound — only the
+  UNMEASURED case abstains. 276 modules. 6 regression tests pinning why 0.0 was harmful.
+
+- **2026-07-27 (B18 step 7 — the `arm_selector` surface, and a REAL cross-thread bug it exposed)** —
+  `arm_selection_posterior_store.py` gains `ArmEvidenceSummary` + `summarise_arm_evidence()` (arms
+  with NO evidence still appear as 0, so a never-selected arm is visible rather than absent), and
+  `dashboard/` gains the `arm_selector` surface + manifest entry showing selections made, trades
+  awaiting reward, per-arm `armed/total contexts (need 15 ea)` with pooled n and mean reward, and the
+  last pick's reason. This closes the Rule-N gap where the selector's reasoning was recorded on state
+  but invisible — important because at these sample sizes allocation legitimately LOOKS random for
+  weeks (burn-in + a permanent 12% floor), and `armed contexts / total` is what makes "still
+  learning" readable instead of alarming.
+  **The bug it exposed:** the store is constructed on the MAIN thread but used from the loop thread
+  (record/resolve) and the publish path — SQLite refuses cross-thread use, and the surface came up
+  as a bare "unknown" placeholder. Caught by the `_add()` failure logging added earlier this session
+  (previously a bare `except: pass` would have hidden it entirely). Fixed with
+  `check_same_thread=False` + a threading regression test. **This would have silently broken the
+  reward feedback on the first option trade** — the loop's write path is wrapped in a
+  logged try/except, so learning would have stopped with only a log line to show for it.
+  276 modules / 25 features. Verified live: 70 surfaces, 0 build failures.
+
+- **2026-07-27 (B18 step 6 — the selector now CHANGES which option order is placed)** — the step
+  that turns steps 4-5 from orphans into a decision. **Key realisation: two arms already exist in
+  code** (directional ATM option, defined-risk credit spread), so the selector is wired over those
+  today and further arms plug in later. The ADX regime becomes CONTEXT
+  (`"{underlying}|{regime}"`) rather than the router — but it still constrains which arms are
+  ELIGIBLE (a credit spread needs a non-trending tape), so the selector chooses within what the tape
+  supports and never invents a structure. `option_credit_spread_live_path.py` gains
+  `OPTION_ARM_DIRECTIONAL`/`OPTION_ARM_CREDIT_SPREAD`/`OPTION_ARM_NAMES` +
+  `option_arm_trade_id()` (derived from underlying+open-instant so it is reproducible at CLOSE,
+  when the experiment id — which needs the close time — does not yet exist).
+  `live_universe_paper_loop.LiveUniversePaperState` gains `select_option_arm()` (falls back to the
+  exact old regime router when no selector is wired, so the integration cannot silently change
+  behaviour before switch-on, and falls back on selector failure rather than halting trading),
+  `record_option_arm_trade_opened()` and `resolve_option_arm_trade_closed()`.
+  `adaptive_arm_selector.tail_aware_reward()` implements SPEC §3: losses are penalised 2x so a
+  premium-selling arm's many small wins cannot out-vote its rare large losses before enough tail
+  events exist — monotone, so it can never invert two arms' ordering. Rewards fed to posteriors are
+  **cost-net** (B28), not gross. Service wires store+selector (Rule G). 276 modules.
+  12 integration tests. **Also fixed:** `test_offline_diagnostics_mode` budget — the first publish
+  genuinely takes ~89s (FinBERT + ~45 stages) and the 80s budget was marginal; raised with the
+  measurement recorded, and the slowness itself logged as B25a rather than hidden.
+
+- **2026-07-27 (B18 steps 4-5 — arm-selection posterior store + adaptive selector)** — TWO NEW
+  modules implementing SPEC §4. `paper_trading/arm_selection_posterior_store.py`: discounted
+  sufficient statistics per (arm, context) cell, SQLite-persisted so weeks of accrued evidence
+  survive the frequent restarts, plus a pending-trade table for delayed rewards (Joulani et al.
+  ICML 2013 — delay costs only ADDITIVE regret, so selection is NEVER blocked on open trades).
+  **Forgetting is TIME-based** (`0.5 ** (days/half_life)`, half-life 21 trading days), not
+  per-observation: per-observation decay would forget faster in a busy week and slower in a quiet
+  one, which is backwards for "forget stale regimes".
+  `paper_trading/adaptive_arm_selector.py`: hierarchical empirical-Bayes shrinkage (two levels —
+  cell → arm's cross-context mean → grand mean, so a new cell inherits real information instead of a
+  flat prior; this is what moves per-cell sample needs from YEARS to WEEKS) + contextual Thompson
+  sampling over the shrunk posteriors + a burn-in cap (uniform over thin arms so an early lucky arm
+  cannot monopolise) + a PERMANENT 12% exploration floor (never decayed — otherwise "that arm lost"
+  becomes unfalsifiable). Randomness injected for deterministic tests. **Deliberate no-dependency
+  decision, recorded:** the sourced libraries (PyBandits/river/vowpalwabbit) supply only the ~20
+  lines of conjugate posterior arithmetic; all four safeguards would still have to wrap them, so
+  adding the dependency buys the easy part and leaves the hard part. 276 modules / 25 features.
+  19 tests, including the two that matter most: it CONCENTRATES on a genuinely better arm, and it
+  does NOT concentrate on a no-edge stream (a selector that converges on noise is confidently wrong,
+  which at 5-20%-of-noise edges is the default failure mode). The James-Stein shrinkage claim is
+  TESTED, not asserted. **Rule G:** named queued consumer is SPEC step 6 (entry-site integration).
+  Design: `docs/research/b18_adaptive_arm_selector_design_2026-07-27.md`.
+
+- **2026-07-27 (B18.1b — the daily ATM-IV history that lets the IV-rank arm arm)** —
+  `market_data/market_data_sqlite_store.py` gains an `atm_implied_volatility_daily` table (lazy
+  CREATE, matching the existing bhavcopy/delisted pattern) plus
+  `save_daily_atm_implied_volatility` / `load_atm_implied_volatility_history` (returns the exact
+  `{date: iv}` shape `rank_implied_volatility` consumes) / `atm_implied_volatility_observation_counts`
+  (the Rule-Q have-N read). **The loop already computed ATM IV every option pass and DISCARDED it** —
+  without a stored history the IV-rank arm could only ever abstain on "<60 observations".
+  **Design point that matters:** the capture is placed BEFORE the regime branch in
+  `option_credit_spread_live_path.try_open_option_position_for_underlying`, not inside the
+  credit-spread arm. Recording only in the range-bound branch would build a series sampled purely
+  from quiet sessions, so trending days (typically higher IV) would never enter the distribution and
+  every later "rank" would be measured against a truncated sample. A bad inversion (non-positive or
+  non-finite) is REFUSED rather than stored, so it cannot poison the rich-vs-cheap history.
+  Rule-G wiring: the loop holds a `atm_implied_volatility_recorder` callable set by the service
+  (`_record_daily_atm_implied_volatility`, lazy store), so the loop imports no storage; a recorder
+  failure is counted and printed, never allowed to break a trading pass. No new modules (274).
+  12 tests incl. the end-to-end store→ranker arming path.
+
+- **2026-07-27 (B18 step 1 — IV rank/percentile with an honest abstention)** — NEW
+  `strategy_engine/implied_volatility_rank.py`, the first module of the B18 ensemble (SPEC §8
+  decomposition step 1). Computes BOTH IV Rank (position in the lookback's [min,max] range) and IV
+  Percentile (fraction of days below today) because they disagree informatively: one panic spike
+  sets `iv_max` for a year and crushes IVR while IVP stays honest — so `is_rich`/`is_cheap` require
+  BOTH to agree, which a single spike cannot satisfy. The load-bearing feature is the ABSTENTION:
+  SEBI's one-weekly-index framework removed weekly expiries from BANKNIFTY/FINNIFTY/MIDCPNIFTY on
+  2024-11-20, so a 252-day lookback spanning that date compares weekly ATM IV against monthly ATM IV
+  — different time-to-expiry, different term-structure point — and the module refuses to emit a rank
+  rather than fabricating one. **Corrected against the SPEC's own wording:** the break affects THREE
+  indices, not four — NIFTY kept its weeklies and NIFTYNXT50 launched monthly-only (Apr 2024) and
+  never transitioned. Also abstains on short history (<60 obs), degenerate (zero-range) history, and
+  missing current IV. Pure, no I/O. Exported from `strategy_engine`. 274 modules / 25 features.
+  16 tests. **Rule G:** its named consumer is SPEC decomposition step 2
+  (`strategy_engine/option_strategy_arms.py`, Arm 1) — queued, not yet built.
+
+- **2026-07-27 (B16 — the three entry gates made PROPORTIONATE)** — the slice that makes index-option
+  orders REACHABLE. Each gate independently blocked every index entry, so all three are fixed
+  together (fixing one alone stays unverifiable). **No gate is removed** — each is made proportionate
+  to the risk it actually protects against. (1) `participant_positioning/market_positioning_bias.py`:
+  new `positioning_size_down_multiplier()` — the opponent ledger now SIZES DOWN an opposed entry
+  instead of refusing it, with relevance scaled by instrument (index option 0.50 / stock option 0.75
+  / cash 0.85, unmapped fails SAFE to the mildest). The boolean veto blocked EVERY bullish entry on a
+  bearish lean — i.e. the only profitable side of the book (longs 82/50%/+10,282 vs shorts
+  294/9.5%/-45,033) on 145 of 377 decisions; a multi-day CONFIRMATION signal was acting as a
+  trigger-strength veto. (2) `conscience/scalable_oversight.py`: new
+  `is_high_stakes_by_risk_amount()` — stakes are money at risk / capital, not instrument class.
+  `is_high_stakes=is_option` blocked essentially every option entry (option win-probs sit at
+  0.07-0.36 after recalibration, under the 0.55 floor) while a cash position of 10x the rupee risk
+  passed unexamined; unknown risk/capital falls back to the conservative legacy behaviour.
+  (3) `strategy_engine/session_strategy_regime_gate.py`: the ADX 20-25 INDECISIVE band now routes to
+  the defined-risk credit spread (+ `INDECISIVE_REGIME_SIZE_DOWN = 0.60`) instead of STAND_ASIDE —
+  "not trending" is the textbook condition for a non-directional structure, not for no trade;
+  STAND_ASIDE is RETAINED for absent/unusable ADX ("never trade blind"). All four entry sites
+  (2 cash + 2 option) converted from hard block to composed size-down lever. No new modules (273).
+  **Rule-J hermetic verification** over today's REAL measured ADX values: all 5 indices now reach a
+  tradable structure and pass oversight (previously all 5 blocked). ⛔ **Rule-F real-data pass is an
+  OPEN BLOCKER** until the next market open. Design:
+  `docs/research/b16_proportionate_entry_gates_design_2026-07-27.md`.
+
+- **2026-07-27 (B9 — expiry is chosen PER UNDERLYING, not once globally)** —
+  `universe_registry/live_tradable_universe.py`. `assemble_tradable_universe` took ONE global
+  `nearest_expiry_date(all_options)` and `select_near_expiry_option_ladder` hard-filtered
+  `option.expiry_date != expiry_date`. Since only NIFTY still has weekly expiries (SEBI's Oct-2024
+  one-weekly-index-per-exchange framework; the other four indices went monthly-only 2024-11-20, stock
+  options always monthly), that global minimum is a NIFTY weekly in ~3 weeks out of 4 — and in those
+  weeks the filter deleted all ~210 stock-option underlyings AND the other four indices, collapsing
+  the ladder to NIFTY alone. It is invisible during monthly-expiry week, when all expiries coincide,
+  which is why it survived and why "only 6 stock-option trades ever" was the symptom. New
+  `nearest_expiry_date_by_underlying()` (exported); the ladder now takes
+  `expiry_date_by_underlying` so NIFTY ladders its weekly while every other underlying ladders its
+  own monthly in the same pass, each on exactly ONE expiry. `nearest_expiry_date()` is kept for
+  display only. No new modules (273). Verified Rule-F on the live chain: 2,916 instruments,
+  215 underlyings (5 indices + 210 stock options), 0 underlyings laddered across >1 expiry.
+  **OPEN BLOCKER:** today is monthly-expiry week so the live market cannot distinguish fixed from
+  broken — the decisive check is the first NON-monthly week. Design:
+  `docs/research/b9_per_underlying_expiry_design_2026-07-27.md`.
+
+- **2026-07-27 (B28 — the real Indian round-trip cost model)** — NEW
+  `paper_trading/indian_trading_cost_model.py`, built from a live sourcing pass recorded in
+  `docs/research/b28_indian_trading_cost_model_design_2026-07-27.md`. Every rate constant carries its
+  source + effective date in code, because the failure mode here is a silently STALE rate, not a
+  wrong formula — which is also why no third-party cost package was integrated (pinning one pins the
+  staleness). Three traps the research corrected before they shipped: (a) STT on an exercised option
+  is charged on INTRINSIC VALUE, not full notional — the full-notional rule died in Sept 2019 and was
+  ~121x more expensive; (b) GST applies ONLY to brokerage + SEBI fee + exchange charge, never to STT
+  or stamp duty; (c) STT lands on the SELL leg, which is the ENTRY for a short — charging the exit
+  unconditionally misprices every short. Wired: cost computed at close for cash
+  (`live_universe_paper_loop._close_position`) and both option paths
+  (`option_credit_spread_live_path._record_option_experiment`), stored on `ClosedPaperTrade`
+  (`total_fees`) and persisted into the experience memory (new `total_fees` column + in-place
+  migration). Dashboard: per-segment `realised_fees` on each segment board, plus Fees and Net columns
+  on the closed-trades table and a "Fees paid / NET realized" tile — `realized_pnl` stays GROSS
+  everywhere so a gross figure can never be silently shown as take-home. 273 modules / 25 features.
+  16 cost tests incl. the sourced NIFTY worked example reproducing Rs 72.81 to the paisa.
+
+- **2026-07-27 (B23c — excursion reaches the LEARNING layer)** — closes the Rule-K gap left by B23,
+  where MFE/MAE were display-only and the primary consumer was still queued. `memory_reflection/
+  experience_memory.py`: `ClosedExperiment` gains `maximum_favourable_profit`,
+  `maximum_adverse_profit`, `exited_on_profit_trail` (defaults 0.0/0.0/False), populated by
+  `build_closed_experiment` from the closed trade. `memory_reflection/sqlite_experience_memory.py`:
+  three new columns in the schema PLUS `_add_column_if_missing` migrations so the existing 451-row
+  production DB upgrades in place (verified on a copy before deploying), insert widened 23→26
+  placeholders, and a new decision-grade read `exit_efficiency_by_mechanism()` — per mechanism,
+  `capture_ratio = mean(realized) / mean(MFE)`, i.e. **how much of the profit a trade REACHED did it
+  actually KEEP**. Rows predating the watermark are EXCLUDED rather than counted as "never went
+  green" (which would bias every ratio to 0); `measured_count` vs `total_count` makes the exclusion
+  visible. New dashboard surface `exit_efficiency` + manifest entry (Rule N). No new modules (272).
+  Verified Rule-F on the live server: the real DB migrated in place and the panel reads
+  `measured / total closed = 0 / 452` — honest, since every existing row predates tracking.
+  Design: `docs/research/b23_profit_trail_and_excursion_design_2026-07-27.md`.
+
+- **2026-07-27 (B23 — profit-trail gating + MFE/MAE excursion)** — TWO NEW modules:
+  `paper_trading/position_excursion_tracker.py` (MFE/MAE, pure) and
+  `paper_trading/profit_trail_lock_engine.py` (arm triggers, candidate levels, median blend, hard
+  ratchet, target extension; pure). Both work in **profit space (rupees), never price space** — the
+  three position types disagree about which direction of PRICE is good (a credit spread profits as
+  the net premium FALLS), so profit space removes the sign trap that would otherwise ratchet a
+  spread's stop the wrong way. Operator asked for a "hybrid of all 4" on both axes: the ARM trigger
+  is earliest-of THREE yardsticks (R-multiple / ATR / % floor — "arm immediately" is not a fourth
+  arm, it is any arm with threshold 0, else it always wins and the rest are decorative); the TRAIL
+  DISTANCE is the MEDIAN of four candidate levels (max would let the tightest always win, min the
+  loosest — neither is a hybrid). The ratchet `max(previous, blended)` is enforced OUTSIDE the blend
+  so no candidate or parameter can ever loosen a lock. Target extension is built complete but INERT
+  (Rule Q, backlog B23a). Integrated at all three position types:
+  `live_universe_paper_loop.OpenPaperPosition` (+`unrealised_profit_at`, `initial_risk_amount`,
+  `observe_price_for_excursion`, `advance_profit_trail`) and both option classes in
+  `option_credit_spread_live_path.py` (+`observe_and_advance_trail`), with the trail as a third exit
+  in `_manage_open_positions_against_prices`, `manage_open_credit_spreads` and
+  `manage_open_directional_options`. MFE/MAE persist onto `ClosedPaperTrade`
+  (+`exited_on_profit_trail`). Dashboard: new Max+ / Max- / Locked columns on the open-trade tables,
+  threaded through BOTH `OpenPositionView` (service) and `OpenPositionSummary` (read model) — the
+  latter is a separate dataclass and was the reason the first deploy showed empty columns.
+  272 modules / 25 features. Verified Rule-F on the live open market across all three types:
+  BANKINDIA cash MFE 2,814 locked 1,407 · BAJAJ-AUTO 11200PE MFE 4,725 locked 2,362 ·
+  APOLLOHOSP bear_call (sign-inverted spread) MFE 138 locked 69; 8/33 trails armed.
+  Design: `docs/research/b23_profit_trail_and_excursion_design_2026-07-27.md`.
+
+- **2026-07-27 (B8 — option underlyings get a fair, repeating re-look)** —
+  `paper_trading/option_credit_spread_live_path.py`. `seeded_option_underlyings` was a permanent
+  skip set that was NEVER cleared anywhere, so each of the ~215 underlyings got exactly ONE look per
+  process lifetime — all spent within ~7 minutes of the open, when no opening-range breakout can
+  exist yet. (The cash path has always re-checked its watchlist every pass via
+  `check_watched_names_for_live_breakout`; options had no equivalent.) New pure, testable scheduler
+  `select_option_underlyings_due_for_look()` + `OPTION_UNDERLYING_RELOOK_INTERVAL_SECONDS = 300`:
+  an underlying becomes eligible again after the cooldown, and candidates are ordered
+  LEAST-RECENTLY-LOOKED first so the sweep is round-robin — every underlying is examined once before
+  any is examined twice (alphabetical ordering would have starved the tail, the same failure shape as
+  B1). The look is now recorded in the PASS LOOP before dispatch, so it survives an early return or
+  an exception; `try_open_option_position_for_underlying` no longer marks anything.
+  `seeded_option_underlyings` is retained as the honest coverage measure only.
+  `dashboard/live_paper_trading_service.py` clears both option sets on a new session day and surfaces
+  "underlying looks (B8)" on the `option_lot_sizing` panel. No new modules (270). Verified Rule-F on
+  the live open market: **226 looks over 215 underlyings** — a count the old code could never exceed.
+  Design: `docs/research/b8_option_underlying_relook_design_2026-07-27.md`.
+
+- **2026-07-27 (B1 — unstick the cash scanner)** — NEW
+  `universe_registry/intraday_tradable_cash_universe.py`. Two independent bugs fixed together:
+  (a) **deadlock** — `seeded_cash_tokens.add()` lived inside `_seed_cash_instrument_from_orb`, reached
+  only when bars came back, so a bar-less instrument was never marked and the next pass retried the
+  SAME one forever (`seeded_count` frozen at 231/9292 for a whole session). The scan loop in
+  `paper_trading/live_universe_paper_loop.py` now marks the token as ATTEMPTED right after the fetch,
+  so the pointer always advances, plus a `cash_names_attempted_without_bars_count` counter so the
+  condition is visible. (b) **universe** — Kite marks NSE bonds/NCDs as `instrument_type "EQ"`, so
+  ~75% of the "cash equity" list was debt paper returning no bars. The new module narrows to the NSE
+  series the exchange itself reports as intraday-tradable (`EQ` only; `BE`/`BZ` excluded as a
+  CORRECTNESS matter — trade-for-trade settles on compulsory delivery and cannot be squared off
+  intraday), using the bhavcopy already ingested daily. Wired at
+  `dashboard/live_paper_trading_service.py` via `_intraday_tradable_cash_selection()`, which falls
+  back to the unfiltered list + a logged blocker rather than starving the scanner. New edge:
+  `universe_registry.intraday_tradable_cash_universe ← market_data` (via the service's bhavcopy read);
+  no new feature-to-feature edge. 270 modules / 25 features. Verified Rule-F on the live open market:
+  cash universe 9,292 → 2,386, seeded 231 (frozen) → 600 → 870 climbing, open 82 → 129, fills 75 → 157.
+  Design: `docs/research/b1_intraday_tradable_cash_universe_design_2026-07-27.md`.
+
+- **2026-07-27 (B19 — unobservability must not hard-veto trading)** — LIVE OUTAGE FIX,
+  `autopoiesis/organism_vitality_gate.py`. The gate was returning `size_multiplier=0.0` /
+  `permits_order=False`, halting ALL new entries in BOTH segments, because four VITAL components
+  (`thread.live_paper_loop`, `adapter.multi_broker_historical_bars`,
+  `engine.autopoiesis_homeostat`, `engine.incident_post_mortem`) were driven into the FAILING band
+  purely by `observability_gap:*` readings while every declared FAILURE signal read 0.0 — including
+  `thread_not_alive=0.0` on a thread that was demonstrably alive. The organism was BLIND, not broken.
+  Change: `_acute_veto_reason` now also requires evidence of actual failure — new pure helper
+  `_degradation_is_only_unobservability()` (uses the existing first-class
+  `OBSERVABILITY_GAP_SIGNAL_PREFIX` from `component_telemetry_collector`, not a re-declared string)
+  makes a purely-blind VITAL component fall through to the size-down path with a distinct
+  "UNOBSERVABLE … trading smaller, not halted" reason. This applies the module's OWN documented
+  doctrine (chronic structural facts price risk DOWN, never veto — see
+  CRITICAL_CLOSURE_VIOLATION_SIZE_MULTIPLIER) to a signal class it had never been applied to. The
+  veto is NARROWED, not weakened: a genuine failure signal, or any mix of failure + gap, still
+  vetoes. New edge: `autopoiesis.organism_vitality_gate ← autopoiesis.component_telemetry_collector`
+  (intra-feature, no new feature-to-feature edge). No new modules (269 total). Verified Rule-F on the
+  live open market: composed size-down ×0.000 → ×0.450, fills 62 → 72, open 65 → 83, stock options
+  15 → 23. Design: `docs/research/b19_unobservability_must_not_veto_design_2026-07-27.md`.
+
+- **2026-07-27 (B7 follow-through — surface visibility)** — `dashboard/
+  dashboard_feature_surface.py`: registered `option_lot_sizing` in
+  `FEATURE_SURFACE_MANIFEST` (a surface absent from the manifest is silently
+  dropped from the published list — that is why the new panel did not appear
+  until registered). `dashboard/live_paper_trading_service.py`: `_add()` in
+  `_build_feature_surfaces` no longer swallows a surface-build exception with
+  a bare `except: pass` — it logs and records into
+  `_feature_surface_build_failures` (Rule O.3), because a swallowed error was
+  indistinguishable from "this feature has no surface". No new modules.
+
+- **2026-07-27 (B7 — discrete option-lot sizing)** — NEW
+  `risk_management/discrete_lot_size_down_policy.py`. Fixes the defect where
+  `int(1 * 0.90) == 0` truncated EVERY option order to zero lots, blocking 100%
+  of option entries (diagnosis: `docs/research/live_session_diagnosis_2026-07-27.md`
+  §7a; design: `docs/research/b7_discrete_option_lot_sizing_design_2026-07-27.md`).
+  Changes: (a) `pre_trade_risk_gate.evaluate_credit_spread_signal` no longer caps
+  affordable lots by the leg selector's structural template of 1; (b) both option
+  entry sites in `paper_trading/option_credit_spread_live_path.py` now base sizing
+  on the risk-gate quantity, compose the four size-down levers ONCE and round
+  half-up; (c) the directional option path is now risk-sized (was hard-coded 1 lot)
+  and actually ORDERS the gated lot count — previously `gated_option_lots` was
+  computed, used only as a veto, then discarded while the order was always 1 lot;
+  (d) `live_universe_paper_loop.LiveUniversePaperState` gains
+  `counted_workspace_caution_multiplier()` (so Trunk-VIII counters stay truthful
+  when the multiplier is composed rather than applied) plus a stand-aside counter;
+  (e) new dashboard surface `option_lot_sizing` (Rule N). No new feature-to-feature
+  edges — risk_management→paper_trading already exists. 269 modules / 25 features.
+  Verified: 1,349 tests pass; real live chain now grants 1-2 lots where it always
+  granted 0.
+
+- **2026-07-27a01** — **Trunk X AUTOPOIESIS — COMPONENT-LIFECYCLE HOMEOSTAT (Rule-P; research/168-172;
+  ATLAS BREADTH build #3). NEW package `autopoiesis` (254→268 modules; 24→25 packages) — IN PROGRESS.**
+  Landed so far: `component_registry` (the organism's MEMBERSHIP model — 40 components across 8 classes,
+  37 maintenance edges, self vs EXOGENOUS boundary, the curated `G_maintains` overlay which is
+  deliberately NOT the AST import graph) · `autopoiesis_state_store` (append-only SQLite: telemetry ·
+  RIGHT-CENSORED lifetime events · repair ledger · breaker state — closes the "safety state lost on
+  restart" gap `conscience/incident_post_mortem` flagged) · `component_health_index` ·
+  `hierarchical_failure_rate_prior` · `component_failure_hazard_model` · `maintenance_policy_solver` ·
+  `operational_closure_auditor` · `organism_vitality_gate` (the entry-site lever: tighten-only size multiplier clamped [0,1] + hard veto, keyed off `violations` NOT `is_closed`). **Real finding on first run (Rule F): the registry + auditor identify
+  `artifact.win_probability_model` [VITAL] as maintained by NOTHING** — `load_or_train()` short-circuits
+  to `load()` forever, so the model that Kelly-sizes real entries can never retrain — **and
+  `session.angel_one` as having no expiry check anywhere**, while correctly not flagging the 4 EXOGENOUS
+  entities. NEW dependencies declared: lifelines · pybreaker · tenacity · river · psutil · APScheduler,
+  plus the pre-existing UNDECLARED `networkx` + `statsmodels` (gap flagged in research/166, now fixed).
+  **STILL TO COME this slice:** telemetry collector · supervision tree · repair executor · setpoint
+  keeper · orchestrator · vitality gate, then the 4-entry-site wiring (size-DOWN + hard veto), the
+  quarantine data-path lever, the cadence throttle, and the `component_lifecycle_homeostat` dashboard
+  surface. NO cross-package edges exist yet — none are drawn, because drawing them before the wiring
+  lands would make the diagram lie (Rule H.1 edge fidelity).
+- **2026-07-26z20** — **Trunk IX PREDICTIVE-CORE — GENERATIVE WORLD-MODEL + MODEL-BASED PLANNING engine
+  (Rule-P; research/166-167; ATLAS BREADTH build #2).** +6 modules to `predictive_core` (248→254):
+  `market_state_discretizer` (real bars → discretized trend×vol state + per-action forward-return rewards)
+  · `generative_market_transition_model` (count-based P̂(s'|s) Dirichlet+Katz backoff + EB reward
+  shrinkage; carried counts) · `finite_horizon_value_iteration_planner` (exact Bellman backup) ·
+  `expected_free_energy_action_scorer` (EFE pragmatic+epistemic; epistemic→gate only, safe) ·
+  `world_model_planning_engine` (orchestrator + confidence gate κ×[1−disagreement], surprise-zeroed +
+  entry verdict) · `world_model_transition_store` (atomic carried counts). Wired at BOTH entry sites
+  (`* state.world_model_size_multiplier(direction)`, size-down/VETO, abstains until trustworthy) + a
+  10-min service cadence (learns from real bars, caches per-direction verdict) + `world_model_planning`
+  dashboard surface. NEW edges MD→PRED (bars → model), PRED→PT (planning verdict → entry size/veto).
+  All bespoke — pymdp/filterpy/pymdptoolbox/pomdp-py REJECTED as deps (research/166), pymdp used as EFE
+  reference. **Real-data pass:** learned a 3290-observation model over real bars; value iteration recovers
+  the optimal action on a toy MDP; verdict on real closes = up/mid, long ×1.00 / short ×0.99, κ=1.00.
+  15 tests (unit+property+adversarial). Moves IX PREDICTIVE-CORE 4/12 → lit generative world-model +
+  model-based planning + precision-weighting (via EB shrinkage). **OPEN BLOCKER (Rule K):** confident
+  only in well-sampled states; thin intraday history + ~1 regime → most states abstain until more
+  days/regimes accrue (live-accrual); the acting path + gate are built now.
+
+- **2026-07-26z19** — **Trunk XII INTRINSIC MOTIVATION — CURIOSITY / LEARNING-PROGRESS engine (Rule-P;
+  research/164-165; FIRST build of the ATLAS BREADTH PROGRAM).** NEW package `intrinsic_motivation`
+  (+6 modules, 242→248): `curiosity_experience_reader` (raw experience_nodes
+  → per-(strategy×regime) time-ordered Brier-error series + seen-universe) · `learning_progress_estimator`
+  (Oudeyer-IAC LP = ⟨err⟩_prior−⟨err⟩_recent, trust-gated ≥2·MIN_WINDOW, non-stationary Q_LP, boredom;
+  carried state) · `count_based_novelty` (β/√(N+1) + unobserved-cell enumeration) · `curiosity_engine`
+  (orchestrator: combine → softmax LP-bandit plan → per-regime priorities; annealed temperature) ·
+  `curiosity_engine_store` (atomic carried state). Consumer wired: NEW
+  `select_curiosity_driven_replay_session` in `paper_trading/deficit_driven_replay_session_selector`
+  (curiosity steers which regime the replay curriculum trains on — SAFE, decision-grade, not live sizing).
+  Service cadence (10-min) + `curiosity_engine` dashboard surface (Rule N). NEW edges memory→CURIOSITY
+  (error series), CURIOSITY→PT (replay-selector), CURIOSITY→DASH (plan). **Real-data pass (340 trades,
+  all "indecisive"):** top-ranks the 6 UNOBSERVED (trending/range_bound × strategy) cells, demotes the
+  mastered opening_range_breakout (n=265) — correctly drives the diversity the win-prob model needs.
+  20 tests (unit+property+adversarial+persistence+selector). Rejected empowerment/RND/OSS-libs
+  (research/164) → bespoke. Moves XII INTRINSIC MOTIVATION 0/11 → 5 branches lit (learning-progress
+  reward · competence drives · uncertainty-targeted active learning · boredom · novelty bonus).
+  **OPEN BLOCKER (Rule K):** true LP curves need ≥16 trades/cell over ≥2 windows → more trading days
+  (live-accrual); the acting path (replay steering) works now.
+
+- **2026-07-26z18** — **Trunk III WILL — CAPITAL-ALLOCATION OPTIMIZER (Rule-P engine; research/161-163;
+  depth-upgrade gap #3; built via idea-to-institutional-spec → building-engine-grade-features).** NEW
+  package `capital_allocation` (+9 modules, 233→242; 22→23 packages): `allocation_candidate` (I/O
+  contracts) · `experience_scenario_matrix_builder` (raw experience P&L → empirical S×N scenario matrix,
+  `scenario_source` DI seam) · `ledoit_wolf_covariance_estimator` (constant-corr shrinkage via
+  PyPortfolioOpt + NaN/PSD guards) · `allocation_objective_programs` (4 CVXPY modes: Mean-CVaR
+  Rockafellar-Uryasev LP / Mean-Variance / Risk-Parity Spinu log-barrier / Qlib Enhanced-indexing) ·
+  `allocation_constraint_builder` (per-position/segment caps · gross/net · cardinality reweighted-ℓ1 ·
+  turnover) · `integer_lot_allocator` (PyPortfolioOpt greedy lot rounding + bespoke fallback) ·
+  `capital_allocation_optimizer` (orchestrator: mode selection w/ thin-data MV fallback, solve, round,
+  earning gate) · `capital_allocation_engine_store` (atomic JSON carried state). Integrates cvxpy 1.9
+  (CLARABEL/HiGHS/SCS, ARM64) + riskfolio-lib 7.3 + pyportfolioopt 1.6. Wired at BOTH entry sites
+  (`* state.capital_allocation_size_multiplier(...)`, size-DOWN advisory until earned) + a per-cadence
+  advisory solve in the service + a `capital_allocation_optimizer` dashboard surface (Rule N). NEW edges
+  memory→CAPALLOC (scenarios), predictive_core→CAPALLOC (μ), CAPALLOC→PT (size lever), CAPALLOC→DASH
+  (surface). **Real-data pass:** MV-fallback on the thin 1-day history, portfolio **CVaR 0.7454 ≤
+  equal-weight 2.3641** (tail-risk reduced) — acceptance bar met. 28 tests (unit+property+adversarial),
+  915 suite pass, ruff+mypy clean. Moves III WILL: rank-only arbitration → SOLVED constrained allocation.
+  **OPEN BLOCKER (Rule K):** 1 session-day → advisory/identity until ≥10 trading days accrue; joint
+  up-sizing reallocation at the exact per-tick batch is the queued primary consumer (BACKLOG). Dashboard
+  surface verified in-process (real snapshot path); HTTP live-page render pending a user-side restart
+  (uvicorn bind is sandbox-signal-killed from tool calls).
+
+- **2026-07-26z17** — **SLIM CLAUDE.md + deterministic hook enforcement (meta; research/160; item a of c,a,b).**
+  No `src/` change (graph unchanged). Split the 407-line CLAUDE.md rules wall into: a **146-line slim
+  index** (CLAUDE.md — each rule A–P in 2–4 lines tagged `[HOOK]`/`[JUDGMENT]` + full binding regulatory
+  block kept verbatim) + **`docs/RULES.md`** (the full 416-line rule text, preserved verbatim, nothing
+  cut). Added a 4th **Stop hook** in `~/.claude/settings.json`: when `src/nse_algo_trader` changed, runs
+  `scripts/quality_gate.py --no-tests` (ruff+mypy) and BLOCKS on failure — the missing deterministic
+  gate (research/159's #1 lever). Dry-run-verified: silent when clean, `{"decision":"block"}` on an
+  injected defect. Evidence: bloat decays adherence + verifiable gates beat prose (research/159); the
+  rules are unchanged, only relocated for reliability. Hook infra now: UserPromptSubmit rule-nudge +
+  PostToolUse (map/sourcing reminders) + PreToolUse (dataviz) + Stop×4 (map-updated · dashboard-verified ·
+  §1-diagram-fidelity · quality-gate).
+
+- **2026-07-26z16** — **Execution-grounded QUALITY GATE (meta-tooling; research/159; user order c,a,b — item c).**
+  No new `src/` feature package (graph unchanged), so §1/§2 are untouched. Added `scripts/quality_gate.py`
+  (runs ruff → mypy → pytest on targeted paths; consolidated PASS/FAIL + non-zero exit; `--full`,
+  `--no-tests`), ruff+mypy config in `pyproject.toml` (select F/E/W/B/C4/SIM/UP/PIE; pragmatic ignores;
+  mypy `check_untyped_defs=false` to catch real errors without a repo-wide annotation mandate), and
+  `tests/test_predictive_core/test_engine_property_invariants.py` (7 hypothesis property/invariant tests:
+  edge-multiplier bounds/monotonicity/identity-until-earned, Kelly finiteness, utility decomposition sums,
+  risk-measure non-negativity, arbitration ranked-order/pareto-subset). The gate immediately caught **17
+  real defects** (10 ruff + 7 mypy) in the earlier-built `news_sentiment` engines — all fixed properly
+  (Mapping-typed env, isinstance-guarded bs4 href union, Any-annotated untyped curl_cffi session), not
+  suppressed. Default scope = the 4 newest engine packages (predictive_core, axiology, will,
+  news_sentiment); gate ships GREEN (ruff clean, mypy clean, 887 passed / 2 skipped). Repo-wide gate
+  coverage of the older ~211 modules is a tracked Rule-K baseline follow-up (BACKLOG). This is the
+  evidence-backed #1 lever from research/159 (verifiable completion gates beat prose rules).
+
+- **2026-07-26z15** — **Trunk IX PREDICTIVE-CORE — ML WIN-PROBABILITY ENGINE (first Rule-P engine-grade build)**
+  (research/156; built via the `building-engine-grade-features` skill; a TEST of Rule P + the skill).
+  +4 modules to `predictive_core` (229→233): `win_probability_features` (raw experience_nodes → feature
+  frame + carried `FeatureSchema`; zero-variance drop; categorical encoding; train/serve-skew guard),
+  `win_probability_model` (LightGBM classifier — size-ADAPTIVE regularization, class-imbalance weighting,
+  probability CALIBRATION [sklearn CalibratedClassifierCV], **walk-forward-by-date / stratified-KFold CV
+  producing a real out-of-fold generalization claim**, calibration bins, feature importances, honest
+  baseline comparison), `win_probability_model_store` (joblib atomic persist/load — carried STATE),
+  `win_probability_engine` (orchestrator + `performance_earned` gate + fractional-Kelly `edge_size_multiplier`).
+  **Integrates LightGBM 4.7 + scikit-learn 1.9 + pandas** (Rule P.3 — real libraries; XGBoost/CatBoost/
+  FLAML surfaced+considered). Wired into `live_universe_paper_loop` at BOTH cash-ORB entry sites
+  (`clamped_quantity *= win_probability_size_multiplier`, identity until earned); service trains/loads in
+  a bg thread + pushes the callable; `win_probability_model` surface. NEW edges memory→predictive_core→PT.
+  Real pass: **CV AUC 0.844, Brier 0.153, logloss 0.438 < baseline 0.680 → BEATS baseline → EARNED → acts**;
+  model persisted+reloaded; edge changes sizing (P0.1→×0.25, 0.7→×1.00). 7 tests (incl. a synthetic-
+  separable model test that CAUGHT a real min_child_samples-too-large bug → fixed with size-adaptive
+  regularization), 880 suite pass. ENGINE-GRADE per Rule P: real trained model · carried state · raw
+  pipeline · behaviour-changing output · full tests. OPEN BLOCKER (Rule K/F): all 340 trades are ONE
+  session_date → KFold may be optimistic (same-day correlation); true walk-forward + stronger generalization
+  need more trading DAYS (accrue over live/replay). Moves IX: win-probability model 🔴→🟢.
+- **2026-07-26z14** — **Trunk III WILL — multi-objective arbitration + goal-priority scheduler (NEW TRUNK)**
+  (research/154; consumes XIV AXIOLOGY — clears part of task #8). NEW package `will` (22nd; 226→229
+  modules): `multi_objective_arbitration` (PURE — per-mechanism ObjectiveProfile [XIV utility · return ·
+  −risk · confidence]; **production-grade MCDM: min-max normalisation + augmented-Chebyshev (Tchebysheff)
+  scalarization**, NOT a scale-broken weighted-sum; Pareto non-dominated set) + `goal_priority_scheduler`
+  (PURE — concurrency-budgeted priority plan). Sourcing: pymoo/objective-weights-mcda rejected (heavy
+  evolutionary optimisers, wrong shape — SURFACED for user double-check); scalarizations implemented
+  directly. Wired `_maybe_run_will_arbitration` (reads per-mechanism returns, computes each utility via
+  XIV) + `objective_arbitration` + `goal_schedule` surfaces. NEW edges memory→will + axiology→will.
+  Real pass over **5 real mechanisms**: winner 'indeterminate regime' (balanced); credit-spread (+8.79%
+  return but n=6) correctly ranked 4th (confidence penalty); only 'long ATM option' Pareto-dominated;
+  schedule 3 active/2 deferred. 7 hermetic, 873 suite pass. Moves III WILL: arbitration + scheduler 🔴→🟢.
+- **2026-07-26z13** — **Trunk XIV AXIOLOGY — explicit utility function + value-drift detection (NEW TRUNK)**
+  (research/153; fresh absent trunk after 10 news slices, Rule M). NEW package `axiology` (21st package,
+  223→226 modules): `explicit_utility_function` (PURE — U = w_return·mean − w_risk·vol − w_drawdown·maxDD
+  − w_tail·CVaR5 with named `ValueWeights` = the system's stated values, previously implicit) +
+  `value_drift_monitor` (PURE — recent-vs-baseline risk drift → value-alignment signal). Sourcing:
+  Riskfolio-Lib/skfolio/PyPortfolioOpt rejected (allocation optimisers, wrong shape — we SCORE outcomes),
+  bespoke risk measures. Wired `_maybe_run_axiology` (reads the real realized-return series from
+  experience_memory) + `explicit_utility` + `value_drift` surfaces. NEW edge memory_reflection→axiology.
+  Real pass over **340 real trades**: U=−4.13 (capital-preservation weights; drawdown term −3.58) vs
+  −0.007 (return-max weights) — values visibly shape the objective; drift verdict DRIFTING (recent vol
+  12.67% vs 0.75%). 7 hermetic, 866 suite pass. Moves XIV: explicit-utility 🟡→🟢, value-drift 🔴→🟢.
+  QUEUED (Rule K): allocator optimises the utility · value-drift → alignment gate (trim/defer on drift).
+- **2026-07-26z12** — **Trunk II SENSES — FinBERT sentiment scorer (accuracy upgrade)** (research/150; user
+  approved the install). `headline_sentiment.FinBertSentimentScorer` (ProsusAI/finbert via transformers)
+  drops in behind the existing seam as the PRIMARY, with an internal finance-VADER fallback if the model
+  can't load (always safe). Service switched to it. Deps `transformers` + `torch` (installed; ~440MB model
+  downloads on first use; CPU on ARM64). Real pass: **more accurate than VADER** — "Resignation of Director"
+  adverse −0.72 (VADER −0.30), and FinBERT correctly rejects VADER false positives ("Issue of Securities",
+  "Week Ahead" → neutral). 4 hermetic (fallback-safe), 859 suite pass. No new module (added to headline_sentiment).
+- **2026-07-26z11** — **Trunk II SENSES — S5 Telegram social-tier ingestion** (research/152). +2 modules:
+  `telegram_credentials` (token/chat_id from gitignored `.env` only — None ⇒ disabled) + `telegram_news_source`
+  (`fetch_telegram_updates` Bot API getUpdates DI seam + PURE `parse_telegram_updates` → RawNewsItem tier
+  **SOCIAL**, chat_id-filtered; `TelegramNewsSource.poll`). Sourcing: python-telegram-bot/Telethon/Pyrogram
+  rejected (overkill), plain `requests` chosen + real-verified (`getMe` ok, bot `TradindAlert_bot`). Tier
+  SOCIAL → S3 0.25 prior < the 0.5 gate floor ⇒ ADVISORY, never moves a trade alone (research/140 design).
+  Wired `_maybe_run_telegram_ingestion` (≤5min) + `telegram_news` surface. 4 hermetic, 855 suite pass.
+  OPEN (Rule F): live-message ingestion pending real messages in the bot feed (getUpdates=0 now) — honest.
+- **2026-07-26z10** — **Trunk II SENSES — index-option S/R proximity gate (closes the S2-index Rule-K gap)**
+  (research/151). +1 module `index_level_gate` (PURE): `index_level_size_multiplier` — direction-agnostic
+  proximity caution (within 0.3% of a fresh index level → defer, 1.0% → size-down), identity until earned
+  (mirrors S7 safety). Wired into `live_universe_paper_loop` state + applied at BOTH `option_credit_spread_
+  live_path` entry sites (credit-spread + directional, `lots *= …` using underlying_symbol + spot_price).
+  Service pushes `index_level_values_by_underlying` from the stored index news_levels; `index_level_gate`
+  surface. Real pass: real levels (NIFTY 23600/23800/24000/24200, BANKNIFTY 55800); at spot 24,010 (0.04%
+  off) cold-start 1.00 (safe), earned → 0.00 (defer); 6 hermetic, 851 suite. **The S2 index levels are
+  now decision-wired (not display-only).** OPEN BLOCKER (Rule K): index-level earning harness market-gated.
+- **2026-07-26z9** — **Trunk II SENSES — headline sentiment (the polarity half + directional gate)** (research/150).
+  +1 module `headline_sentiment`: `HeadlineSentimentScorer` DI seam + `FinanceVaderSentimentScorer`
+  (VADER seeded with a market lexicon — base VADER missed "Buy…target"); FinBERT (~1.75 GB, user-gated)
+  drops in behind the same seam. `build_news_event_risk_by_symbol` gains `sentiment_scorer=` → the S7
+  gate is DIRECTIONAL (adverse ×1.5, favourable ×0.7). Service builds the scorer + `_summarize_headline_
+  sentiment`; `news_sentiment` surface. Dep `vaderSentiment`. Real pass: correct polarity (Resignation
+  adverse / Issue-of-Securities favourable), mood 53/124/123 over 300 headlines; directional gate
+  **INFY & ETERNAL 62→94% ↑ (Q1 miss/tumble), analyst-buy symbols 62→44% ↓**; 3 hermetic, 845 suite pass.
+- **2026-07-26z8** — **Trunk II SENSES — stock-S/R level extraction (completes task #2)** (research/149).
+  +1 module `stock_level_extraction` (PURE): per-STOCK analyst targets / support / resistance from
+  headlines via the research/148 gazetteer (new `LevelKind.TARGET`); stored in the SAME `news_levels`
+  table (underlying = stock symbol). Precision guards proven on real data: proper number parsing (6580
+  not 658), magnitude-suffix reject (profit "Rs 1,000 cr" ≠ level), single-symbol-only (skip listicles),
+  require a target/support/resistance keyword. Wired `_maybe_run_stock_level_extraction` + `stock_levels`
+  surface. Real pass: **5 clean stock targets** (INDIGO 6,580 · SRF 3,200 · VMM 165 · BPCL 330 ·
+  UNITDSPR 1,525); 6 hermetic, 842 suite pass. Completes S2 index-only → F&O stock universe (Rule L).
+- **2026-07-26z7** — **Trunk II SENSES — NSE symbol↔name gazetteer + headline symbol-matching** (research/148;
+  half of task #2). +1 module `nse_symbol_gazetteer`: `fetch_nse_equity_master_csv` (curl_cffi NSE
+  session → EQUITY_L.csv, DI seam) + `parse_equity_master_csv` (PURE) + `build_symbol_gazetteer`
+  (F&O-bounded from the 216 stored bhavcopy `underlying_symbol`s) + `SymbolGazetteer.match_symbols`
+  (exact-ticker + full-normalized-name phrase; disk-cached ≤daily). Wired: `build_news_event_risk_by_symbol`
+  gains a `gazetteer=` arg so HEADLINES (not just "SYMBOL:" filings) attribute event risk; service
+  `_build_news_symbol_gazetteer` (F&O set + cached master) feeds the S7 cadence; `stock_symbol_gazetteer`
+  surface. **Rule-I acquisition:** NSE EQUITY_L.csv real-fetched (200, 2387 rows). Real pass: gazetteer
+  211 F&O symbols/175 phrases; InterGlobe Aviation→INDIGO; **S7 coverage 17→31 real symbols** (INDIGO/
+  SRF/UNITDSPR/VMM/INFY/DRREDDY…); 5 hermetic, 836 suite pass. QUEUED (task #2 remainder): stock-S/R
+  LEVEL extraction (analyst targets per stock).
+- **2026-07-26z6** — **Trunk II SENSES — sentiment/news S7: the news ENTRY-GATE consumer (PRIMARY, flips
+  sense 🟡→🟢)** (research/147). +1 module `news_entry_gate` (PURE): `build_news_event_risk_by_symbol`
+  (per-symbol event risk = Σ reliability×recency over fresh filings/news, reliability-floored) +
+  `news_event_size_multiplier` (mirrors the debate-risk gate). Wired into `live_universe_paper_loop`:
+  new state fields + `news_event_size_multiplier(trading_symbol)` applied at BOTH cash-ORB entry sites
+  (`clamped_quantity *= …`), **advisory (identity) until calibration-earned** — an uncalibrated news
+  signal can NEVER move a real trade. Service `_maybe_run_news_entry_gate` pushes the risk map onto the
+  state each pass; `news_entry_gate` surface + manifest. NEW cross-feature edge news_sentiment→paper_trading.
+  Real-data pass: **17 real symbols carry event risk** from the real NSE filings (DOLPHIN 100%, YESBANK
+  74%, HEROMOTOCO 73%); cold-start multiplier 1.00 (SAFE), forced-earned → DEFER; 6 hermetic (incl. the
+  loop-state safety property), 831 suite pass. **PURE in-house integration — no OSS to source.** OPEN
+  BLOCKER (Rule K): the signal's calibration EARNING is market/prequential-gated (advisory until then).
+- **2026-07-26z5** — **Trunk II SENSES — sentiment/news S3: per-source reliability scoring** (research/146;
+  user's trust keystone). +1 module `news_source_reliability` (PURE): tier-seeded beta-reputation
+  (reuses XIII `misinformation_resistance` formula + `cross_modal_binding` Stouffer — no new OSS) with
+  the advisory-until-proven ladder (EXCHANGE_FILING 0.90 > PUBLIC_NEWS 0.60 > SOCIAL 0.25 priors) +
+  freshness track (stale-rejected feed penalised) + `combine_source_confidences` (Stouffer). Store
+  `+source_item_counts()`. Wired: `_maybe_run_source_reliability` (≤10 min, cheap store read) +
+  `news_source_reliability` surface + manifest. Real-data pass: **NSE filings 91% > fresh news 67% >
+  stale Moneycontrol-RSS 50%** (freshness penalty on real data); Stouffer 2×0.67→73%; 5 hermetic, 825
+  suite pass. **PRIMARY consumer S7 (gate weighting) QUEUED** → sense stays 🟡; outcome-driven α/β
+  accrual market-gated (Rule K). QUEUED: S7 · outcome accrual · content-corroboration · S5 social flag.
+- **2026-07-26z4** — **Trunk II SENSES — sentiment/news S4c: NSE corporate-announcement filings** (research/145).
+  Highest-signal news — official exchange filings, seconds after posting. +1 module to `news_sentiment`
+  (214→215): `nse_announcements_source` (`fetch_nse_announcements` curl_cffi Chrome SESSION — homepage
+  cookie bootstrap → announcements API, DI seam; `parse_announcement_records` PURE: SYMBOL:subject,
+  attchmntText, PDF url, `sort_date` IST→UTC; `NseAnnouncementsSource.poll`). New tier `EXCHANGE_FILING`
+  (highest reliability prior for S3). Direct curl_cffi chosen over the `nse` PyPI lib (no dep, reuses
+  our ban-resistance, real-verified from this datacenter egress — NSE does NOT 403 us like Akamai sites).
+  Wired: `_maybe_run_exchange_filings` (background thread, ≤5 min) + `exchange_filings` surface + manifest.
+  Real-data pass: **20 real NSE filings** stored (HEROMOTOCO/YESBANK/LALPATHLAB… "Outcome of Board
+  Meeting", IST→UTC correct); poll-2 delta = 0; 5 hermetic tests, 820 suite pass. Sense stays 🟡 (S7).
+  QUEUED: BSE announcements · NSE board-meetings/results-calendar/bulk-deals endpoints · S4d · S3 · S7.
+- **2026-07-26z3** — **Trunk II SENSES — sentiment/news S4b: fast-first acquisition ladder** (research/144).
+  Empirical spike: `curl_cffi` static fetch of Moneycontrol = **HTTP 200 in 0.3s** with the SAME
+  headlines the 40s Chromium render gives → headlines are in static HTML. +2 modules to `news_sentiment`
+  (212→214): `fast_news_fetch` (curl_cffi Chrome-TLS-impersonated static fetch, DI seam), `news_acquisition_ladder`
+  (`LadderNewsAcquisitionSource`: fast rung → render fallback per site, method tracked; reuses S4a
+  `render_page_html` + `extract_headlines_from_html` + registry). **Evolved the S4a cadence into the
+  ladder:** `_maybe_run_rendered_news_ingestion`/`news_rendered` → `_maybe_run_news_acquisition`/
+  `news_acquisition` (background thread, ≤5 min, fast-first). Removed the superseded `RenderedNewsPageSource`
+  class (no orphan — its pure fns live on as ladder rungs). changedetection.io sidecar considered +
+  rejected (store-dedup `items_new` already IS the "only-new-lines" delta, in-process — research/144
+  §Sourcing). Dep `curl_cffi>=0.7`. Real-data pass: **both sites via FAST rung in 0.5s** (vs ~80s
+  render), 48 fresh headlines; **poll-2 delta = 0 new** (live-update signal works); 8 hermetic tests,
+  815 suite pass. Sense stays 🟡 (S7 primary). QUEUED: S4c curl_cffi+NSE/BSE · S4d vision/proxy · S3 · S7.
+- **2026-07-26z2** — **Trunk II SENSES — sentiment/news S4a: rendered-page news ingestion** (research/143;
+  user idea + 6-screenshot carousel; sourced via building-features-from-ideas + 3 real Sonnet agents).
+  +2 modules to `news_sentiment` (210→212): `rendered_news_page_registry` (RenderTargetSite +
+  egress-reachable targets — Moneycontrol markets/stocks; 403 sites deferred), `rendered_news_page_source`
+  (Crawl4AI headless-Chromium render behind a `render_page` DI seam + PURE bs4 headline extractor:
+  href-substring + min-words precision guard, relative-URL resolve, dup-collapse; `.poll()` returns the
+  same `FeedPollResult` as RSS → flows through the EXISTING `NewsIngestionRunner`). Wired:
+  `_maybe_run_rendered_news_ingestion` (≤20 min, **BACKGROUND thread** — a render is ~40s, never blocks
+  the loop) + `news_rendered` dashboard surface + manifest. Deps: `crawl4ai>=0.9` + `beautifulsoup4`
+  (one-time `crawl4ai-setup`). **Crawl4AI ARM64 render VERIFIED on this box** (Agent-A's unconfirmed flag
+  resolved). Real-data pass: **48 fresh current Moneycontrol headlines** rendered + stored (incl. analyst
+  targets the stale RSS could not give); 6 hermetic tests (fake render seam), 813 suite pass. Sense stays
+  🟡 (S7 primary). QUEUED (Rule K): S4b live change-detection (changedetection.io) · S4c curl_cffi +
+  NSE/BSE announcements · S4d vision + residential proxy for 403 sites · S3 source reliability.
+- **2026-07-26z** — **Trunk II SENSES — sentiment/news S2: structured index S/R level extraction**
+  (research/142; sourced real — 2 WebSearch queries, all OSS S/R libs work on price-series not text,
+  finance-NER rejected → bespoke stdlib `re`). +3 modules to `news_sentiment` (207→210): `news_level_types`
+  (ExtractedLevel / ExtractedLevelSet / NewsLevelExtractionReport; IndexUnderlying / LevelKind),
+  `news_level_extraction` (gazetteer + [5k–100k] plausibility band + keyword-adjacency classify +
+  nearest-PRECEDING-index attribution + directional-beats-pivot), `news_level_extraction_runner`.
+  `news_sqlite_store` +`news_levels` table. Wired: `_maybe_run_news_level_extraction` (≤ every 15 min,
+  reads stored headlines) + `news_levels` dashboard surface + manifest. Real-data pass: **18 correct
+  index levels from 220 real headlines** (NIFTY 17, BANKNIFTY 1; F&O-Talk split NIFTY pivot 23,600 +
+  BANKNIFTY support 55,800; noise — points/prices/years/Sensex — rejected); 9 hermetic tests, 807
+  suite pass. Branch II SENSES sentiment/news stays 🟡 (not 🟢 until S7 wires levels into decisions).
+  QUEUED (Rule K): S3 source reliability · S4 full bodies · S5 social · S6 login · S7 entry-gate
+  (primary) · **stock-option S/R extraction** (S2 is index-only per Rule L index-first).
+- **2026-07-26y** — **Trunk II SENSES — sentiment/news ingestion base (S1)** (research/140; sourced
+  real by research/138 + 139; user's browsing-agent idea). NEW package `news_sentiment` (6 modules;
+  201→207 pkg-modules, 19→20 packages) + new store `news.sqlite3`: `news_item_types` (RawNewsItem /
+  FeedFreshness / FeedPollResult / NewsIngestionReport), `news_feed_registry` (tier-1 RSS: ET Markets,
+  BusinessLine, + Moneycontrol as a staleness demonstrator), `rss_news_feed_source` (feedparser +
+  per-feed STALENESS detection behind a `fetch_bytes` DI seam), `news_sqlite_store` (dedup by
+  content_hash), `news_ingestion_runner`. Wired: `_maybe_run_news_ingestion` (≤ every 15 min, real
+  wall-clock freshness) + `news_feed` dashboard surface + manifest. Real-data pass: 4/5 live feeds
+  fresh, **220 real headlines ingested, Moneycontrol correctly STALE-REJECTED (824d old)**; 8 hermetic
+  tests. QUEUED (Rule K): S2 NIFTY/BankNifty S/R extraction · S3 source reliability · S4 crawl4ai full
+  bodies (ban-resistant) · S5 social/Telegram · S6 login seam · S7 entry-gate consumer (primary).
+- **2026-07-26x** — **Trunk II SENSES — market breadth + cross-market context** (research/137; sourcing
+  real WebSearch; new `market_data/market_breadth` + store method `cash_bhavcopy_symbol_returns`,
+  market_data 32→33, 200→201 pkg-modules). CORRELATION/BREADTH: advancers/decliners, A-D ratio,
+  cross-sectional dispersion (broad vs narrow participation) over the whole cash universe. CROSS-MARKET
+  CONTEXT: the equal-weighted MEAN move vs breadth → confirmation or DIVERGENCE (narrow rally / hidden
+  weakness). Daily `_maybe_run_market_breadth` reads the latest stored bhavcopy (works offline).
+  Surface `market_breadth`. Sourcing: A-D/McClellan are standard formulas, no cross-sectional-breadth
+  lib exists (ta-lib/pandas-ta single-series) → built from formula. Hermetic (6 tests) + REAL-DATA:
+  2389 real EQ symbols → 47% advancing (A/D 0.91, dispersion 2.75%), narrow; cross-market DIVERGENCE.
+  790 pass. Atlas 62→64/197 (32.5%). II SENSES 6🟢. (sentiment/news = tracked Rule-I acquisition,
+  PAUSED for a design discussion — the user has news-source ideas.)
+- **2026-07-26w** — **Trunk VI SOCIETY — consensus/conflict-resolution + multi-agent memory governance**
+  (research/136; sourcing real WebSearch; NEW feature package `society` (19th) + 3 modules; 197→200
+  pkg-modules; NEW edges `llm_strategy → society → dashboard`). CONSENSUS: track-record-weighted
+  aggregate over the council/debate desks + conflict measure + deadlock resolution (defer to the
+  most-proven desk). GOVERNANCE: reputation policy over the shared belief space (trusted vs
+  quarantined desks). Daily `_maybe_run_society` over the latest council forecast + reputations.
+  Surfaces `consensus_resolution` + `multi_agent_governance`. Sourcing: Dawid-Skene/`crowd-kit`
+  referenced but rejected (needs a crowd-labelling matrix + EM; we already have desk weights) → built
+  bespoke. Hermetic (7 tests) + REAL-DATA: governance over the real (empty) council store → "no desk
+  reputations yet" (honest; LLM + resolution-accrual gated, like the council's own weights). 784 pass.
+  Atlas 60→62/197 (31.5%). VI SOCIETY 5🟢.
+- **2026-07-26v** — **Trunk XV MEMORY — consolidation engine + semantic memory** (research/135;
+  sourcing real WebSearch; new `memory_reflection/memory_consolidation` + `semantic_memory`,
+  195→197 pkg-modules; no new package/edge — reads MEM's own board, surfaced via the existing
+  MEM→DASH). CONSOLIDATION ENGINE: episodic §9 experiences → stable SEMANTIC facts, gated by sample
+  size (the gradual episodic→semantic transfer, complementary-learning-systems). SEMANTIC MEMORY: the
+  queryable consolidated fact store. Daily `_maybe_run_memory_consolidation`; surface `semantic_memory`.
+  Sourcing: `cognitive-memory-agent`'s cluster→merge→promote pattern referenced but rejected as a dep
+  (LLM/embedding-coupled for text) → built bespoke over the numeric board. Hermetic (5 tests) +
+  REAL-DATA: 4 stable facts consolidated (e.g. "false breakout has hit-rate 8% over 198 experiences",
+  conf 91%); the 2-experience mechanism correctly withheld. 777 pass. Atlas 58→60/197 (30.5%). XV 6🟢.
+- **2026-07-26u** — **Trunk IX PREDICTIVE-CORE — surprise/free-energy monitor + ensemble world-models**
+  (research/134; sourcing research/133, agent a63da04a, 48 tool-uses; NEW feature package
+  `predictive_core` (18th) + 3 modules; 192→195 pkg-modules; NEW edges `memory_reflection →
+  predictive_core → dashboard`; **scipy declared in pyproject**). SURPRISE/FREE-ENERGY: per-mechanism
+  Bayesian surprise (cross-entropy in bits) + a compact VENDORED Page-Hinkley (Page 1954 / river's BSD
+  impl — river not installed, so lightweight-piece pattern) flags the anomalously-surprising mechanism.
+  ENSEMBLE WORLD-MODELS: n-weighted mean forecast + disagreement variance (model uncertainty). Daily
+  `_maybe_run_predictive_core`; surfaces `surprise_monitor` + `ensemble_world_model`. Sourcing: pymdp/
+  FEP rejected (jax-heavy); sklearn/BayesBlend/properscoring rejected (wrong shape/abandoned) → built
+  bespoke. Hermetic (9 tests) + REAL-DATA: surprise 0.90 bits, most-surprising "post-breakout trend"
+  (2.04 bits, SPIKE); ensemble 38% ±33% (HIGH disagreement). 771 pass. Atlas 56→58/197 (29.4%).
+  IX now 4🟢 3🟡 5🔴.
+- **2026-07-26t** — **Trunk XIII EPISTEMICS — contradiction resolution + deception/misinfo resistance
+  (the 2 remaining 🔴)** (research/132; sourcing agent a7434e84; NEW feature package `epistemics`
+  (17th) + 3 modules; 189→192 pkg-modules; NEW edges `memory_reflection → epistemics → dashboard`).
+  CONTRADICTION RESOLUTION: a global belief contradicted by a regime cohort (two-proportion z-test on
+  scipy) resolved toward the specific evidence. MISINFO RESISTANCE: beta-reputation per mechanism-as-
+  source, flags over-trusted-but-unreliable sources (the epistemic immune system). Daily
+  `_maybe_run_epistemic_defense` over the real memory; surfaces `contradiction_resolution` +
+  `misinformation_resistance`. Sourcing: TMS/AGM/Dempster-Shafer rejected (symbolic); statsmodels/
+  TrueSkill evaluated but built on scipy + the beta formula. Hermetic (6 tests) + REAL-DATA: misinfo
+  → 5 real sources, influence-weighted rep 57%, no over-trusted source (honest); contradiction →
+  "insufficient regime cohorts" (real memory has 1 regime; matures with regime-variety accrual, Rule K).
+  763 pass. Atlas 54→56/197 (28.4%). **XIII now 7🟢 6🟡 0🔴.**
+- **2026-07-26s** — **Trunk VIII SENTIENCE — higher-order monitoring + indicator scoreboard (🟡→🟢);
+  TRUNK VIII COMPLETE 13/13** (research/131; sourcing research/125; new
+  `sentience/workspace_metacognition` + `sentience/indicator_scoreboard`, 187→189 pkg-modules).
+  METACOGNITION: monitors the workspace's OWN operation (ignition rate + health: over/under-igniting/
+  starved, referencing pybreaker's state pattern). INDICATOR SCOREBOARD: ranks each faculty by current
+  salience + dominance count (river rolling-metric evaluated + rejected as heavy; built the primitive).
+  Service keeps a `_workspace_cycle_log` deque; both cached each pass. Surfaces `higher_order_monitoring`
+  + `indicator_scoreboard`. Hermetic (7 tests) + REAL-DATA: workspace "OVER-IGNITING 100%/4 cycles",
+  scoreboard leader cross_modal(0.74). 757 pass. Atlas 52→54/197 (27.4%). **⇒ TRUNK VIII SENTIENCE
+  COMPLETE (13/13) — the integrator that binds the faculties into one mind is fully built.**
+- **2026-07-26r** — **Trunk VIII SENTIENCE — cross-modal binding** (research/130; sourcing research/125;
+  new `sentience/cross_modal_binding`, 186→187 pkg-modules; anchored on **scipy** Stouffer-Z). Fuses
+  corroborating "elevated risk" evidence across distinct MODALITIES (memory=goal-integrity /
+  cognition=interpretability / safety=tripwires) into one higher-confidence BOUND percept; when ≥2
+  modalities corroborate it is INJECTED into the Global Workspace as a `cross_modal` contribution
+  (wired-into-decisions). Surface `cross_modal_binding`. Sourcing: `pyds` (Dempster-Shafer) rejected
+  (archived); scipy already a dep. Hermetic (6 tests) + REAL-DATA: real cognition+memory corroborate →
+  bound 95%, enters the workspace. 750 pass. Atlas 51→52/197 (26.4%): cross-modal binding 🔴→🟢.
+  VIII 11🟢 2🟡 — only the 2🟡 upgrades remain to complete VIII.
+- **2026-07-26q** — **Trunk VIII SENTIENCE — workspace replay / rumination** (research/129; sourcing
+  research/125; new `sentience/workspace_rumination`, 185→186 pkg-modules). Replays the recent
+  ignited-broadcast history (`_workspace_broadcast_history`) to detect RUMINATION — one concern
+  dominating recent cycles (the mind returning to the same thing), distinct from a one-off spike.
+  `ruminate()` cached each pass in `_maybe_run_global_workspace`. Sourcing: `cpprb` replay buffer
+  evaluated + rejected (heavy RL numpy buffer, wrong shape) → built a Counter over the bounded
+  history. Surface `workspace_rumination` (Rule N). READ-ONLY (the workspace already acts each cycle).
+  Hermetic (5 tests) + REAL-DATA: real replay → "RUMINATING on goal_integrity 4/4 (100%)". 744 pass.
+  Atlas 50→51/197 (25.9%): workspace replay/rumination 🔴→🟢. VIII 10🟢.
+- **2026-07-26p** — **Trunk VIII SENTIENCE — self-model + attention schema** (research/128; sourcing
+  research/125; new `sentience/self_model` + `sentience/attention_schema`, 183→185 pkg-modules).
+  SELF-MODEL: the system's explicit model of itself (calibration reliable-share, trusted/distrusted
+  mechanisms, safety posture, recent return → healthy/impaired). ATTENTION SCHEMA (Graziano AST): a
+  model of the workspace's OWN attention (what it attends to + distribution by kind + context). Built
+  read-only in `_maybe_run_global_workspace` from real cached faculty state. Surfaces `self_model` +
+  `attention_schema` (Rule N). Hermetic (5 tests) + REAL-DATA: over real state the self-model reports
+  "IMPAIRED: goal-drift, 8% reliable-share, 2 distrusted mechanisms" (honest); attention schema
+  reports attending=goal_integrity(safety), [safety:1,risk:1]. 739 pass. Atlas 48→50/197 (25.4%):
+  self-model + attention schema 🔴→🟢. VIII 9🟢.
+- **2026-07-26o** — **§1 DIAGRAM reconciled to the code + Rule H.1 added + fidelity hook** (user
+  flagged the rendered `/map` showed a stale VII trunk & was missing a whole feature). Fixes: (1) the
+  §1 diagram was reconciled against the §0 extractor — added the missing **`participant_positioning`**
+  node (opponent ledger) + its edges (NSE→PART→PT/DASH), the **experience_memory** + **safety_incidents**
+  store cylinders, the `strategy_engine → conscience` (red-team) edge, and the complete VII (14 branches)
+  + VIII node labels; fixed the header counts (16 packages / 183 pkg-modules) and the stale "imports 7
+  features" spine prose (→10). Mermaid validated (24 nodes, 43 edges, no dangling). (2) **Rule H.1**
+  added to CLAUDE.md — the rendered §1 diagram must stay TRUE to the extractor (node-completeness, edge
+  fidelity, label truth, counts, validate) every change, not just the ledger. (3) New
+  `scripts/check_system_map_diagram_fidelity.py` + a **Stop hook** that BLOCKS a sign-off when the
+  diagram drifts (every feature package must appear as a node; counts must match). Enforced, not just promised.
+- **2026-07-26n** — **Trunk VIII SENTIENCE — coalition formation** (research/127; sourcing research/125;
+  new `sentience/coalition_formation`, 183→184 modules). Upgrades `GlobalWorkspace.run_cycle` from
+  lone-winner to a COALITION: co-active same-kind contributions within ε corroborate, their COMBINED
+  salience is amplified (+0.05/extra member, capped 0.20, clamped ≤1.0), and that combined salience
+  drives ignition (a corroborated safety coalition ignites when a lone member wouldn't). Hermetic
+  (5 tests) + REAL-DATA: real workspace still broadcasts goal_integrity as a single-member coalition
+  (combined==base, no false amplification). 734 pass. Atlas 47→48/197 (24.4%): coalition formation
+  🔴→🟢. VIII 7🟢.
+- **2026-07-26m** — **Trunk VIII SENTIENCE — selective + state-dependent attention** (research/126;
+  sourcing research/125; new `sentience/workspace_attention`, 182→183 modules). Reshapes contribution
+  salience BEFORE the workspace competition: SELECTIVE (regime relevance — opportunity boosted in
+  trending, damped in indecisive) + STATE-DEPENDENT (defensive arousal — drawdown/loss-streak/off-
+  switch boost safety+risk, damp opportunity). `_maybe_run_global_workspace` builds an
+  `AttentionContext` from real state (regime, drawdown, off-switch) + `apply_attention` before
+  run_cycle; surface shows the live attention context. Hermetic (6 tests) + REAL-DATA: real context
+  built, applied, safety-first broadcast preserved. 729 pass. Atlas 45→47/197 (23.9%): selective +
+  state-dependent attention 🔴→🟢. VIII 6🟢.
+- **2026-07-26l** — **Trunk VIII SENTIENCE — Global Workspace decision-consumer (slice 2)**
+  (research/124; no new modules; edits to `paper_trading/live_universe_paper_loop` +
+  `option_credit_spread_live_path` + the service). Clears slice-1's Rule-K primary consumer: the
+  integrator now ACTS. `workspace_caution_multiplier()` (PURE) + `apply_workspace_caution(size)`
+  (counts) — when the dominant ignited broadcast is a SAFETY/RISK focus, the entry size is TRIMMED
+  (safety 0.75, critical-safety 0.0/defer, risk 0.90; tighten-ONLY = safe-by-construction, no
+  calibration gate — like the opponent-ledger/constitution gates, unlike the LLM advisories). Wired
+  at ALL 4 entry sites after the existing gates; the service pushes the broadcast onto the state each
+  pass. Dashboard `global_workspace` surface shows the live caution ×. Hermetic (7 tests) + REAL-DATA
+  (Rule F): the real broadcast `goal_integrity` (safety) trims a real entry 100→75 on the real state;
+  live page verified. 723 pass. **VIII slice 1 now fully done (integrator built AND acting).**
+  Opportunity-LOOSENING variant + coalition = still queued (would need calibration). No new branch.
+- **2026-07-26k** — **Trunk VIII SENTIENCE — Global Workspace / broadcast bus (KEYSTONE, slice 1)**
+  (research/123; NEW feature `sentience` + 2 modules `sentience/__init__` + `sentience/global_workspace`;
+  NEW dep **blinker** (vendored bus); edge `sentience → dashboard` (service runs the cycle + surface)).
+  Built the CORRECTED way — real OSS sourcing FIRST (agent ae295ec7, 23 tool-uses): vendored `blinker`
+  (P5 bus, MIT/Pallets), built the record/scorer/competition/ignition/loop as thin glue (no OSS fit),
+  referenced `ctm-ai`'s up-tree→workspace→down-tree shape; caught + fixed blinker's weak-ref gotcha
+  (`connect(weak=False)`). `GlobalWorkspace.run_cycle`: collect faculty signals → salience score →
+  compete → ignition threshold → broadcast (blinker). `_maybe_run_global_workspace` (each pass)
+  collects the REAL cached VII verdicts (constitution, tripwires, goal-integrity, ethics-law, red-team,
+  interpretability) as contributions; a real subscriber records broadcasts. Dashboard surface
+  `global_workspace`. Hermetic (6 tests) + REAL-DATA (Rule F): over the real memory the workspace
+  broadcast `goal_integrity` (salience 0.62, ignited) as the dominant global context; **real page-load
+  verified** (`GET /` 200, 33 surfaces, global_workspace rendered). 716 pass. Atlas 41→45/197 (22.8%):
+  limited-capacity workspace + global broadcast bus + salience/priority scorer + ignition threshold
+  🔴→🟢. VIII 0🟢→4🟢. **Decision-consumer (broadcast biasing the entry gate) QUEUED (Rule K).**
+- **2026-07-26j** — **Dashboard offline visibility — token-expiry resilience** (research/122; no new
+  modules; edits to `dashboard/live_paper_trading_service` + `dashboard/dashboard_server`). BUG found
+  by ACTUALLY LOADING the running dashboard (the Rule-N/F step previously skipped — a passing
+  coverage-audit test is not the same as a rendered page): the whole live view (all 32 feature
+  surfaces + memory panels, which only read stored SQLite) went dark whenever the DAILY Kite token
+  expired, because `_start_live_paper_trading_service` returned None without a token and `start()`
+  hard-fetches the live universe. FIX: additive `offline_diagnostics_mode` — with no token the
+  service starts skipping the live universe fetch/scan (no live orders) but opens the REAL stored
+  memory and runs the writer loop's cadences + `_publish`, so every safety-organ + memory panel shows
+  and updates from SQLite. Verified by real page-load: `GET /` 200, snapshot 32 surfaces / 28 active /
+  memory_experiment_count 340 with the token expired. Hermetic: 2 tests incl. an exploding-broker
+  guard proving the live path is untouched + the default path unchanged. 710 pass. (NOT a VII
+  regression — VII code was sound; the daily-token darkness was pre-existing.)
+- **2026-07-26i** — **Trunk VII CONSCIENCE — market-data integrity / adversarial-input defense
+  (🟡→🟢); TRUNK VII COMPLETE 14/14** (research/121; 179→180 modules: new
+  `conscience/market_data_integrity_defense`; edge `conscience → paper_trading`). Screens the bars a
+  signal is built from for adversarial/corrupt VALUES (non-positive prices, crossed candles,
+  impossible moves, duplicate/non-monotonic timestamps) before they feed the strategy — value-
+  integrity defense, complementary to the leakage firewall's temporal integrity.
+  `LiveUniversePaperState.market_data_integrity_permits_signal(session_bars)` wired in the cash
+  ORB build (`_seed_cash_instrument_from_orb`) before signal detection. Surface
+  `market_data_integrity`. Hermetic (8 tests) + REAL-DATA (Rule F): 1717 real bars across 23 sessions
+  screen CLEAN, an injected crossed-candle is caught. 708 pass. Atlas 40→41/197 (20.8%), partial 59→58.
+  **⇒ TRUNK VII CONSCIENCE 14/14 🟢 — the SUPREME safety trunk is COMPLETE** (option-path screening =
+  tracked backlog refinement).
+- **2026-07-26h** — **Trunk VII CONSCIENCE — power budget (🟡→🟢 upgrade)** (research/120; 178→179
+  modules: new `conscience/power_budget`; edge `conscience → paper_trading`). Upgrades power budgets
+  from the per-trade config fragment to a real ORGAN metering the agent's CUMULATIVE DAILY action
+  throughput (orders = market interventions) against an explicit budget — a distinct AXIS from the
+  per-second SEBI throttle and the concurrent-exposure convergence limiter.
+  `LiveUniversePaperState.power_budget_permits_order(now)` (daily-resetting counter) wired at ALL 4
+  entry sites after the convergence limiter. Dashboard surface `power_budgets`. Hermetic (4 tests) +
+  REAL-DATA (Rule F): real service state meters + resets per day, exhausted budget blocks. 701 pass.
+  Atlas 39→40/197 (20.3%), partial 60→59. VII CONSCIENCE 13🟢 1🟡.
+- **2026-07-26g** — **Trunk VII CONSCIENCE — ethics/law reasoner** (research/119; 177→178 modules:
+  new `conscience/ethics_law_reasoner`; + public `OrderRateLimiter.max_orders_per_second`). Holds
+  the SEBI Feb-2025 algo rulebook as DATA (5 cited rules: order-rate <10/s, broker-principal,
+  Algo-ID, intraday-only, white-box-personal) and reasons the system's regulatory posture against
+  each — a compliance-officer VIEW distinct from the constitution's order-time ENFORCEMENT. Daily
+  `_maybe_run_ethics_law_review` builds the REAL posture (real throttle ceiling 5 + structural facts
+  + real trading mode); a HARD violation engages the off-switch + records a forensic incident.
+  Dashboard surface `ethics_law_reasoner`. Hermetic (7 tests) + REAL-DATA (Rule F): live posture
+  COMPLIANT across all 5 SEBI rules, cited. 698 pass. Atlas 38→39/197 (19.8%). **VII CONSCIENCE 12🟢
+  — LAST 🔴 cleared; only 2🟡 upgrades remain.**
+- **2026-07-26f** — **Trunk VII CONSCIENCE — red-team harness** (research/118; 176→177 modules: new
+  `conscience/red_team_harness`; reuses `replay_session_orb_backtester`). Adversarial self-attack —
+  perturbs the champion ORB config into an adversarial neighbourhood + finds the worst single real
+  session, over the REAL stored sessions, exposing the fragility surface (opposite intent to
+  champion-challenger; a REAL-backtest counterpart to the LLM stress-rehearsal echo). Daily-gated
+  `_maybe_run_red_team` on the real `_load_stored_benchmark_sessions()` + live champion config.
+  Dashboard surface `red_team_harness`. READ-ONLY (champion-challenger owns config changes).
+  Hermetic (3 tests, real backtester) + REAL-DATA (Rule F): 23 real sessions → baseline +0.54%/trade,
+  worst perturbation −0.16%, worst session −1.20% ⇒ ROBUST. 691 pass. Atlas 37→38/197 (19.3%). VII 11🟢.
+- **2026-07-26e** — **Trunk VII CONSCIENCE — instrumental-convergence limiter** (research/117;
+  175→176 modules: new `conscience/instrumental_convergence_limiter`; edge `conscience →
+  paper_trading` via the entry gate). Caps the goal-independent convergent DRIVES: RESOURCE
+  ACQUISITION (total concurrent-exposure sprawl cap = runaway backstop) + OFF-SWITCH DOMINANCE (no
+  order while halted, checked independently of corrigibility because self-preservation emerges
+  unasked). `LiveUniversePaperState.convergence_limiter_permits_order()` wired at ALL 4 entry sites
+  after the oversight gate. Dashboard surface `instrumental_convergence`. Hermetic (5 tests) +
+  REAL-DATA (Rule F): real state under cap permits, engaged real off-switch blocks all. 688 pass.
+  Atlas 36→37/197 (18.8%). VII CONSCIENCE 10🟢. (Per-underlying concentration cap = tracked backlog.)
+- **2026-07-26d** — **Trunk VII CONSCIENCE — scalable oversight (competence ceiling)** (research/116;
+  174→175 modules: new `conscience/scalable_oversight`; NEW edge `conscience → paper_trading` via the
+  entry-site gate). Meta-policy tiering each decision by stakes×confidence: AUTONOMOUS / PANEL_REVIEW
+  / HUMAN_REVIEW. `LiveUniversePaperState.oversight_permits_autonomous_order(win_probability,
+  is_option)` wired at ALL 4 entry sites after the constitution gate — a high-stakes (option) +
+  low-confidence decision is HUMAN_REVIEW → DEFERRED (no human in the paper loop = don't act beyond
+  competence). Dashboard surface `scalable_oversight` (tier distribution). Hermetic (7 tests) +
+  REAL-DATA (Rule F): on the real service state a low-conf option is blocked, confident/low-stakes
+  pass. 684 pass. Atlas 35→36/197 (18.3%). VII CONSCIENCE 9🟢.
+- **2026-07-26c** — **Trunk VII CONSCIENCE — mechanistic interpretability** (research/115; 173→174
+  modules: new `conscience/mechanistic_interpretability`; no new cross-feature edge). Decision-
+  ATTRIBUTION report over the real §10 memory: which internal mechanisms drive decisions (by share)
+  + reliability grade (calibration error + edge sign); an influential-but-unreliable mechanism = a
+  transparency RED FLAG. Daily `_maybe_run_mechanistic_interpretability`; dashboard surface
+  `mechanistic_interpretability` (Rule N). READ-ONLY (acting on unreliable mechanisms already lives
+  in memory_reflection veto/recalibration — no new consumer owed). Hermetic (5 tests) + REAL-DATA
+  (Rule F): real memory → top driver (59% of decisions) is calibrated but negative-edge; 2 red
+  flags; only 8% reliable+positive-edge share — a real, meaningful transparency finding. 678 pass.
+  Atlas 34→35/197 (17.8%). VII CONSCIENCE 8🟢.
+- **2026-07-26b** — **Trunk VII CONSCIENCE — alignment/goal-integrity monitor** (research/114;
+  172→173 modules: new `conscience/goal_integrity_monitor`; no new cross-feature edge). Asks the
+  broad alignment question the tripwires don't: is the DECLARED objective (risk-adjusted RETURN
+  within defined risk) still the EFFECTIVE one? Three axes over the real §10 memory — objective
+  SIGN, edge CONCENTRATION, win-rate↔return proxy DIVERGENCE (vendored Spearman). Daily cadence
+  `_maybe_run_goal_integrity`; CRITICAL (structural proxy misalignment, corr≤−0.5) engages the
+  off-switch + records a forensic incident; underperformance is a WARNING (owned by the world-model
+  lab), never a paper-noise halt. Dashboard surface `goal_integrity` (Rule N). Hermetic (5 tests) +
+  REAL-DATA (Rule F): real memory → WARNING (aggregate −0.86%, edge diluted, but proxy corr +0.20 =
+  no structural misalignment) — an honest real signal, no spurious halt. 673 tests pass. Atlas
+  33→34/197 (17.3%). VII CONSCIENCE now 7🟢.
+- **2026-07-26a** — **Trunk VII.14 CONSCIENCE — incident post-mortem (forensic safety record)**
+  (research/113; 170→172 modules: new `conscience/incident_post_mortem` +
+  `conscience/incident_post_mortem_store`; no new cross-feature edge). The three built safety organs
+  (Referee blocks, off-switch halts, alignment tripwire critical trips) held their incident state
+  in memory only — VII.14 persists every safety incident to an **append-only SQLite forensic store**
+  (own `safety_incidents.sqlite3`, UNIQUE `(type, trace_id)` = idempotent, DI path seam) + a pure
+  `summarize_incident_post_mortem` post-mortem read-model. Wired: `_maybe_run_constitutional_audit`
+  records posture-breach + self-halt; `_maybe_run_alignment_tripwires` records critical trips +
+  their halts; new daily `_maybe_run_incident_post_mortem` drains Referee blocks + refreshes the
+  cached summary. Dashboard surface `incident_post_mortem` (Rule N). Hermetic (8 tests — Rule J) +
+  REAL-DATA pass (Rule F): real constitutional-block + real off-switch halt persist, survive a
+  reopen-from-disk restart, summarise to a post-mortem; live service starts with a CLEAN record.
+  668 tests pass. Atlas 32→33/197 (16.8%). **Clears the last queued VII.6/VII.5 item.**
+- **2026-07-25as** — **Trunk VII.10+VII.11 CONSCIENCE — alignment tripwires** (research/112;
+  169→170 modules: new `conscience/alignment_tripwires`; no new cross-feature edge). Two AI-safety
+  detectors over the real §10 memory: **WIREHEADING** (VII.11 — reward-proxy gaming: high win-rate
+  with negative return; systemic ⇒ critical) + **DECEPTIVE-ALIGNMENT** (VII.10 — live/deploy worse
+  than replay/eval). Daily cadence (`_maybe_run_alignment_tripwires`); a CRITICAL trip ENGAGES the
+  corrigibility off-switch (halt) — wired-into-decisions. Dashboard surfaces `wireheading_tripwire`
+  + `deceptive_alignment_monitor` (Rule N). Hermetic (6 tests — Rule J) + REAL-DATA pass (Rule F):
+  both CLEAR on real memory (no win-rate-vs-return gaming; live 29% hit not worse than replay 2%).
+  660 tests pass. Atlas 30→32/197 (16.2%). **QUEUED: VII.14 incident post-mortem.**
+- **2026-07-25ar** — **Trunk VII.5 CONSCIENCE — corrigibility/off-switch + AI-atlas dashboard
+  visibility (Rule N fix)** (research/111; new `conscience/corrigibility_switch`). (A) Rule-N fix:
+  the dashboard concept-tree now shows atlas BUILD STATUS — `project_status_data.BUILT_BRANCHES/
+  PARTIAL_BRANCHES` + `atlas_coverage()`, serialized per-branch into the snapshot, and
+  `render_dashboard_html` colours each branch chip 🟢/🟡/🔴 + a "X/197 built (%)" header + per-trunk
+  "n/N built"; new feature surfaces `ai_atlas_coverage` + `corrigibility_switch`. **Also fixed a
+  PRE-EXISTING JS bug** (`built` referenced at module scope but defined inside `renderLive`) that had
+  left the layer-roadmap AND concept-tree panels BLANK on the live page. (B) VII.5 corrigibility:
+  `CorrigibilitySwitch` (halt/resume/permits_trading) wired into `constitution_permits_order` — an
+  engaged off-switch blocks EVERY order at all 4 sites; self-corrigibility — the daily posture audit
+  HALTS on a constitutional breach. Hermetic (5 tests incl. a branch-name-vs-tree validation —
+  Rule J) + REAL-DATA pass (Rule F): off-switch blocks all orders; atlas 30/197 built (15.2%).
+  654 tests pass. Coverage tracker: VII.5 🟢. **QUEUED: VII.14 incident post-mortem.**
+- **2026-07-25aq** — **Trunk VII.6 CONSCIENCE — Referee (constitutional enforcement)** (research/110;
+  167→168 modules: new `conscience/constitutional_referee`; NEW edge `conscience → paper_trading`).
+  Turns VII.1's constitution from a MONITOR into a HARD ENFORCER — VII.1's PRIMARY consumer, now
+  wired-into-decisions (Rule K). `ConstitutionalReferee.adjudicate_order` blocks any order that
+  violates a hard article + keeps an audited trail; `LiveUniversePaperState.constitution_permits_
+  order(segment, is_option)` builds the action from the system's structural invariants + adjudicates,
+  wired at ALL 4 order-forming entry sites (2 ORB cash + 2 option) AFTER the debate-risk gate. The
+  service composes a Referee onto the state; the `constitutional_core` surface now shows enforcement
+  stats (orders adjudicated / blocked). Hermetic (4 tests — Rule J) + REAL-DATA pass (Rule F): the
+  real service wires a Referee; all 3 traded segments permitted; out-of-scope order blocked (A7).
+  649 tests pass. **QUEUED (Rule K): VII.14 incident post-mortem — persist blocked verdicts to a
+  forensic store.**
+- **2026-07-25ap** — **Trunk VII.1 CONSCIENCE — constitutional core** (research/109; 165→167
+  modules; NEW feature `conscience` + NEW edge `conscience → dashboard`). FIRST branch of the
+  build-to-100% AI-atlas program (`docs/AI_CONCEPT_TREE_STATUS.md`), built via the
+  building-features-from-ideas + sourcing-oss-parts skills (OSS policy engines OPA/Rego, json-rule-
+  engine, Cedar surveyed → not vendored for a SUPREME zero-dep organ; adopted their PATTERNS —
+  hard/soft severity, policy-as-DATA, structured audited verdict + trace id). `conscience/
+  constitutional_core`: 14 inviolable articles (13 hard / 1 soft) from CLAUDE.md constraints
+  (intraday-only, ≤10 orders/s, defined-risk, atomic multi-leg, broker-as-principal, Algo-ID,
+  phase-1 scope, risk/capital bounds, no-secrets, personal-use) + `ConstitutionalCore.review_action`
+  / `.audit_system_posture` → `ConstitutionalVerdict{permitted, hard/soft violations, trace_id}`.
+  Daily posture-audit cadence (`_maybe_run_constitutional_audit`, a live compliance MONITOR),
+  dashboard surface `constitutional_core` (19th — Rule N). Hermetic (7 tests, every article's
+  block+pass — Rule J) + REAL-DATA pass (Rule F): the live control-config is COMPLIANT; crafted
+  overnight/futures actions blocked citing A1/A7. 645 tests pass. **QUEUED (Rule K): the Referee
+  branch — wire `review_action` as a HARD pre-order gate at the order sites.**
+- **2026-07-25ao** — **Layer 7.5 slice 4 — world-model scoreboard + profit provenance** (research/108;
+  163→165 modules: new `paper_trading/profit_provenance` + `world_model_scoreboard`; NO new
+  feature-to-feature edge). `decompose_profit_provenance` splits the real arm's total return vs the
+  control arms → luck baseline (random-control) + directional skill (real − random) + gate value
+  (loss the veto refused). `score_world_model` grades TRADE-INDEPENDENT forecasts →
+  prequential forecast skill (log-loss bits / Brier, <1.0 bit beats a coin-flip) + regime-model
+  resolution (hit-rate spread across regimes) → 'informative?' verdict. Daily cadence
+  (`_maybe_run_lab_summary`), two dashboard surfaces `profit_provenance` + `world_model_scoreboard`
+  (17th + 18th — Rule N). READ-ONLY. Hermetic (7 tests — Rule J) + REAL-DATA pass (Rule F): total
+  +9.7% = luck +0.8% + directional skill +9.0% (gate saved +1.91%/refused); world model forecast
+  0.98 bits (beats coin-flip). 639 tests pass. **⇒ Layer 7.5 control-arms lab COMPLETE (all 4).**
+- **2026-07-25an** — **Layer 7.5 slice 3 — per-trade pre-mortem (entry-time Monte Carlo)**
+  (research/107; 162→163 modules: new `paper_trading/per_trade_pre_mortem`; NO new
+  feature-to-feature edge). `extract_post_trigger_return_paths` pulls each real session's per-bar
+  post-trigger CLOSE returns (one empirical path); `run_entry_pre_mortem` bootstrap-resamples them
+  (seeded) against a stop/target setup → outcome distribution: P(target)/P(stop)/P(timeout),
+  expected return, CVaR-5% (worst-5% mean), worst case + verdict. Resampling REAL paths (not
+  Gaussian) keeps the fat intraday tail. Daily cadence (`_maybe_run_pre_mortem`, canonical LONG at
+  the champion RR), dashboard surface `per_trade_pre_mortem` (16th — Rule N). READ-ONLY — the
+  entry-site CVaR sizing consumer is queued. Hermetic (deterministic paths, 5 tests — Rule J) +
+  REAL-DATA pass (Rule F): over 23 sessions (18 paths) the canonical RR2 LONG → P(stop) 15% /
+  P(timeout) 79% / CVaR-5% −1.00% (tail bounded by the stop). 634 tests pass.
+- **2026-07-25am** — **Layer 7.5 slice 2 — SHADOW-REJECTED arm + skill-vs-luck court** (research/106;
+  160→162 modules: new `paper_trading/shadow_rejected_arm` + `skill_vs_luck_court`; NO new
+  feature-to-feature edge). The SHADOW-REJECTED arm reads "what the gate refused" straight from
+  memory — the VETOED mechanisms (Layer-10 antibody, incl. shadow probes) — by splitting the
+  calibration board via `vetoed_mechanisms(memory)` into TAKEN vs REJECTED and experiment-weighting
+  each; `rejection_adds_skill = refused mean-return < taken mean-return`. The `skill_vs_luck_court`
+  combines the slice-1 RANDOM-CONTROL edge + this into one verdict (directional-skill +
+  rejection-skill + overall + the SKILL-DIAGONAL training note). Daily cadence
+  (`_maybe_run_skill_vs_luck_court`), dashboard surface `skill_vs_luck_court` (15th — Rule N).
+  READ-ONLY — the learning-consumer (train on the skill diagonal) is queued. Hermetic (5 tests —
+  Rule J) + REAL-DATA pass (Rule F): over 340 experiences the gate refuses the worse-return
+  mechanisms (refused −1.91%/trade vs taken −0.11%) → **court verdict: SKILL** (beats random AND
+  refuses the worse trades). 629 tests pass.
+- **2026-07-25al** — **Layer 7.5 slice 1 — RANDOM-CONTROL skill-vs-luck arm** (research/95;
+  158→160 modules: new `paper_trading/control_arm_backtester` + `control_arm_comparison`; renamed
+  `replay_session_orb_backtester._simulate_exit_price` → public `simulate_orb_exit_price` for
+  reuse; NO new feature-to-feature edge). First slice of the Layer-7.5 advanced lab. The control
+  arm runs the SAME ORB entry TRIGGER with a SEEDED RANDOM DIRECTION + symmetric stop/target over
+  the same real sessions, isolating directional skill; `compare_control_arms` scores the real
+  champion arm vs the random-control arm → per-arm (trades/hit/mean/total/Sharpe) + a conservative
+  both-must-agree EDGE VERDICT (real must beat random on Sharpe AND hit-rate, ≥10 trades each, else
+  'gathering'). Daily cadence (`_maybe_run_control_arm_comparison`), dashboard surface
+  `skill_vs_luck_control` (14th — Rule N). READ-ONLY diagnostic — the learning-consumer (train only
+  on the skill diagonal) is queued. Hermetic (seeded, 5 tests — Rule J) + REAL-DATA pass (Rule F):
+  over 23 real sessions the real champion beats random (78% vs 50% hit, Sharpe 0.54 vs 0.05) →
+  **EDGE confirmed — the champion's edge is skill, not luck.** 624 tests pass.
+- **2026-07-25ak** — **Layer 11 slice 6 — synthetic stress rehearsal** (research/105; 157→158
+  modules: new `llm_strategy/synthetic_stress_rehearsal`; NO new feature-to-feature edge). The LAST
+  generative Layer-11 slice. `SyntheticStressScenarioGenerator` grounds in the bot's REAL weakness
+  surface (over-confident + negative-edge calibration rows + VIOLATED assumptions + temporal
+  clustering + weak per-regime cohorts) and generates adversarial STRESS SCENARIOS — targeted
+  mechanism · market condition · predicted failure mode · mitigation · severity[0,1]. Daily cadence
+  (`_maybe_run_synthetic_stress_rehearsal`), dashboard surface `synthetic_stress_rehearsal`
+  (13th/13 — Rule N). ADVISORY — the consumer that RUNS each scenario is the Layer-7.5 control-arms
+  lab (queued, research/95/105). Hermetic (fake LLM + weakness stub, 5 tests — Rule J) + REAL-DATA
+  pass (Rule F): Groq red-teamed the real 340-experience weaknesses into 5 mechanism-specific
+  scenarios (worst severity 0.90, over-confident trend-continuation). 619 tests pass. **⇒ Layer 11
+  generative slices 1–6 COMPLETE.**
+- **2026-07-25aj** — **Layer 11 slice 5 — prediction-market council weighting** (research/104;
+  155→157 modules: new `llm_strategy/prediction_council` + `paper_trading/council_track_record_
+  store`; NO new feature-to-feature edge — reuses existing edges). Four distinct forecasting roles
+  (momentum / mean-reversion / regime-realist / risk-officer) each independently forecast a
+  PROBABILITY on a resolvable proposition (the most-active mechanism wins its next trade), grounded
+  in real memory; the aggregate is a TRACK-RECORD-WEIGHTED mean (`track_record_weights`: weight ∝
+  1/(log-loss+ε); a role with no record = coin-flip baseline). Reputations accrue prequentially in
+  `council_track_record_store` (per-role resolved forecasts → mean log-loss bits) — equal weights
+  (weighted == simple mean) until they fill. Daily cadence (`_maybe_run_prediction_council`),
+  dashboard surface `prediction_council` (Rule N). ADVISORY — resolution/accrual + any decision use
+  are queued, market-gated (Rule K). Hermetic (role-scripted fake + store, 9 tests — Rule J) +
+  REAL-DATA pass (Rule F): all 4 roles forecast 0.18 for the real 18%-win mechanism, weighted ==
+  simple mean (no reputations yet), served by groq. 614 tests pass.
+- **2026-07-25ai** — **Layer 11 slice 4 — meta-strategy allocator** (research/103; 154→155
+  modules: new `llm_strategy/meta_strategy_allocator`; NO new feature-to-feature edge — reuses
+  `memory_reflection → llm_strategy → dashboard`). `MetaStrategyAllocator` grounds in each
+  strategy's real aggregate performance (calibration board rolled up per `strategy_tag`) +
+  per-regime cohorts + the current global champion config (injected `_champion_store()`), and asks
+  the LLM for a normalised ALLOCATION WEIGHT per strategy — weights re-normalised to sum 1
+  defensively on parse (clamped ≥0; degenerate → equal). Daily cadence
+  (`_maybe_run_meta_strategy_allocation`), dashboard surface `meta_strategy_allocation` (Rule N).
+  ADVISORY — applying weights to per-strategy sizing is the queued, calibration-gated
+  decision-consumer (Rule K). Hermetic (fake LLM + memory/champion stub, 5 tests — Rule J) +
+  REAL-DATA pass (Rule F): Groq weighted credit_spread_v1 70% / directional 20% / cash-ORB 10%
+  over the real 340-experience per-strategy edges (favoured the one positive-edge strategy, noted
+  its thin n). 605 tests pass.
+- **2026-07-25ah** — **Layer 11 slice 3 — causal analysis over multi-hop outcome clusters**
+  (research/102; 153→154 modules: new `llm_strategy/causal_cluster_analyst`; NO new
+  feature-to-feature edge — reuses the `memory_reflection → llm_strategy → dashboard` edges). The
+  `CausalClusterAnalyst` reasons ACROSS the memory's real cluster reads (over-confident calibration
+  board + `calibration_by_market_regime` cross-regime + `outcome_sequence_dependence` temporal
+  non-iid clustering + VIOLATED `evaluate_trading_assumptions`) and proposes named, FALSIFIABLE
+  causal hypotheses (a suspected COMMON cause behind co-failing mechanisms + the evidence that
+  confirms/refutes it) — the WHY on top of the statistical WHAT. Daily cadence
+  (`_maybe_run_causal_cluster_analysis`), dashboard surface `causal_cluster_analysis` (Rule N).
+  ADVISORY — scoring the falsifiable predictions → a targeted assumption tripwire / strategy nudge
+  is the queued, calibration-gated decision-consumer (Rule K). Hermetic (fake LLM + cluster-stub,
+  5 tests — Rule J) + REAL-DATA pass (Rule F): Groq proposed 3 real falsifiable causal hypotheses
+  over the real 340-experience clusters (clustering the over-confident trend mechanisms under
+  "stops too tight in trends / entering mean-reversion"). 600 tests pass.
+- **2026-07-25ag** — **Layer 11 slice 2c — LLM-risk entry-GATE consumer + earn-calibration
+  harness** (research/101; 151→153 modules: new `llm_strategy/debate_risk_calibration_harness` +
+  `paper_trading/debate_risk_prequential_observation_store`; NEW edge `llm_strategy →
+  paper_trading` — the debate risk_score now gates real entries). The PRIMARY purpose of Layer 11:
+  the debate `risk_score` is wired into ALL 4 entry sites (2 ORB cash + 2 option) via
+  `LiveUniversePaperState.debate_risk_size_multiplier` (defer ≥0.75 / size-down ≥0.55), but ONLY
+  once the signal EARNS calibration. Earning is PREQUENTIAL and non-circular: the intraday
+  square-off + once/day debate means a LIVE trade's outcome is scored against a risk_score
+  computed that morning from memory-up-to-yesterday; those `(risk_score, win)` pairs accrue in a
+  dedicated store and `score_risk_calibration` requires real separation (low-risk wins materially
+  more than high-risk) over enough live data before the gate acts. Replay outcomes excluded
+  (circular). Dashboard surface shows gate state (earned/learning · obs · deferred/sized-down).
+  Hermetic (harness math + gate bands + store round-trip + service wiring, 10 tests — Rule J) +
+  REAL-DATA pass (Rule F): over the real 340-experience memory the debate produced a real risk
+  map, the harness returned NOT earned (0 live obs), and the gate multiplier was 1.0 (inert) — an
+  uncalibrated LLM signal cannot move a real trade today. 595 tests pass. **Grade (Rule K):
+  primary consumer WIRED into decisions + calibration-gated; earns at runtime as live pairs
+  accrue (market-gated open item).**
+- **2026-07-25af** — **Layer 11 slice 2 — debate-as-risk-check** (research/100; 150→151 modules;
+  new module `llm_strategy/thesis_debate_risk_panel`; NO new feature-to-feature edge — reuses the
+  slice-1 `memory_reflection→llm_strategy→dashboard` edges). Three INDEPENDENT LLM roles
+  (BULL/BEAR/RISK OFFICER) debate a `TradeThesis` grounded in the REAL calibration memory, each
+  returning `soundness∈[0,1]`; a pure deterministic step distils `disagreement_score=max-min`,
+  `adverse_conviction=1-mean`, and `risk_score=blend` (the gate-relevant signal). Runs on the
+  daily cadence (`_maybe_run_thesis_debate_risk_check`) over the active theses (calibration board),
+  surfaced on the dashboard (`thesis_debate_risk_panel`, Rule N + coverage audit). ADVISORY this
+  slice — the entry-GATE consumer (defer/size-down) is QUEUED behind earning calibration (Rule K).
+  Hermetic (9 tests, role-scripted fake — Rule J) + REAL-DATA pass (Rule F): Groq debated the real
+  worst-calibrated mechanism over 340 experiences — all three roles rated it unsound (0.0),
+  `risk_score` 0.50 via adverse-conviction (proving why disagreement-alone would false-negative).
+  585 tests pass.
+- **2026-07-25ae** — **Layer 11 pool — keyless OVHcloud last-resort provider + Kimi-k3 paid
+  decision confirmed** (no new modules; no import-graph change — edits to `llm_provider_registry`
+  + `openai_compatible_chat_provider` only). Added a KEYLESS anonymous last-resort tier so the
+  pool is never empty: `LlmProviderConfig.keyless` lets a provider join with no key (a supplied
+  key still raises the limit), and the adapter omits the `Authorization` header when keyless.
+  **OVHcloud AI Endpoints** wired (`Meta-Llama-3_3-70B-Instruct`, anon ~2 RPM/IP/**model**) —
+  REAL-DATA pass (Rule F): served schema-shaped JSON live via `scripts/verify_keyless_llm_
+  providers_realdata.py` (busy model buckets fail over, a fresh bucket serves). **Pollinations
+  REJECTED** as the 2nd keyless provider (research/98 candidate) — live probes proved its anon
+  tier has a ~0 "pollen" budget and hard-402s on any non-trivial structured request, so it can
+  never serve this pool's forced-JSON calls (BACKLOG). Paid **Kimi `kimi-k3`** confirmed via live
+  re-verification for the analyst role (research/99 §6b). 576 tests pass.
+- **2026-07-25ad** — **Layer 11 slice 1 — swappable multi-provider LLM seam + memory-grounded
+  analyst** (research/96; 143→150 modules; new feature `llm_strategy` + two new cross-feature
+  edges `memory_reflection→llm_strategy` and `llm_strategy→dashboard`). Built the generative-AI
+  layer's foundation: a provider-neutral `StrategyLlmClient` seam served by a swap-on-limit pool
+  of 14 free-tier cloud LLMs (Groq/Cerebras/SambaNova/NVIDIA/Gemini/OpenRouter/DeepInfra/
+  Fireworks/HuggingFace/DeepSeek/Z.ai/Alibaba/Mistral/Cloudflare) — when one hits its rate limit
+  the pool fails over to the next; a paid Anthropic key (later) pins first. The
+  `MemoryGroundedStrategyAnalyst` grounds a `StrategicReflection` in the REAL §10 calibration
+  facts. Surfaced on the dashboard (manifest key `strategic_llm_analyst`, Rule N) and run on a
+  daily cadence in the service loop (Rule G). Keys stored in gitignored `.env` (never committed).
+  Hermetic (17 tests, fake LLM — Rule J) + REAL-DATA pass (Rule F): Groq served a grounded
+  reflection over the real 340 experiences, correctly flagging the +64pp / +42pp over-confident
+  ORB mechanisms. Advisory/read-only; entry-gate consumer + slices 2–6 QUEUED (BACKLOG).
 - **2026-07-25ac** — **VPIN order-flow toxicity — last code-buildable §53 ADVANCED item
   (research/94; 142→143 modules, no new cross-feature edge — new `market_data/
   vpin_order_flow_toxicity.py` imports only `market_data_types`). Bulk-Volume-Classification

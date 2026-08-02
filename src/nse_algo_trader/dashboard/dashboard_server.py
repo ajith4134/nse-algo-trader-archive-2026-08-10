@@ -75,11 +75,25 @@ def _build_authenticated_kite_client():
 
 
 def _start_live_paper_trading_service(account_virtual_capital: float):
-    """Start the always-on live paper loop, or return None if unauthenticated
-    or startup fails (dashboard degrades gracefully to no live positions)."""
+    """Start the always-on live paper loop. With a valid broker token: full live+replay trading.
+    WITHOUT one (the daily Kite token expired): start in OFFLINE DIAGNOSTICS mode so all stored-data
+    panels — the VII safety organs, memory reflection, red-team, ethics/law, atlas — still show and
+    update from SQLite (research/122); only live/replay TRADING is paused until re-login. Returns None
+    only if even the offline service fails to start."""
     kite_client = _build_authenticated_kite_client()
     if kite_client is None:
-        return None
+        try:
+            service = LivePaperTradingService(
+                object(), account_virtual_capital, offline_diagnostics_mode=True
+            )
+            service.start()
+            print("[dashboard] no valid broker token — started in OFFLINE DIAGNOSTICS mode "
+                  "(stored-data panels live; live trading paused until re-login).", flush=True)
+            return service
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            return None
     try:
         service = LivePaperTradingService(kite_client, account_virtual_capital)
         service.start()
@@ -151,6 +165,9 @@ def build_dashboard_app() -> FastAPI:
                 unrealized_pnl=view.unrealized_pnl,
                 assigned_table=view.assigned_table,
                 segment=view.segment,
+                maximum_favourable_profit=view.maximum_favourable_profit,
+                maximum_adverse_profit=view.maximum_adverse_profit,
+                profit_locked=view.profit_locked,
             )
             for view in published.open_positions
         ]
@@ -178,9 +195,13 @@ def build_dashboard_app() -> FastAPI:
             precomputed_confident_win_beats_confident_loss=(
                 published.confident_win_beats_confident_loss
             ),
+            exit_efficiency_rows=live_service.exit_efficiency_rows(),
             segment_boards=[asdict(b) for b in published.segment_boards],
             closed_trades=[asdict(t) for t in published.recent_closed_trades],
             combined_realized_pnl=published.combined_realized_pnl,
+            real_realized_pnl=published.real_realized_pnl,
+            confident_loss_probe_realized_pnl=published.confident_loss_probe_realized_pnl,
+            confident_loss_prediction_accuracy=published.confident_loss_prediction_accuracy,
             strategy_readiness=list(published.strategy_readiness),
             memory_experiment_count=published.memory_experiment_count,
             reflection_board=[asdict(r) for r in published.calibration_board],
@@ -194,6 +215,8 @@ def build_dashboard_app() -> FastAPI:
             experiment_count_by_provenance=published.experiment_count_by_provenance,
             prequential_forecast_score=published.prequential_forecast_score,
             feature_surfaces=[s.to_json_dict() for s in published.feature_surfaces],
+            option_entry_reason_counts=published.option_entry_reason_counts,
+            option_index_entry_outcomes=published.option_index_entry_outcomes,
         )
 
     @app.get("/", response_class=HTMLResponse)

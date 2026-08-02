@@ -85,6 +85,27 @@ class KiteLiveUniverseFeed:
                     price_by_token[token] = quote["last_price"]
         return price_by_token
 
+    def latest_open_interest_by_token(
+        self, instruments: list[Instrument]
+    ) -> dict[int, int]:
+        """Live open interest per option, keyed by instrument_token (B32 — GEX + max-pain need it).
+        Uses Kite's `quote()` (which carries `oi`); `ltp()` does NOT, so this is a heavier call and is
+        only worth issuing over the option ladder, not the cash universe. Tokens Kite has no quote for
+        are simply absent (the GEX estimator treats a missing strike as zero-weight, never a guess)."""
+        symbol_by_quote_key = {
+            self._kite_ltp_symbol(instrument): instrument.instrument_token
+            for instrument in instruments
+        }
+        quote_keys = list(symbol_by_quote_key.keys())
+        open_interest_by_token: dict[int, int] = {}
+        for batch_start in range(0, len(quote_keys), self._ltp_batch_size):
+            batch = quote_keys[batch_start : batch_start + self._ltp_batch_size]
+            for quote_key, quote in self._kite_client.quote(batch).items():
+                token = symbol_by_quote_key.get(quote_key)
+                if token is not None:
+                    open_interest_by_token[token] = int(quote.get("oi", 0) or 0)
+        return open_interest_by_token
+
     def todays_session_bars(
         self,
         instrument: Instrument,

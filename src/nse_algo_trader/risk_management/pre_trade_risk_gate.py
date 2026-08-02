@@ -123,7 +123,11 @@ def evaluate_credit_spread_signal(
             rejection_reasons=(RiskRejectionReason.RISK_BUDGET_TOO_SMALL_FOR_ONE_UNIT,),
             approved_quantity=0, estimated_margin=0.0, estimated_worst_case_loss=0.0,
         )
-    approved_lots = min(affordable_lots, signal_lots)
+    # The signal's own `lots` is the leg selector's STRUCTURAL template (default 1) — it says which
+    # strikes to trade, not how much risk to take. Capping affordability by it made every option
+    # order exactly 1 lot, which the fractional size-down levers then floored to 0 (B7). The risk
+    # budget is the only thing that may size this position.
+    approved_lots = affordable_lots
     return RiskGateDecision(
         approved=True, rejection_reasons=(),
         approved_quantity=approved_lots,

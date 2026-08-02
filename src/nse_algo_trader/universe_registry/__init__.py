@@ -17,6 +17,8 @@ from nse_algo_trader.universe_registry.live_tradable_universe import (
     assemble_tradable_universe,
     fetch_live_tradable_universe,
     select_mainboard_cash_equities,
+    nearest_expiry_date_by_underlying,
+    select_full_option_universe,
     select_near_expiry_option_ladder,
 )
 
@@ -33,5 +35,7 @@ __all__ = [
     "assemble_tradable_universe",
     "fetch_live_tradable_universe",
     "select_mainboard_cash_equities",
+    "nearest_expiry_date_by_underlying",
+    "select_full_option_universe",
     "select_near_expiry_option_ladder",
 ]

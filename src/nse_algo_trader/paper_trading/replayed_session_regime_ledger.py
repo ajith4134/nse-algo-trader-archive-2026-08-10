@@ -33,7 +33,10 @@ CREATE TABLE IF NOT EXISTS replayed_session_regimes (
 class ReplayedSessionRegimeLedger:
     def __init__(self, db_file_path: Path = DEFAULT_REPLAY_CURRICULUM_DB_PATH) -> None:
         db_file_path.parent.mkdir(parents=True, exist_ok=True)
-        self._connection = sqlite3.connect(str(db_file_path))
+        # B25a: reached from BOTH the trading thread and the feature-plane thread.
+        # SQLite refuses cross-thread use by default; access is short, immediately
+        # committed writes plus reads, which SQLite serialises safely.
+        self._connection = sqlite3.connect(str(db_file_path), check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
         self._connection.execute("PRAGMA journal_mode=WAL")
         self._connection.execute(_CREATE_TABLE)

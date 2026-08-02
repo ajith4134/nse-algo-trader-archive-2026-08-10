@@ -77,6 +77,32 @@ def compute_black_scholes_delta(
     return _standard_normal_cdf(d1) - 1.0
 
 
+def _standard_normal_pdf(x: float) -> float:
+    return math.exp(-0.5 * x * x) / math.sqrt(2.0 * math.pi)
+
+
+def compute_black_scholes_gamma(
+    underlying_price: float,
+    strike_price: float,
+    time_to_expiry_years: float,
+    volatility: float,
+    risk_free_rate: float = DEFAULT_RISK_FREE_INTEREST_RATE,
+) -> float:
+    """BS gamma = N'(d1) / (S·σ·√T) — the same for calls and puts, always ≥ 0. Needed for the
+    dealer-gamma-exposure (GEX) estimate the 0-DTE engine routes on (docs/research/174 §3).
+    At/after expiry or with degenerate vol, gamma collapses to 0.0 (the delta step is already
+    captured by `compute_black_scholes_delta`); returned rather than raising so a boundary strike
+    never breaks the chain-wide GEX sum."""
+    if time_to_expiry_years <= 0.0 or volatility <= 0.0 or underlying_price <= 0.0:
+        return 0.0
+    volatility_sqrt_time = volatility * math.sqrt(time_to_expiry_years)
+    d1 = (
+        math.log(underlying_price / strike_price)
+        + (risk_free_rate + volatility**2 / 2.0) * time_to_expiry_years
+    ) / volatility_sqrt_time
+    return _standard_normal_pdf(d1) / (underlying_price * volatility_sqrt_time)
+
+
 def compute_implied_volatility(
     observed_option_price: float,
     underlying_price: float,

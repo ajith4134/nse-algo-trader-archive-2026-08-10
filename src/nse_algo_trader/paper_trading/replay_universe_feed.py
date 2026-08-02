@@ -99,6 +99,22 @@ class ReplayUniverseFeed:
                 prices[instrument.instrument_token] = bar.close_price
         return prices
 
+    def latest_open_interest_by_token(self, instruments: list) -> dict[int, int]:
+        """Open interest from each instrument's latest stored bar (B32 — GEX/max-pain). Bars whose
+        source carried no OI (`open_interest is None`) are absent, so the GEX estimator zero-weights
+        that strike rather than guessing."""
+        if self._replay_as_of is None:
+            return {}
+        open_interest: dict[int, int] = {}
+        for instrument in instruments:
+            bar = self._latest_bar_at_or_before(
+                instrument.instrument_token, self._replay_as_of
+            )
+            if bar is not None and bar.open_interest is not None:
+                assert_no_future_leak(bar.timestamp, self._replay_as_of)
+                open_interest[instrument.instrument_token] = bar.open_interest
+        return open_interest
+
     def recent_intraday_bars(
         self,
         instrument,

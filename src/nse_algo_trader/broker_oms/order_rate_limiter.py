@@ -24,6 +24,12 @@ class OrderRateLimiter:
         self._sleep_function = sleep_function
         self._recent_order_timestamps: deque[float] = deque()
 
+    @property
+    def max_orders_per_second(self) -> int:
+        """The self-imposed per-second order ceiling (kept under SEBI's white-box threshold of 10).
+        Read by the VII ethics/law reasoner to assess the ORDER_RATE regulatory rule."""
+        return self._max_orders_per_second
+
     def wait_for_order_slot(self) -> None:
         """Blocks until placing one more order stays under the ceiling."""
         while True:

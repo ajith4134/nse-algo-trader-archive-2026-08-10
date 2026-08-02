@@ -24,6 +24,11 @@ class V1SessionStrategyChoice(str, Enum):
     STAND_ASIDE = "stand_aside"
 
 
+#: B16: how much to size down a trade taken in the INDECISIVE band. Conviction is genuinely lower
+#: when the regime is unclear, so the structure is permitted but the position is smaller.
+INDECISIVE_REGIME_SIZE_DOWN = 0.60
+
+
 @dataclass(frozen=True)
 class AdxRegimeGateConfig:
     trending_adx_threshold: float = 25.0
@@ -53,4 +58,13 @@ def choose_v1_session_strategy(
         return V1SessionStrategyChoice.OPENING_RANGE_BREAKOUT
     if regime is MarketRegime.RANGE_BOUND:
         return V1SessionStrategyChoice.CREDIT_SPREAD
+    # B16: the INDECISIVE band (ADX 20-25) is not "we know nothing" — it is "we know it is NOT
+    # trending", which is the textbook condition for a NON-DIRECTIONAL, defined-risk structure.
+    # Treating it as no-tradable-structure stood 20-72 underlyings aside every pass (BANKNIFTY sat
+    # at ADX 24.96 live on 2026-07-27, inside the band, and never traded). Conviction genuinely IS
+    # lower here, so the caller sizes it down via INDECISIVE_REGIME_SIZE_DOWN — but a defined-risk
+    # spread is a legitimate expression of "no trend", not a gamble.
+    if adx_value is not None and regime is MarketRegime.INDECISIVE:
+        return V1SessionStrategyChoice.CREDIT_SPREAD
+    # STAND_ASIDE is RETAINED for the case it was really for: no usable ADX at all.
     return V1SessionStrategyChoice.STAND_ASIDE

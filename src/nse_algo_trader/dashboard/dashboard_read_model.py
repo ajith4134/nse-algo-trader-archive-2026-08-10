@@ -13,6 +13,8 @@ from datetime import datetime
 from nse_algo_trader.dashboard.project_status_data import (
     CONCEPT_TREE,
     LAYER_ROADMAP,
+    atlas_coverage,
+    branch_build_status,
 )
 from nse_algo_trader.dashboard.monitoring_alerts import generate_dashboard_alerts
 from nse_algo_trader.dashboard.trading_control_config import TradingControlConfig
@@ -54,6 +56,12 @@ class OpenPositionSummary:
     unrealized_pnl: float | None
     assigned_table: str
     segment: str = "cash"
+    # B23: the best and worst this OPEN trade has looked since it opened (rupees), and the
+    # ratcheting profit lock (None until the trail arms). These are the operator-requested
+    # max-profit / max-loss columns.
+    maximum_favourable_profit: float = 0.0
+    maximum_adverse_profit: float = 0.0
+    profit_locked: float | None = None
 
 
 @dataclass(frozen=True)
@@ -84,6 +92,10 @@ class StrategyReadinessSummary:
 class ConceptTreeCounts:
     trunk_count: int
     total_branch_count: int
+    # AI-atlas build coverage (build-to-100% program) — shown on the dashboard concept tree.
+    built_branch_count: int = 0
+    partial_branch_count: int = 0
+    built_pct: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -99,9 +111,17 @@ class DashboardSnapshot:
     confident_win_beats_confident_loss: bool | None
     open_positions: list[OpenPositionSummary]
     live_universe_status: LiveUniverseStatus | None
+    # B25b: structured capture-ratio rows so the dashboard can CHART them. The exit_efficiency
+    # surface carries the same numbers only as formatted strings, which cannot be plotted.
+    exit_efficiency_rows: list[dict] = field(default_factory=list)
     segment_boards: list[dict] = field(default_factory=list)
     closed_trades: list[dict] = field(default_factory=list)
-    combined_realized_pnl: float = 0.0
+    combined_realized_pnl: float = 0.0  # B33: GROSS incl. confident_loss probes — kept for continuity
+    #: B33: the bot's REAL realized P&L (confident_win + uncertain only); confident_loss probes are
+    #: reported separately and scored by prediction accuracy, never summed into real money.
+    real_realized_pnl: float = 0.0
+    confident_loss_probe_realized_pnl: float = 0.0
+    confident_loss_prediction_accuracy: float | None = None
     strategy_readiness: list[StrategyReadinessSummary] = field(default_factory=list)
     memory_experiment_count: int = 0
     reflection_board: list[dict] = field(default_factory=list)
@@ -115,6 +135,8 @@ class DashboardSnapshot:
     experiment_count_by_provenance: dict | None = None
     prequential_forecast_score: dict | None = None
     feature_surfaces: list[dict] = field(default_factory=list)  # task #13 (Rule N)
+    option_entry_reason_counts: dict = field(default_factory=dict)  # B34 task #4
+    option_index_entry_outcomes: dict = field(default_factory=dict)  # B34 task #4
 
     def to_json_dict(self) -> dict:
         return {
@@ -135,9 +157,13 @@ class DashboardSnapshot:
                 if self.live_universe_status is not None
                 else None
             ),
+            "exit_efficiency_rows": self.exit_efficiency_rows,
             "segment_boards": self.segment_boards,
             "closed_trades": self.closed_trades,
             "combined_realized_pnl": self.combined_realized_pnl,
+            "real_realized_pnl": self.real_realized_pnl,
+            "confident_loss_probe_realized_pnl": self.confident_loss_probe_realized_pnl,
+            "confident_loss_prediction_accuracy": self.confident_loss_prediction_accuracy,
             "strategy_readiness": [asdict(r) for r in self.strategy_readiness],
             "memory_experiment_count": self.memory_experiment_count,
             "reflection_board": self.reflection_board,
@@ -151,6 +177,8 @@ class DashboardSnapshot:
             "experiment_count_by_provenance": self.experiment_count_by_provenance,
             "prequential_forecast_score": self.prequential_forecast_score,
             "feature_surfaces": self.feature_surfaces,
+            "option_entry_reason_counts": self.option_entry_reason_counts,
+            "option_index_entry_outcomes": self.option_index_entry_outcomes,
         }
 
 
@@ -166,9 +194,13 @@ def build_dashboard_snapshot(
     precomputed_paper_trading: PaperTradingSummary | None = None,
     precomputed_prediction_tables: list[PredictionTableSummary] | None = None,
     precomputed_confident_win_beats_confident_loss: bool | None = None,
+    exit_efficiency_rows: list[dict] | None = None,
     segment_boards: list[dict] | None = None,
     closed_trades: list[dict] | None = None,
     combined_realized_pnl: float = 0.0,
+    real_realized_pnl: float = 0.0,
+    confident_loss_probe_realized_pnl: float = 0.0,
+    confident_loss_prediction_accuracy: float | None = None,
     strategy_readiness: list[StrategyReadinessSummary] | None = None,
     memory_experiment_count: int = 0,
     reflection_board: list[dict] | None = None,
@@ -182,6 +214,8 @@ def build_dashboard_snapshot(
     experiment_count_by_provenance: dict | None = None,
     prequential_forecast_score: dict | None = None,
     feature_surfaces: list[dict] | None = None,
+    option_entry_reason_counts: dict | None = None,
+    option_index_entry_outcomes: dict | None = None,
 ) -> DashboardSnapshot:
     """When `precomputed_*` summaries are supplied (by the live service's
     writer thread, which is the sole mutator of the ledger/scoreboard),
@@ -205,12 +239,23 @@ def build_dashboard_snapshot(
             "is_gated": trunk.is_gated,
             "branch_count": trunk.branch_count,
             "branch_names": list(trunk.branch_names),
+            # per-branch build status (build-to-100% program) — the concept-tree chip colours.
+            "branches": [
+                {"name": b, "status": branch_build_status(b)} for b in trunk.branch_names
+            ],
+            "built_branch_count": sum(
+                1 for b in trunk.branch_names if branch_build_status(b) == "built"
+            ),
         }
         for trunk in CONCEPT_TREE
     ]
+    _coverage = atlas_coverage()
     concept_tree_counts = ConceptTreeCounts(
         trunk_count=len(CONCEPT_TREE),
-        total_branch_count=sum(trunk.branch_count for trunk in CONCEPT_TREE),
+        total_branch_count=_coverage["total"],
+        built_branch_count=_coverage["built"],
+        partial_branch_count=_coverage["partial"],
+        built_pct=_coverage["built_pct"],
     )
     if precomputed_paper_trading is not None:
         paper_trading = precomputed_paper_trading
@@ -267,9 +312,13 @@ def build_dashboard_snapshot(
         confident_win_beats_confident_loss=confident_win_beats_confident_loss,
         open_positions=list(open_positions or []),
         live_universe_status=live_universe_status,
+        exit_efficiency_rows=list(exit_efficiency_rows or []),
         segment_boards=list(segment_boards or []),
         closed_trades=list(closed_trades or []),
         combined_realized_pnl=combined_realized_pnl,
+        real_realized_pnl=real_realized_pnl,
+        confident_loss_probe_realized_pnl=confident_loss_probe_realized_pnl,
+        confident_loss_prediction_accuracy=confident_loss_prediction_accuracy,
         strategy_readiness=list(strategy_readiness or []),
         memory_experiment_count=memory_experiment_count,
         reflection_board=list(reflection_board or []),
@@ -283,6 +332,8 @@ def build_dashboard_snapshot(
         experiment_count_by_provenance=experiment_count_by_provenance,
         prequential_forecast_score=prequential_forecast_score,
         feature_surfaces=feature_surfaces or [],
+        option_entry_reason_counts=option_entry_reason_counts or {},
+        option_index_entry_outcomes=option_index_entry_outcomes or {},
     )
 
 

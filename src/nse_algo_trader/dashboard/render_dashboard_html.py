@@ -64,6 +64,26 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
     --warnc:#c07f14; --warnsoft:#fbf1dd;
     --shadow:0 1px 2px rgba(16,24,40,.04),0 4px 16px rgba(16,24,40,.05);
   }
+  /* B25b charts — roles from the validated palette (see the design doc; validator PASSed
+     light+dark categorical and the blue<->red diverging poles). */
+  .viz-root{
+    --viz-series-1:#2a78d6; --viz-pos:#2a78d6; --viz-neg:#d03b3b; --viz-mid:#f0efec;
+    --viz-grid:var(--line2); --viz-ink:var(--dim);
+  }
+  @media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])) .viz-root{
+    --viz-series-1:#3987e5; --viz-pos:#3987e5; --viz-neg:#d03b3b; --viz-mid:#383835;
+  }}
+  :root[data-theme="dark"] .viz-root{
+    --viz-series-1:#3987e5; --viz-pos:#3987e5; --viz-neg:#d03b3b; --viz-mid:#383835;
+  }
+  .vizrow{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
+  @media (max-width:820px){.vizrow{grid-template-columns:1fr}}
+  .viz{margin:0}
+  .viz figcaption{font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.6rem;line-height:1.35}
+  .vizsub{display:block;font-weight:400;font-size:.7rem;color:var(--faint);margin-top:.15rem}
+  .vizempty{color:var(--faint);font-size:.8rem;padding:1.5rem 0;text-align:center}
+  .vizlabel{font-family:var(--mono);font-size:.66rem;fill:var(--viz-ink)}
+  .vizvalue{font-family:var(--mono);font-size:.68rem;font-weight:600}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
     font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
@@ -178,6 +198,8 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
   .ig-matures_l10{background:var(--brandsoft);color:var(--brand)} .ig-frontier_l11{background:var(--surface);color:var(--faint);border:1px solid var(--line)}
   .branches{display:flex;flex-wrap:wrap;gap:.35rem;padding:.2rem .9rem .85rem}
   .branches span{font-family:var(--mono);font-size:.73rem;background:var(--surface);border:1px solid var(--line);padding:.2em .5em;border-radius:6px;color:var(--dim)}
+  .branches span.built{color:var(--profit);background:var(--profitsoft);border-color:color-mix(in srgb,var(--profit) 40%,var(--line))}
+  .branches span.partial{color:var(--warnc);background:var(--warnsoft);border-color:color-mix(in srgb,var(--warnc) 40%,var(--line))}
   .gated{font-size:.58rem;font-weight:700;color:var(--warnc);background:var(--warnsoft);padding:.12em .4em;border-radius:5px}
   .alerts{display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.5rem}
   .alert{display:flex;align-items:flex-start;gap:.6rem;padding:.7rem .9rem;border-radius:11px;font-size:.85rem;border:1px solid}
@@ -194,7 +216,7 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
     .minikpis{grid-template-columns:repeat(2,1fr)} .ritem{grid-template-columns:1.7rem 1fr} .ritem .st{grid-column:1/-1;justify-self:start}
     .trunk summary{grid-template-columns:2rem 1fr} }
 </style>
-<div class="wrap">
+<div class="wrap viz-root">
   <header>
     <div class="logo">
       <div class="mark">N</div>
@@ -237,6 +259,22 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
       <div class="minikpis" id="segboards"></div>
       <div id="openTbl"></div>
       <p class="note" id="opennote"></p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="head"><span class="bar"></span><h2>Performance</h2><span class="aside" id="perfaside"></span></div>
+    <div class="body">
+      <div class="vizrow">
+        <figure class="viz">
+          <figcaption>Cumulative NET P&L across closed trades <span class="vizsub">after brokerage, STT, exchange, SEBI, GST &amp; stamp</span></figcaption>
+          <div id="equityChart"></div>
+        </figure>
+        <figure class="viz">
+          <figcaption>Capture ratio by mechanism <span class="vizsub">share of the profit each trade REACHED that it actually KEPT</span></figcaption>
+          <div id="captureChart"></div>
+        </figure>
+      </div>
     </div>
   </div>
 
@@ -404,36 +442,142 @@ function renderLive(snap){
       `<div class="minikpi"><div class="lab">Closed today</div><div class="v">${lu.closed_trade_count}</div></div>`+
       `<div class="minikpi"><div class="lab">Universe seeded</div><div class="v">${lu.seeded_count.toLocaleString()}/${lu.cash_universe_size.toLocaleString()}</div></div>`;
   }
+
+  // ---- B25b charts -------------------------------------------------------------------
+  // Inline SVG, no library, no network. Palette roles are CSS vars validated by
+  // scripts/validate_palette.js (light+dark categorical PASS; diverging poles PASS at
+  // dEta 23.8 protan). Marks per the skill: 2px line, 4px rounded zero-anchored bar ends,
+  // recessive grid, direct labels, hover tooltips.
+  function vizEmpty(id,msg){ document.getElementById(id).innerHTML=`<div class="vizempty">${msg}</div>`; }
+
+  function drawEquityCurve(closed){
+    if(!closed||!closed.length){ return vizEmpty("equityChart","no closed trades yet"); }
+    // Oldest -> newest, cumulative NET (gross minus real costs — plotting gross would be the
+    // exact lie the cost model exists to stop).
+    const pts=[...closed].reverse().reduce((acc,c)=>{
+      const net=(c.realized_pnl||0)-(c.total_fees||0);
+      acc.push((acc.length?acc[acc.length-1]:0)+net); return acc;
+    },[]);
+    const W=440,H=190,PL=52,PR=14,PT=12,PB=24;
+    const lo=Math.min(0,...pts), hi=Math.max(0,...pts), span=(hi-lo)||1;
+    const x=i=>PL+(i/Math.max(1,pts.length-1))*(W-PL-PR);
+    const y=v=>PT+(1-(v-lo)/span)*(H-PT-PB);
+    const path=pts.map((v,i)=>`${i?"L":"M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
+    const zeroY=y(0), last=pts[pts.length-1], lastC=last>=0?"var(--profit)":"var(--loss)";
+    document.getElementById("equityChart").innerHTML=
+      `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img"
+            aria-label="Cumulative net profit and loss across ${pts.length} closed trades, ending at ${rupee(last)}">
+        <line x1="${PL}" x2="${W-PR}" y1="${zeroY}" y2="${zeroY}" stroke="var(--viz-grid)" stroke-width="1"/>
+        <text x="${PL-6}" y="${zeroY+3}" text-anchor="end" class="vizlabel">0</text>
+        <text x="${PL-6}" y="${y(hi)+3}" text-anchor="end" class="vizlabel">${rupee(hi)}</text>
+        <text x="${PL-6}" y="${y(lo)+3}" text-anchor="end" class="vizlabel">${rupee(lo)}</text>
+        <path d="${path}" fill="none" stroke="var(--viz-series-1)" stroke-width="2"
+              stroke-linejoin="round" stroke-linecap="round"/>
+        <circle cx="${x(pts.length-1)}" cy="${y(last)}" r="4" fill="var(--viz-series-1)"
+                stroke="var(--surface)" stroke-width="2"/>
+        <text x="${W-PR}" y="${Math.max(PT+10,y(last)-9)}" text-anchor="end"
+              class="vizvalue" fill="${lastC}">${rupee(last)}</text>
+        <text x="${PL}" y="${H-6}" class="vizlabel">oldest</text>
+        <text x="${W-PR}" y="${H-6}" text-anchor="end" class="vizlabel">${pts.length} trades</text>
+      </svg>`;
+  }
+
+  function drawCaptureChart(rows){
+    if(!rows||!rows.length){ return vizEmpty("captureChart","no measured excursion yet — needs closed trades with MFE/MAE"); }
+    const data=[...rows].sort((a,b)=>(a.capture_ratio||0)-(b.capture_ratio||0)).slice(0,6);
+    const W=440,RH=30,PT=6,PL=8,PR=8,AX=Math.round(W*0.46);
+    const H=PT*2+data.length*RH;
+    const mx=Math.max(1,...data.map(d=>Math.abs(d.capture_ratio||0)));
+    const half=Math.min(AX-PL-70,(W-PR-AX)-46);
+    let bars="";
+    data.forEach((d,i)=>{
+      const v=d.capture_ratio||0, y=PT+i*RH+6, h=RH-14;
+      const w=Math.max(2,Math.abs(v)/mx*half);
+      const neg=v<0, xs=neg?AX-w:AX;
+      const label=(d.mechanism_name||"").slice(0,26);
+      // 4px rounded ends anchored to the zero axis; a 2px surface gap between adjacent bars.
+      bars+=`<g><title>${label}: kept ${rupee(d.mean_realized_pnl||0)} of ${rupee(d.mean_maximum_favourable_profit||0)} reached over ${d.measured_count||0} trades</title>`+
+        `<rect x="${xs}" y="${y}" width="${w}" height="${h}" rx="4"
+               fill="${neg?"var(--viz-neg)":"var(--viz-pos)"}"/>`+
+        `<text x="${AX-half-8}" y="${y+h-2}" text-anchor="start" class="vizlabel">${label}</text>`+
+        `<text x="${neg?xs-6:xs+w+6}" y="${y+h-2}" text-anchor="${neg?"end":"start"}"
+               class="vizvalue" fill="${neg?"var(--viz-neg)":"var(--viz-pos)"}">${Math.round(v*100)}%</text></g>`;
+    });
+    document.getElementById("captureChart").innerHTML=
+      `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img"
+            aria-label="Capture ratio by mechanism; negative means profit reached was given back">
+        <line x1="${AX}" x2="${AX}" y1="${PT}" y2="${H-PT}" stroke="var(--viz-grid)" stroke-width="1"/>
+        ${bars}
+      </svg>`;
+  }
+
   // Per-segment boards (cash / index-option / stock-option) + combined.
   const segLabel={cash:"NSE Cash",index_option:"Index Options",stock_option:"Stock Options"};
   const boards=snap.segment_boards||[];
   const combUnreal=ops.reduce((s,o)=>s+(o.unrealized_pnl||0),0);
   let segHtml=boards.map(b=>{
     const c=b.unrealized_pnl>=0?'var(--profit)':'var(--loss)';
+    // B28: fees are REAL money already paid on this segment's closed trades.
+    const fee=b.realised_fees||0;
     return `<div class="minikpi"><div class="lab">${segLabel[b.segment]||b.segment}</div>`+
       `<div class="v">${b.open_count} open</div>`+
-      `<div class="sub" style="color:${c}">${rupee(b.unrealized_pnl)}</div></div>`;
+      `<div class="sub" style="color:${c}">${rupee(b.unrealized_pnl)}</div>`+
+      `<div class="sub" style="color:var(--faint)">fees ${rupee(fee)}</div></div>`;
   }).join("");
-  segHtml+=`<div class="minikpi"><div class="lab">Combined realized</div>`+
-    `<div class="v" style="color:${(snap.combined_realized_pnl||0)>=0?'var(--profit)':'var(--loss)'}">${rupee(snap.combined_realized_pnl||0)}</div>`+
+  // B28: combined realized is GROSS; show total fees and the NET beside it so a gross number is
+  // never mistaken for take-home.
+  const totalFees=(snap.closed_trades||[]).reduce((s,c)=>s+(c.total_fees||0),0);
+  const grossRealized=snap.combined_realized_pnl||0;
+  const netRealized=grossRealized-totalFees;
+  // B33: the bot's REAL P&L = confident_win + uncertain only. confident_loss trades are DELIBERATE
+  // learning probes (opened predicting a loss) — shown separately, scored on prediction accuracy
+  // (a probe that LOST = the loss-prediction was RIGHT), NEVER folded into real money.
+  const realRealized=snap.real_realized_pnl||0;
+  const probePnl=snap.confident_loss_probe_realized_pnl||0;
+  const probeAcc=snap.confident_loss_prediction_accuracy;
+  segHtml+=`<div class="minikpi"><div class="lab">REAL P&L (conf-win + uncertain)</div>`+
+    `<div class="v" style="color:${realRealized>=0?'var(--profit)':'var(--loss)'}">${rupee(realRealized)}</div>`+
+    `<div class="sub">the bot's real money · excludes conf-loss probes</div></div>`;
+  segHtml+=`<div class="minikpi"><div class="lab">Confident-loss LAB (probe)</div>`+
+    `<div class="v" style="color:var(--dim)">${probeAcc!=null?Math.round(probeAcc*100)+'%':'—'}</div>`+
+    `<div class="sub">loss-prediction accuracy · ${rupee(probePnl)} probe P&L (not real)</div></div>`;
+  segHtml+=`<div class="minikpi"><div class="lab">Gross realized (incl. probes)</div>`+
+    `<div class="v" style="color:${grossRealized>=0?'var(--profit)':'var(--loss)'}">${rupee(grossRealized)}</div>`+
     `<div class="sub">+ ${rupee(combUnreal)} unreal</div></div>`;
+  segHtml+=`<div class="minikpi"><div class="lab">Fees paid / NET realized</div>`+
+    `<div class="v" style="color:var(--loss)">${rupee(totalFees)}</div>`+
+    `<div class="sub" style="color:${netRealized>=0?'var(--profit)':'var(--loss)'}">net ${rupee(netRealized)}</div></div>`;
   document.getElementById("segboards").innerHTML=segHtml;
+  // B25b
+  document.querySelectorAll(".viz-root").forEach(()=>{});
+  drawEquityCurve(snap.closed_trades||[]);
+  drawCaptureChart(snap.exit_efficiency_rows||[]);
+  const perf=document.getElementById("perfaside");
+  if(perf) perf.textContent=(snap.exit_efficiency_rows||[]).length+" mechanisms measured";
   // Closed trades table
   const seg3={cash:"cash",index_option:"index-opt",stock_option:"stock-opt"};
   const closed=snap.closed_trades||[];
   document.getElementById("closedaside").textContent=closed.length+" recent";
-  let crows="<tr><th>When</th><th>Segment</th><th>Symbol</th><th>Side</th><th>Outcome</th><th>Realized P&L</th><th>Source</th></tr>";
-  if(!closed.length){ crows+=`<tr><td colspan="7" style="color:var(--faint)">no closed trades yet</td></tr>`; }
+  // B33: the §9 table each trade opened under, tagged so a confident_loss LEARNING PROBE is never
+  // read as a real loss (its loss = a correct loss-prediction). Real P&L excludes these — see the
+  // headline split below.
+  const tableLabel={confident_win:"conf-WIN",confident_loss:"conf-LOSS (probe)",uncertain:"uncertain"};
+  let crows="<tr><th>When</th><th>Segment</th><th>Symbol</th><th>Table</th><th>Side</th><th>Outcome</th><th>Realized P&L</th><th>Fees</th><th>Net</th><th>Source</th></tr>";
+  if(!closed.length){ crows+=`<tr><td colspan="10" style="color:var(--faint)">no closed trades yet</td></tr>`; }
   closed.slice(0,60).forEach(c=>{
     const pc=c.realized_pnl>=0?'var(--profit)':'var(--loss)';
     const when=(c.closed_at||"").slice(0,16).replace("T"," ");
     const isReplay=c.provenance==='replay_faithful';
     const prov=isReplay?'replay':'live';
     const provc=isReplay?'var(--dim)':'var(--profit)';
+    const tbl=c.assigned_table||'uncertain';
     crows+=`<tr><td class="num" style="color:var(--faint)">${when}</td>`+
       `<td>${seg3[c.segment]||c.segment}</td><td class="tablename">${c.trading_symbol}</td>`+
+      `<td><span class="tag ${tagcls[tbl]||'unc'}">${tableLabel[tbl]||tbl}</span></td>`+
       `<td>${c.direction}</td><td>${c.outcome.replace(/_/g," ")}</td>`+
       `<td class="num" style="color:${pc}">${rupee(c.realized_pnl)}</td>`+
+      `<td class="num" style="color:var(--faint)">${c.total_fees?rupee(c.total_fees):'—'}</td>`+
+      `<td class="num" style="color:${(c.realized_pnl-(c.total_fees||0))>=0?'var(--profit)':'var(--loss)'}">${rupee(c.realized_pnl-(c.total_fees||0))}</td>`+
       `<td style="color:${provc};font-size:.72rem;font-weight:600">${prov}</td></tr>`;
   });
   document.getElementById("closedTbl").innerHTML=crows;
@@ -444,7 +588,9 @@ function renderLive(snap){
     ["confident_loss","Confident LOSS","loss"],
     ["uncertain","Uncertain","unc"],
   ];
-  const cols="<tr><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>LTP</th><th>Unreal P&L</th><th>Stop</th><th>Target</th></tr>";
+  // B23: Max+ / Max- are this trade's best and worst unrealised P&L since it opened (MFE/MAE);
+  // Locked is the ratcheting profit trail (— until it arms).
+  const cols="<tr><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>LTP</th><th>Unreal P&L</th><th>Max+</th><th>Max-</th><th>Locked</th><th>Stop</th><th>Target</th></tr>";
   let html="";
   tableMeta.forEach(([key,label,cls])=>{
     const rows=ops.filter(o=>o.assigned_table===key)
@@ -454,7 +600,7 @@ function renderLive(snap){
       `<span class="optbl-n">${rows.length} open</span>`+
       `<span class="optbl-pnl" style="color:${grp>=0?'var(--profit)':'var(--loss)'}">${rows.length?rupee(grp):''}</span></div>`;
     let body=cols;
-    if(!rows.length){ body+=`<tr><td colspan="8" style="color:var(--faint)">— none —</td></tr>`; }
+    if(!rows.length){ body+=`<tr><td colspan="11" style="color:var(--faint)">— none —</td></tr>`; }
     rows.forEach(o=>{
       const up=o.unrealized_pnl; const upc=up==null?'':(up>=0?'var(--profit)':'var(--loss)');
       const sd=o.direction==="long"?'<span style="color:var(--profit)">BUY</span>':
@@ -463,6 +609,9 @@ function renderLive(snap){
       body+=`<tr><td class="tablename">${segb}${o.trading_symbol}</td><td>${sd}</td><td>${o.quantity}</td>`+
         `<td>${o.entry_price}</td><td>${o.last_price==null?'—':o.last_price}</td>`+
         `<td style="color:${upc}">${up==null?'—':rupee(up)}</td>`+
+        `<td style="color:var(--profit)">${o.maximum_favourable_profit?rupee(o.maximum_favourable_profit):'—'}</td>`+
+        `<td style="color:var(--loss)">${o.maximum_adverse_profit?rupee(o.maximum_adverse_profit):'—'}</td>`+
+        `<td style="color:${o.profit_locked==null?'var(--faint)':'var(--profit)'}">${o.profit_locked==null?'—':rupee(o.profit_locked)}</td>`+
         `<td>${o.stop_loss_price}</td><td>${o.target_price}</td></tr>`;
     });
     // Scrollable container so ALL rows are reachable by scrolling (no "+N more").
@@ -645,20 +794,25 @@ if(LIVE_API_KEY){
 // roadmap
 const stcls={built:"built",in_progress:"prog",not_started:"none",deferred:"defer"};
 const stlab={built:"Built",in_progress:"In progress",not_started:"Planned",deferred:"Deferred"};
-document.getElementById("roadaside").textContent=built+" built · 1 in progress";
+document.getElementById("roadaside").textContent=SNAPSHOT.layer_roadmap.filter(l=>l.status==="built").length+" built · 1 in progress";
 document.getElementById("roadmap").innerHTML=SNAPSHOT.layer_roadmap.map(l=>
   `<div class="ritem"><span class="rn">${String(l.number).padStart(2,"0")}</span>`+
   `<div><div class="rt">${l.name}</div><div class="rd">${l.note}</div></div>`+
   `<span class="st ${stcls[l.status]}">${stlab[l.status]}</span></div>`).join("");
 
-// tree
-document.getElementById("treeCounts").textContent=SNAPSHOT.concept_tree_counts.trunk_count+" trunks · "+SNAPSHOT.concept_tree_counts.total_branch_count+"+ branches";
-document.getElementById("tree").innerHTML=SNAPSHOT.concept_tree.map(t=>
-  `<details class="trunk"><summary><span class="rn">${t.roman_number}</span>`+
+// tree — atlas build coverage (build-to-100% program): every branch chip is coloured by status.
+const _ctc=SNAPSHOT.concept_tree_counts;
+document.getElementById("treeCounts").textContent=
+  _ctc.built_branch_count+"/"+_ctc.total_branch_count+" branches built ("+_ctc.built_pct+"%) · "+
+  _ctc.partial_branch_count+" partial · "+_ctc.trunk_count+" trunks";
+document.getElementById("tree").innerHTML=SNAPSHOT.concept_tree.map(t=>{
+  const branches=t.branches||t.branch_names.map(n=>({name:n,status:"unbuilt"}));
+  return `<details class="trunk"><summary><span class="rn">${t.roman_number}</span>`+
   `<span class="tn">${t.name}<span class="te">${t.essence}${t.is_gated?' · <span class="gated">gated</span>':''}</span></span>`+
-  `<span class="ig ig-${t.ignition}">${t.ignition.replace(/_/g," ")}</span></summary>`+
-  `<div class="branches">${t.branch_names.map(b=>`<span>${b}</span>`).join("")}`+
-  `${t.branch_count>t.branch_names.length?`<span style="color:var(--faint)">+${t.branch_count-t.branch_names.length} more</span>`:""}</div></details>`).join("");
+  `<span class="ig ig-${t.ignition}">${(t.built_branch_count||0)}/${t.branch_count} built</span></summary>`+
+  `<div class="branches">${branches.map(b=>`<span class="${b.status}">${b.name}</span>`).join("")}`+
+  `${t.branch_count>branches.length?`<span style="color:var(--faint)">+${t.branch_count-branches.length} more</span>`:""}</div></details>`;
+}).join("");
 
 document.getElementById("foot").innerHTML=
   "intraday-only NSE cash + options · Zerodha Kite · paper sandbox, human gate before live capital<br>"+

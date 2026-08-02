@@ -8,11 +8,15 @@ Two problems the raw instrument master does not solve on its own:
    keeps the full mainboard (thousands of names — never a hand-picked
    sample) and drops only the SME platform rows.
 
-2. **Option combinatorics.** 38k+ option contracts across 215 underlyings
-   is far too many to price every scan. The credit-spread strategy only
-   needs, per underlying, the **near-expiry ATM/ITM/OTM ladder** around the
-   live spot. `select_near_expiry_option_ladder` picks exactly that band of
-   strikes (both CALL and PUT) for every one of the 215 underlyings.
+2. **Option combinatorics.** ~28.5k option contracts across 213 underlyings.
+   B34 (operator directive 2026-07-30): the engine now loads the **FULL**
+   universe — every strike × every expiry for all 5 index + ~208 stock
+   underlyings — via `select_full_option_universe`, so it can trade "all
+   contracts in options every index". Pricing stays affordable because each
+   pass prices only the contracts of the underlyings it *examines* (bounded by
+   the per-pass look budget), not the whole chain at once. The historical
+   near-expiry ATM/ITM/OTM band (`select_near_expiry_option_ladder`) is kept
+   as an opt-in fallback for consumers that want only the front strikes.
 
 The selection logic here is pure (testable with fixtures);
 `fetch_live_tradable_universe` is the thin live adapter that reads the Kite
@@ -111,17 +115,23 @@ class TradableUniverse:
 
     cash_equity_instruments: tuple[Instrument, ...]
     option_ladder_instruments: tuple[Instrument, ...]
-    near_expiry_date: date
+    near_expiry_date: date | None
     # underlying symbol -> the instrument whose candles are its spot (stock
     # cash equity or index carrier); used by the credit-spread regime gate.
-    spot_instrument_by_option_underlying: dict[str, Instrument] = None
+    spot_instrument_by_option_underlying: dict[str, Instrument] | None = None
 
     def total_instrument_count(self) -> int:
         return len(self.cash_equity_instruments) + len(self.option_ladder_instruments)
 
     def option_underlying_symbols(self) -> tuple[str, ...]:
         return tuple(
-            sorted({opt.underlying_symbol for opt in self.option_ladder_instruments})
+            sorted(
+                {
+                    opt.underlying_symbol
+                    for opt in self.option_ladder_instruments
+                    if opt.underlying_symbol is not None
+                }
+            )
         )
 
 
@@ -145,27 +155,90 @@ def select_mainboard_cash_equities(
 
 
 def nearest_expiry_date(option_instruments: list[Instrument]) -> date | None:
-    """The soonest option expiry present (the current weekly/monthly)."""
+    """The soonest option expiry present ANYWHERE in the set.
+
+    Kept for display ("what is the next expiry on the board?"). It must NOT be used to filter the
+    ladder — see `nearest_expiry_date_by_underlying` for why.
+    """
     expiries = {opt.expiry_date for opt in option_instruments if opt.expiry_date}
     return min(expiries) if expiries else None
+
+
+def nearest_expiry_date_by_underlying(
+    option_instruments: list[Instrument],
+) -> dict[str, date]:
+    """The soonest expiry for EACH underlying independently.
+
+    B9: filtering the whole board to one global nearest expiry silently deletes most of the tradable
+    universe. Only NIFTY still has weekly expiries (SEBI's Oct-2024 one-weekly-index-per-exchange
+    framework; BANKNIFTY/FINNIFTY/MIDCPNIFTY/NIFTYNXT50 went monthly-only on 2024-11-20, and stock
+    options were always monthly). So the global minimum is a NIFTY weekly in ~3 weeks out of 4, and
+    in those weeks a global filter drops all ~210 stock-option underlyings AND the other four
+    indices — the ladder collapses to NIFTY alone.
+
+    The bug is invisible during monthly-expiry week, when every underlying's nearest expiry
+    coincides with the global minimum. That is precisely why it survived, and why "only 6
+    stock-option trades ever" was the observed symptom.
+    """
+    soonest_by_underlying: dict[str, date] = {}
+    for option in option_instruments:
+        if option.expiry_date is None or option.underlying_symbol is None:
+            continue
+        current = soonest_by_underlying.get(option.underlying_symbol)
+        if current is None or option.expiry_date < current:
+            soonest_by_underlying[option.underlying_symbol] = option.expiry_date
+    return soonest_by_underlying
+
+
+def select_full_option_universe(
+    option_instruments: list[Instrument],
+) -> list[Instrument]:
+    """The COMPLETE option contract set — every strike × every expiry for every
+    underlying — with no ATM-band or nearest-expiry pruning.
+
+    Operator directive 2026-07-30 (docs/research/176, BACKLOG B34): trade/scan the FULL universe
+    ("all contracts in options every index" + all ~208 stock-option underlyings), not the ATM±3
+    near-expiry ladder `select_near_expiry_option_ladder` produced. Two concrete gains over the
+    pruned ladder:
+
+    * **Credit-spread hedge reachable.** `select_credit_spread_legs` needs a bought hedge
+      `hedge_width_strike_steps` strikes beyond the short leg; on a 7-strike ladder it frequently
+      returned None ("ladder too short for the hedge width — never sell naked"), leaving the arm
+      dark. The full strike chain removes that structural abstain.
+    * **Every expiry reachable.** 0-DTE routing (`_underlying_nearest_expiry_is_today`) and any
+      future DTE-selection arm can now see later expiries that the nearest-only ladder deleted.
+
+    This keeps ALL contracts regardless of whether a live spot is known for the underlying — spot is
+    only needed at strategy time for ATM anchoring, and an underlying with no spot simply is not
+    looked at this pass (it stays in the universe for visibility). Downstream arms scope to a single
+    expiry themselves (the selector picks its nearest qualifying expiry; the ATM helpers below scope
+    to the nearest expiry), so a full mixed-expiry list never produces a cross-expiry (calendar) leg.
+    """
+    return list(option_instruments)
 
 
 def select_near_expiry_option_ladder(
     option_instruments: list[Instrument],
     spot_price_by_underlying_symbol: dict[str, float],
     strikes_each_side_of_atm: int,
-    expiry_date: date,
+    expiry_date_by_underlying: dict[str, date],
 ) -> list[Instrument]:
-    """For each underlying, keep the near-expiry ATM strike plus
+    """For each underlying, keep ITS OWN near-expiry ATM strike plus
     `strikes_each_side_of_atm` ITM and OTM strikes, both CALL and PUT.
 
-    ATM is the listed strike closest to the underlying's live spot. An
-    underlying with no known spot (price feed missing) is skipped rather
-    than guessed.
+    B9: the expiry is per-underlying, so NIFTY can ladder its weekly while every other index and
+    all ~210 stock-option underlyings ladder their own monthly, in the same pass. Each underlying
+    appears on exactly ONE expiry — never mixed, which would silently compare different contracts.
+
+    ATM is the listed strike closest to the underlying's live spot. An underlying with no known spot
+    (price feed missing) is skipped rather than guessed.
     """
     options_by_underlying: dict[str, list[Instrument]] = {}
     for option in option_instruments:
-        if option.expiry_date != expiry_date:
+        if option.underlying_symbol is None:
+            continue
+        underlying_expiry = expiry_date_by_underlying.get(option.underlying_symbol)
+        if underlying_expiry is None or option.expiry_date != underlying_expiry:
             continue
         options_by_underlying.setdefault(option.underlying_symbol, []).append(option)
 
@@ -174,7 +247,9 @@ def select_near_expiry_option_ladder(
         spot_price = spot_price_by_underlying_symbol.get(underlying_symbol)
         if spot_price is None:
             continue
-        listed_strikes = sorted({opt.strike_price for opt in options})
+        listed_strikes = sorted(
+            {opt.strike_price for opt in options if opt.strike_price is not None}
+        )
         if not listed_strikes:
             continue
         atm_strike = min(listed_strikes, key=lambda strike: abs(strike - spot_price))
@@ -193,11 +268,18 @@ def assemble_tradable_universe(
     raw_nfo_instrument_rows: list[dict],
     spot_price_by_underlying_symbol: dict[str, float],
     strikes_each_side_of_atm: int = 3,
+    full_option_universe: bool = True,
 ) -> TradableUniverse:
     """Pure assembly: raw Kite master rows + live spots -> the tradable set.
 
     Kept free of any Kite call so it is unit-testable with fixtures;
     `fetch_live_tradable_universe` supplies the live inputs.
+
+    B34 (2026-07-30): `full_option_universe=True` (the default, operator directive) loads EVERY
+    strike × EVERY expiry for every option underlying — the complete ~28.5k-contract chain — so the
+    engine trades "all contracts in options every index" and the full ~208 stock-option breadth.
+    Pass `full_option_universe=False` to fall back to the historical ATM±`strikes_each_side_of_atm`
+    near-expiry ladder (kept for tests / any consumer that explicitly wants only the front band).
     """
     cash_equities = select_mainboard_cash_equities(
         build_phase1_instrument_universe(raw_nse_instrument_rows)
@@ -208,23 +290,35 @@ def assemble_tradable_universe(
         if instrument.kind
         in (InstrumentKind.INDEX_OPTION, InstrumentKind.STOCK_OPTION)
     ]
+    # `nearest_expiry_date` is reported for display only. B9: each underlying's OWN nearest expiry
+    # matters for the ladder fallback (a global filter collapsed it to NIFTY in weekly weeks).
     expiry_date = nearest_expiry_date(all_options)
-    option_ladder: list[Instrument] = []
-    if expiry_date is not None:
-        option_ladder = select_near_expiry_option_ladder(
-            all_options,
-            spot_price_by_underlying_symbol,
-            strikes_each_side_of_atm,
-            expiry_date,
+    if full_option_universe:
+        option_instruments = select_full_option_universe(all_options)
+    else:
+        expiry_by_underlying = nearest_expiry_date_by_underlying(all_options)
+        option_instruments = (
+            select_near_expiry_option_ladder(
+                all_options,
+                spot_price_by_underlying_symbol,
+                strikes_each_side_of_atm,
+                expiry_by_underlying,
+            )
+            if expiry_by_underlying
+            else []
         )
     spot_by_underlying = resolve_spot_instrument_by_option_underlying(
         raw_nse_instrument_rows,
         cash_equities,
-        {opt.underlying_symbol for opt in option_ladder},
+        {
+            opt.underlying_symbol
+            for opt in option_instruments
+            if opt.underlying_symbol is not None
+        },
     )
     return TradableUniverse(
         cash_equity_instruments=tuple(cash_equities),
-        option_ladder_instruments=tuple(option_ladder),
+        option_ladder_instruments=tuple(option_instruments),
         near_expiry_date=expiry_date,
         spot_instrument_by_option_underlying=spot_by_underlying,
     )
@@ -261,7 +355,11 @@ def fetch_live_tradable_universe(
         if instrument.kind
         in (InstrumentKind.INDEX_OPTION, InstrumentKind.STOCK_OPTION)
     ]
-    underlying_symbols = {opt.underlying_symbol for opt in all_options}
+    underlying_symbols = {
+        opt.underlying_symbol
+        for opt in all_options
+        if opt.underlying_symbol is not None
+    }
     quote_symbols = _spot_quote_symbols_for_underlyings(underlying_symbols)
 
     spot_price_by_quote_symbol: dict[str, float] = {}

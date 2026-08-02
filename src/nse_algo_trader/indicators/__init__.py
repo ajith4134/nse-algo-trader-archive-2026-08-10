@@ -44,6 +44,9 @@ from nse_algo_trader.indicators.supertrend_indicator import (
     SupertrendSeries,
     compute_supertrend,
 )
+from nse_algo_trader.indicators.yang_zhang_realized_volatility import (
+    compute_yang_zhang_realized_volatility,
+)
 
 __all__ = [
     "AdxSeries",
@@ -64,4 +67,5 @@ __all__ = [
     "compute_session_anchored_vwap",
     "compute_supertrend",
     "compute_true_range_series",
+    "compute_yang_zhang_realized_volatility",
 ]

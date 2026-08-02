@@ -6,6 +6,7 @@ All saves are idempotent: re-ingesting the same day/file replaces rather
 than duplicates, so jobs can be re-run safely.
 """
 
+import math
 import sqlite3
 from datetime import date, datetime
 from enum import Enum
@@ -83,7 +84,10 @@ _TABLE_CREATION_STATEMENTS = [
 class MarketDataSqliteStore:
     def __init__(self, db_file_path: Path = DEFAULT_MARKET_DATA_DB_FILE_PATH):
         db_file_path.parent.mkdir(parents=True, exist_ok=True)
-        self._connection = sqlite3.connect(str(db_file_path))
+        # B25a: reached from BOTH the trading thread and the feature-plane thread.
+        # SQLite refuses cross-thread use by default; access is short, immediately
+        # committed writes plus reads, which SQLite serialises safely.
+        self._connection = sqlite3.connect(str(db_file_path), check_same_thread=False)
         self._connection.execute("PRAGMA journal_mode=WAL")
         for table_creation_statement in _TABLE_CREATION_STATEMENTS:
             self._connection.execute(table_creation_statement)
@@ -181,6 +185,75 @@ class MarketDataSqliteStore:
             )
         ]
 
+    # -- daily ATM implied volatility (B18.1b) ------------------------------
+    #
+    # The loop ALREADY computes ATM IV every option pass via the Black-Scholes inversion and then
+    # DISCARDS it. Without a stored history, `rank_implied_volatility` can only ever abstain on
+    # "<60 observations", so the IV-rank arm could never arm. One observation per
+    # (underlying, trade_date) — the last write of a session wins, which is the closest thing to a
+    # settlement-time reading available intraday.
+    _CREATE_ATM_IMPLIED_VOLATILITY_TABLE = """
+    CREATE TABLE IF NOT EXISTS atm_implied_volatility_daily (
+        underlying_symbol TEXT NOT NULL,
+        trade_date TEXT NOT NULL,
+        implied_volatility REAL NOT NULL,
+        recorded_at TEXT NOT NULL,
+        PRIMARY KEY (underlying_symbol, trade_date)
+    )
+    """
+
+    def save_daily_atm_implied_volatility(
+        self, underlying_symbol: str, trade_date: date, implied_volatility: float
+    ) -> bool:
+        """Record one underlying's ATM IV for one session. Idempotent per (symbol, date).
+
+        Returns False (and stores nothing) for a non-positive or non-finite IV — a bad inversion
+        must not poison the history that later decides rich-vs-cheap.
+        """
+        if implied_volatility is None or not math.isfinite(float(implied_volatility)):
+            return False
+        if float(implied_volatility) <= 0.0:
+            return False
+        self._connection.execute(self._CREATE_ATM_IMPLIED_VOLATILITY_TABLE)
+        self._connection.execute(
+            "INSERT OR REPLACE INTO atm_implied_volatility_daily VALUES (?,?,?,?)",
+            (
+                underlying_symbol,
+                trade_date.isoformat(),
+                float(implied_volatility),
+                datetime.now().isoformat(),
+            ),
+        )
+        self._connection.commit()
+        return True
+
+    def load_atm_implied_volatility_history(
+        self, underlying_symbol: str, lookback_days: int = 252
+    ) -> dict:
+        """`{trade_date: implied_volatility}` for one underlying, newest `lookback_days` sessions —
+        the exact shape `rank_implied_volatility` consumes."""
+        self._connection.execute(self._CREATE_ATM_IMPLIED_VOLATILITY_TABLE)
+        return {
+            date.fromisoformat(row[0]): row[1]
+            for row in self._connection.execute(
+                "SELECT trade_date, implied_volatility FROM atm_implied_volatility_daily "
+                "WHERE underlying_symbol=? ORDER BY trade_date DESC LIMIT ?",
+                (underlying_symbol, int(lookback_days)),
+            )
+        }
+
+    def atm_implied_volatility_observation_counts(self) -> dict:
+        """`{underlying_symbol: observation_count}` — the Rule-Q "have N / need M" read, so the
+        dashboard can show how far each underlying is from arming the IV-rank arm."""
+        self._connection.execute(self._CREATE_ATM_IMPLIED_VOLATILITY_TABLE)
+        return {
+            row[0]: row[1]
+            for row in self._connection.execute(
+                "SELECT underlying_symbol, COUNT(*) FROM atm_implied_volatility_daily "
+                "GROUP BY underlying_symbol"
+            )
+        }
+
     # -- delisted-securities master (§53 task #13) --------------------------
     _CREATE_DELISTED_TABLE = """
     CREATE TABLE IF NOT EXISTS delisted_securities (
@@ -229,6 +302,21 @@ class MarketDataSqliteStore:
             "SELECT MAX(trade_date) FROM cash_bhavcopy_delivery"
         ).fetchone()
         return date.fromisoformat(row[0]) if row and row[0] else None
+
+    def cash_bhavcopy_symbol_returns(
+        self, trade_date, series: str = "EQ"
+    ) -> list[tuple[str, float]]:
+        """Per-symbol daily return `(close−prev_close)/prev_close` for a trade date (equities only) —
+        the raw input to the Trunk-II market-breadth sense (research/137). Skips zero/absent
+        prev_close. Returns `[(symbol, return_fraction), …]`."""
+        rows = self._connection.execute(
+            "SELECT symbol, prev_close, close_price FROM cash_bhavcopy_delivery "
+            "WHERE trade_date = ? AND series = ? AND prev_close > 0",
+            (trade_date.isoformat() if hasattr(trade_date, "isoformat") else str(trade_date), series),
+        ).fetchall()
+        return [
+            (r[0], (r[2] - r[1]) / r[1]) for r in rows if r[1]
+        ]
 
     # -- F&O bhavcopy (historical OI) ---------------------------------------
 

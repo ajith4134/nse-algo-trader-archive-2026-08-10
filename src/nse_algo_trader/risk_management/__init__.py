@@ -6,6 +6,11 @@ fixed-fractional sizing. Universe-wide by construction — lot sizes come
 from instruments, ban status from NSE report data.
 """
 
+from nse_algo_trader.risk_management.discrete_lot_size_down_policy import (
+    DiscreteLotSizeDownDecision,
+    compose_size_down_multipliers,
+    size_down_discrete_lots,
+)
 from nse_algo_trader.risk_management.margin_requirement_estimator import (
     MarginEstimateConfig,
     estimate_defined_risk_spread_margin,
@@ -29,6 +34,7 @@ from nse_algo_trader.risk_management.risk_based_position_sizer import (
 )
 
 __all__ = [
+    "DiscreteLotSizeDownDecision",
     "MarginEstimateConfig",
     "OptionCombinationRiskProfile",
     "PositionRiskCategory",
@@ -36,10 +42,12 @@ __all__ = [
     "RiskGateDecision",
     "RiskRejectionReason",
     "assess_option_combination_risk",
+    "compose_size_down_multipliers",
     "estimate_defined_risk_spread_margin",
     "estimate_intraday_cash_margin",
     "evaluate_credit_spread_signal",
     "evaluate_opening_range_breakout_signal",
     "size_cash_position_by_stop_distance",
     "size_defined_risk_spread_lots",
+    "size_down_discrete_lots",
 ]

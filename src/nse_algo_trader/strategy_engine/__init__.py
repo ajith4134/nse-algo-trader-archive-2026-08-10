@@ -17,6 +17,10 @@ from nse_algo_trader.strategy_engine.opening_range_breakout_strategy import (
     OpeningRangeBreakoutConfig,
     detect_opening_range_breakout,
 )
+from nse_algo_trader.strategy_engine.implied_volatility_rank import (
+    ImpliedVolatilityRanking,
+    rank_implied_volatility,
+)
 from nse_algo_trader.strategy_engine.session_strategy_regime_gate import (
     AdxRegimeGateConfig,
     MarketRegime,
@@ -34,6 +38,8 @@ from nse_algo_trader.strategy_engine.strategy_signal_types import (
 )
 
 __all__ = [
+    "ImpliedVolatilityRanking",
+    "rank_implied_volatility",
     "AdxRegimeGateConfig",
     "CreditSpreadBias",
     "CreditSpreadSelectionConfig",

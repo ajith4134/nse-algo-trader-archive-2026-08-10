@@ -78,7 +78,11 @@ CREATE TABLE IF NOT EXISTS experience_nodes (
     actual_exit_cause TEXT NOT NULL,
     kill_criteria TEXT NOT NULL,
     data_provenance TEXT NOT NULL DEFAULT 'live',
-    market_regime TEXT NOT NULL DEFAULT 'unknown'
+    market_regime TEXT NOT NULL DEFAULT 'unknown',
+    maximum_favourable_profit REAL NOT NULL DEFAULT 0.0,
+    maximum_adverse_profit REAL NOT NULL DEFAULT 0.0,
+    exited_on_profit_trail INTEGER NOT NULL DEFAULT 0,
+    total_fees REAL NOT NULL DEFAULT 0.0
 )
 """
 
@@ -99,7 +103,10 @@ class SqliteExperienceMemory:
         now_provider=datetime.now,
     ) -> None:
         db_file_path.parent.mkdir(parents=True, exist_ok=True)
-        self._connection = sqlite3.connect(str(db_file_path))
+        # B25a: reached from BOTH the trading thread and the feature-plane thread.
+        # SQLite refuses cross-thread use by default; access is short, immediately
+        # committed writes plus reads, which SQLite serialises safely.
+        self._connection = sqlite3.connect(str(db_file_path), check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
         self._connection.execute("PRAGMA journal_mode=WAL")
         self._connection.execute(_CREATE_TABLE)
@@ -109,6 +116,19 @@ class SqliteExperienceMemory:
         self._add_column_if_missing(
             "market_regime", "TEXT NOT NULL DEFAULT 'unknown'"
         )
+        # B23c: excursion columns. Rows written before this watermark were simply not measured,
+        # so they take 0.0 — which readers must treat as "unknown", not as "never went green".
+        self._add_column_if_missing(
+            "maximum_favourable_profit", "REAL NOT NULL DEFAULT 0.0"
+        )
+        self._add_column_if_missing(
+            "maximum_adverse_profit", "REAL NOT NULL DEFAULT 0.0"
+        )
+        self._add_column_if_missing(
+            "exited_on_profit_trail", "INTEGER NOT NULL DEFAULT 0"
+        )
+        # B28: real round-trip cost. 0.0 on pre-watermark rows means "not measured", not "free".
+        self._add_column_if_missing("total_fees", "REAL NOT NULL DEFAULT 0.0")
         for index_statement in _INDEXES:
             self._connection.execute(index_statement)
         self._connection.commit()
@@ -134,7 +154,7 @@ class SqliteExperienceMemory:
     def record_closed_experiment(self, experiment: ClosedExperiment) -> None:
         self._connection.execute(
             "INSERT OR REPLACE INTO experience_nodes VALUES "
-            "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 experiment.experiment_id,
                 experiment.occurred_at.isoformat(),
@@ -159,6 +179,10 @@ class SqliteExperienceMemory:
                 experiment.kill_criteria,
                 experiment.data_provenance,
                 experiment.market_regime,
+                experiment.maximum_favourable_profit,
+                experiment.maximum_adverse_profit,
+                int(experiment.exited_on_profit_trail),
+                experiment.total_fees,
             ),
         )
         self._connection.commit()
@@ -186,11 +210,40 @@ class SqliteExperienceMemory:
         spans every session, unlike the process-local ledger). research/93."""
         cursor = self._connection.execute(
             "SELECT occurred_at, session_date, instrument_token, instrument_kind, "
-            "strategy_tag, direction, actual_outcome, realized_pnl, data_provenance "
+            "strategy_tag, direction, actual_outcome, realized_pnl, data_provenance, "
+            # B28/B23c: the panel shows fees, NET P&L and excursion — a column added to the
+            # schema but not to THIS explicit select list would silently never reach the UI.
+            "total_fees, maximum_favourable_profit, maximum_adverse_profit, "
+            # B33: the §9 table each trade opened under, so a confident_loss probe is never
+            # misread on the panel as a real loss.
+            "exited_on_profit_trail, assigned_table "
             "FROM experience_nodes ORDER BY occurred_at DESC LIMIT ?",
             (limit,),
         )
         return [dict(row) for row in cursor.fetchall()]
+
+    def realized_pnl_by_assigned_table(self) -> dict[str, dict[str, float]]:
+        """B33: per-§9-table realized-P&L split across ALL closed trades (durable, every session)
+        — the authoritative source for separating the bot's REAL money from `confident_loss` learning
+        probes. Returns `{assigned_table: {"realized_pnl": Σ, "trade_count": n, "loss_count": k}}`.
+
+        `loss_count` is the number that ACTUALLY lost — for `confident_loss` that is the count the
+        prediction got RIGHT (the inverted "loss is profit" learning metric); the caller decides the
+        interpretation per table. Real P&L = Σ realized_pnl over confident_win + uncertain only."""
+        return {
+            row["assigned_table"]: {
+                "realized_pnl": float(row["realized_pnl_sum"] or 0.0),
+                "trade_count": int(row["n"]),
+                "loss_count": int(row["loss_count"] or 0),
+            }
+            for row in self._connection.execute(
+                "SELECT assigned_table, "
+                "COUNT(*) AS n, "
+                "SUM(realized_pnl) AS realized_pnl_sum, "
+                "SUM(CASE WHEN actual_outcome = 'loss' THEN 1 ELSE 0 END) AS loss_count "
+                "FROM experience_nodes GROUP BY assigned_table"
+            )
+        }
 
     def experiment_count_by_market_regime(self) -> dict[str, int]:
         """How many experiences fall in each ADX market regime (§53 slice 5b) — the
@@ -202,6 +255,60 @@ class SqliteExperienceMemory:
                 "GROUP BY market_regime"
             )
         }
+
+    def exit_efficiency_by_mechanism(
+        self, minimum_experiments: int = 10
+    ) -> list[dict]:
+        """B23c: per mechanism, how much of the profit a trade REACHED did it actually KEEP?
+
+        This is the read the profit trail exists to be tuned by, and it answers the operator's
+        real question — *are we exiting too early, or too late?*
+
+        * `capture_ratio` = mean(realized_pnl) / mean(maximum_favourable_profit). Well below 1.0
+          means trades habitually give back profit they had already earned — the trail should
+          tighten, or the target should stop capping runs.
+        * `mean_maximum_adverse_profit` near 0 on winners means stops sit far wider than the trades
+          ever actually needed — risk is being over-reserved.
+
+        Rows recorded before the excursion watermark carry 0.0 and are EXCLUDED rather than counted
+        as "never went green", which would bias every ratio toward 0. `measured_count` vs
+        `total_count` makes that exclusion visible instead of silent (Rule Q: have N / need M).
+        """
+        return [
+            {
+                "mechanism_name": row["mechanism_name"],
+                "total_count": row["total_count"],
+                "measured_count": row["measured_count"],
+                "mean_realized_pnl": row["mean_realized_pnl"],
+                "mean_maximum_favourable_profit": row["mean_mfe"],
+                "mean_maximum_adverse_profit": row["mean_mae"],
+                "capture_ratio": (
+                    row["mean_realized_pnl"] / row["mean_mfe"]
+                    if row["mean_mfe"] and row["mean_mfe"] > 0
+                    else None
+                ),
+                "trail_exit_count": row["trail_exit_count"],
+            }
+            for row in self._connection.execute(
+                "SELECT mechanism_name,"
+                " COUNT(*) AS total_count,"
+                " SUM(CASE WHEN maximum_favourable_profit <> 0.0"
+                "          OR maximum_adverse_profit <> 0.0 THEN 1 ELSE 0 END) AS measured_count,"
+                " AVG(CASE WHEN maximum_favourable_profit <> 0.0"
+                "          OR maximum_adverse_profit <> 0.0 THEN realized_pnl END)"
+                "   AS mean_realized_pnl,"
+                " AVG(CASE WHEN maximum_favourable_profit <> 0.0"
+                "          OR maximum_adverse_profit <> 0.0"
+                "          THEN maximum_favourable_profit END) AS mean_mfe,"
+                " AVG(CASE WHEN maximum_favourable_profit <> 0.0"
+                "          OR maximum_adverse_profit <> 0.0"
+                "          THEN maximum_adverse_profit END) AS mean_mae,"
+                " SUM(exited_on_profit_trail) AS trail_exit_count"
+                " FROM experience_nodes GROUP BY mechanism_name"
+                " HAVING total_count >= ? ORDER BY mechanism_name",
+                (minimum_experiments,),
+            )
+        ]
 
     def calibration_by_market_regime(
         self, strategy_tag: str | None = None, minimum_experiments: int = 1

@@ -192,3 +192,96 @@ CONCEPT_TREE: tuple[ConceptTrunk, ...] = (
                   "news firehose", "alternative-data connectors", "API schema auto-discovery",
                   "cache/dedup")),
 )
+
+
+# Per-branch BUILD STATUS — the ground-truth reconciliation of the atlas against the code
+# (docs/AI_CONCEPT_TREE_STATUS.md). Updated as branches ship (build-to-100% program). A branch
+# name here must match a `branch_names` entry above; the dashboard concept tree colours each chip
+# 🟢 built / 🟡 partial / 🔴 unbuilt from these sets, so atlas progress is visible (Rule N).
+BUILT_BRANCHES: frozenset[str] = frozenset({
+    # Trunk XII INTRINSIC MOTIVATION — Curiosity / Learning-Progress engine (research/164-165, 2026-07-26)
+    "learning-progress reward", "boredom signal", "competence/certainty drives",
+    "uncertainty-targeted active learning", "diversity/novelty bonus",
+    # Trunk IX PREDICTIVE-CORE — generative world-model + model-based planning (research/166-167, 2026-07-26)
+    "generative world-model", "model-based planning", "precision weighting",
+    "causal reasoning",
+    "fused market-state", "microstructure", "order-flow imbalance", "volatility-regime",
+    "correlation/breadth", "cross-market context", "sentiment/news",
+    "actuation (OMS)", "off-switch", "slippage & impact model", "position/inventory manager",
+    "dead-man's-switch",
+    "inner society/council", "prediction-market weighting", "debate protocol",
+    "consensus/conflict-resolution", "multi-agent memory governance",
+    "constitutional core", "Referee (audit)", "corrigibility/off-switch",
+    "deceptive-alignment monitor", "wireheading tripwire", "incident post-mortem",
+    "alignment/goal-integrity", "mechanistic interpretability", "scalable oversight",
+    "instrumental-convergence limiter", "red-team harness", "ethics/law reasoning",
+    "power budgets", "security/adversarial defense",
+    "limited-capacity workspace", "global broadcast bus", "salience/priority scorer",
+    "ignition threshold", "selective attention", "state-dependent attention",
+    "coalition formation", "self-model", "attention schema", "workspace replay/rumination",
+    "cross-modal binding", "higher-order monitoring", "indicator scoreboard",
+    "per-trade pre-mortem", "world-model scoreboard",
+    "surprise/free-energy monitor", "ensemble world-models",
+    "auto-curriculum",
+    "calibration (Brier)", "assumption registry", "skill-vs-luck court", "evidence provenance",
+    "forecasting-tournament", "contradiction resolution", "deception/misinfo resistance",
+    "episodic memory", "temporal knowledge graph", "retrieval", "memory provenance",
+    "consolidation engine", "semantic memory",
+    "broker/data API layer", "participant-wise OI",
+    "explicit utility function", "value-drift detection",
+    "multi-objective arbitration", "goal-priority scheduler",
+    "learning subsystem",
+    # Trunk X AUTOPOIESIS — component-lifecycle homeostat (research/168-172, 2026-07-27). The whole
+    # trunk in one engine: MAPE-K cycle over an explicit membership registry -> PCA T²/SPE health ->
+    # right-censored Weibull-AFT RUL -> CBM control-limit policy -> OTP supervision + budgeted,
+    # breaker-guarded, conscience-checked repair -> entry-site vitality lever. Live on the dashboard.
+    "component self-maintenance", "boundary maintenance", "operational closure",
+    "component self-production", "component lifecycle manager", "homeostatic setpoint keeper",
+    "metabolic accounting", "self-repair binding", "self-monitoring health loop",
+})
+PARTIAL_BRANCHES: frozenset[str] = frozenset({
+    "deliberative reasoning", "mechanism-verified reasoning",
+    "devil's-advocate", "counterfactual reasoning",
+    "multi-timeframe", "anomaly sensing", "interoception", "liquidity sensing",
+    "event/calendar sensing", "data-quality sensing",
+    "autonomy levels", "conviction/fear gating", "risk-appetite regulator",
+    "resource/economy", "survival/self-healing", "sentinel", "smart order routing",
+    "partial-fill loop", "latency/throughput",
+    "genome/phenotype", "self-experiment protocol", "A-B self-testing", "capability self-registry",
+    "external-agent game theory", "human interface", "role-specialized desks",
+    "explanation/summarization",
+    "prediction-error loop", "counterfactual rollouts", "regime-forecasting",
+    "niched variant population", "strategy/feature invention",
+    "info-gain experiment selection", "skill-gap targeting",
+    "graded beliefs", "Bayesian revision", "source grading",
+    "hypothesis pipeline (double-sided)", "uncertainty decomposition", "bet-sizing-as-belief",
+    "risk-preference values", "ethical constraints-as-values",
+    "long-vs-short horizon",
+    "importance scoring", "forgetting/invalidation", "reason ledger",
+    "internet research organ", "data-source prospecting", "access governance gate",
+    "alternative-data connectors", "cache/dedup",
+})
+
+
+def branch_build_status(branch_name: str) -> str:
+    """'built' / 'partial' / 'unbuilt' for one branch — the concept-tree chip colour."""
+    if branch_name in BUILT_BRANCHES:
+        return "built"
+    if branch_name in PARTIAL_BRANCHES:
+        return "partial"
+    return "unbuilt"
+
+
+def atlas_coverage() -> dict:
+    """Atlas build coverage across all ~197 branches — the number the dashboard reports so the
+    build-to-100% program is visible (Rule N/M)."""
+    total = sum(t.branch_count for t in CONCEPT_TREE)
+    built = sum(1 for t in CONCEPT_TREE for b in t.branch_names if b in BUILT_BRANCHES)
+    partial = sum(1 for t in CONCEPT_TREE for b in t.branch_names if b in PARTIAL_BRANCHES)
+    return {
+        "total": total,
+        "built": built,
+        "partial": partial,
+        "unbuilt": total - built - partial,
+        "built_pct": round(100.0 * built / total, 1) if total else 0.0,
+    }

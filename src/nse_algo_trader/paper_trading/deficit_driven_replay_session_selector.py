@@ -34,3 +34,28 @@ def select_deficit_replay_session(
             -candidate[0].toordinal(),  # tie-break: most-recent date first
         ),
     )[0]
+
+
+def select_curiosity_driven_replay_session(
+    classified_candidates: list[tuple[date, MarketRegime]],
+    regime_exploration_priority: dict[str, float],
+) -> date | None:
+    """Curiosity-driven upgrade of the deficit selector (Trunk XII; research/164): pick the candidate
+    whose regime the curiosity engine most wants to LEARN from — i.e. HIGHEST exploration priority
+    (learning-progress + novelty + boredom), not merely least-replayed. Among equal priority, the
+    most-recent date wins. `regime_exploration_priority` is keyed by `MarketRegime.value`; a regime
+    absent from the map counts as 0 priority. Returns None when there are no candidates.
+
+    This is the safe decision-grade consumer of curiosity — it steers what the bot TRAINS ON (replay
+    curriculum), never live sizing. Falls back to coverage-deficit behaviour if no priorities are given."""
+    if not classified_candidates:
+        return None
+    if not regime_exploration_priority:
+        return select_deficit_replay_session(classified_candidates, {})
+    return max(
+        classified_candidates,
+        key=lambda candidate: (
+            regime_exploration_priority.get(candidate[1].value, 0.0),  # highest curiosity first
+            candidate[0].toordinal(),  # tie-break: most-recent date first
+        ),
+    )[0]

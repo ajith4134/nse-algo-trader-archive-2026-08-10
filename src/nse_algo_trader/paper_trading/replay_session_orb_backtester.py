@@ -36,7 +36,7 @@ def backtest_orb_session_return(
     after_trigger = [
         bar for bar in single_session_bars if bar.timestamp > signal.triggered_at
     ]
-    exit_price = _simulate_exit_price(
+    exit_price = simulate_orb_exit_price(
         after_trigger, signal.direction, signal.stop_loss_price, signal.target_price, entry
     )
     if signal.direction is SignalDirection.LONG:
@@ -44,7 +44,7 @@ def backtest_orb_session_return(
     return (entry - exit_price) / entry
 
 
-def _simulate_exit_price(
+def simulate_orb_exit_price(
     bars_after_trigger: list[PriceBar],
     direction: SignalDirection,
     stop_loss_price: float,

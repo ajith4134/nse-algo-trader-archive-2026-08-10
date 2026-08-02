@@ -273,17 +273,38 @@ class TestOpponentLedgerPositioningGate:
             directional_lean="bearish", retail_on_other_side=True, headline="",
         )
 
-    def test_long_breakout_deferred_when_institutions_oppose(self):
-        # institutions bearish + retail trapped long -> a LONG entry is deferred
-        feed = _FakeFeed(_bars_with_long_breakout_still_open(), {STOCK.instrument_token: 101.5})
-        state = _fresh_state()
-        state.market_positioning_bias = self._bearish_divergence_reading()
+    def test_long_breakout_is_SIZED_DOWN_not_blocked_when_institutions_oppose(self):
+        """B16: opposition now sizes the entry DOWN instead of refusing it.
+
+        The old contract asserted the trade was blocked. That behaviour blocked EVERY bullish entry
+        whenever the daily FII lean was bearish — and this book's longs were the profitable side
+        (82 trades / 50% win / +10,282) while the forced shorts carried the whole loss
+        (294 / 9.5% / -45,033). The gate still ACTS (the deferral counter still ticks, the position
+        is smaller); it just no longer deletes a direction.
+        """
+        opposed_state = _fresh_state()
+        opposed_state.market_positioning_bias = self._bearish_divergence_reading()
         now = datetime(2026, 7, 24, 11, 0, tzinfo=IST)
-        report = run_live_universe_scan_pass(state, [STOCK], feed, RISK, now,
-                                             market_clock=NseMarketClock())
-        assert report.newly_opened_count == 0
-        assert state.positioning_deferred_count == 1
-        assert STOCK.instrument_token not in state.open_positions
+        run_live_universe_scan_pass(
+            opposed_state, [STOCK],
+            _FakeFeed(_bars_with_long_breakout_still_open(), {STOCK.instrument_token: 101.5}),
+            RISK, now, market_clock=NseMarketClock())
+
+        unopposed_state = _fresh_state()  # bias None -> full size
+        run_live_universe_scan_pass(
+            unopposed_state, [STOCK],
+            _FakeFeed(_bars_with_long_breakout_still_open(), {STOCK.instrument_token: 101.5}),
+            RISK, now, market_clock=NseMarketClock())
+
+        assert STOCK.instrument_token in opposed_state.open_positions, (
+            "an opposed LONG must still be TAKEN, only smaller"
+        )
+        assert opposed_state.positioning_deferred_count == 1, "the gate must still act + count"
+        opposed_qty = opposed_state.open_positions[STOCK.instrument_token].quantity
+        full_qty = unopposed_state.open_positions[STOCK.instrument_token].quantity
+        assert 0 < opposed_qty < full_qty, (
+            f"opposed size {opposed_qty} must be smaller than unopposed {full_qty}"
+        )
 
     def test_long_breakout_opens_when_positioning_neutral(self):
         # control: no opposition -> the same breakout opens as normal

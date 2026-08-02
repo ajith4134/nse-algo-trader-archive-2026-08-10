@@ -61,6 +61,18 @@ class ClosedExperiment:
     # lesson override live evidence. Defaults to "live" for back-compat (every
     # experience recorded before the watermark existed was a real live one).
     data_provenance: str = "live"
+    # B23c: how far into profit / loss this trade ACTUALLY went before it closed (rupees), and
+    # whether the ratcheting profit trail is what closed it. These are what let the brain ask
+    # "do we exit too early?" — `maximum_favourable_profit` far above `realized_pnl`, repeatedly,
+    # is the evidence that targets cap runs; `maximum_adverse_profit` near zero on winners is the
+    # evidence that stops are wider than they need to be. Default 0.0 for rows written before the
+    # excursion watermark existed (they simply were not measured).
+    maximum_favourable_profit: float = 0.0
+    maximum_adverse_profit: float = 0.0
+    exited_on_profit_trail: bool = False
+    #: B28: real round-trip cost in rupees. `realized_pnl` stays GROSS; net = realized_pnl - fees.
+    #: Kept separate so a gross figure can never be silently presented as net.
+    total_fees: float = 0.0
     # The ADX MARKET regime the session traded in (§53 slice 5b): "trending" /
     # "range_bound" / "indecisive" / "unknown". Distinct from `regime_context` (the
     # calendar context). This is the axis the deficit-driven curriculum varies and the
@@ -203,6 +215,8 @@ class ExperienceMemory(Protocol):
 
     def recent_closed_experiences(self, limit: int = 50) -> list[dict]: ...
 
+    def realized_pnl_by_assigned_table(self) -> dict[str, dict[str, float]]: ...
+
     def calibration_by_market_regime(
         self, strategy_tag: str | None = None, minimum_experiments: int = 1
     ) -> list[MarketRegimeCalibration]: ...
@@ -293,4 +307,10 @@ def build_closed_experiment(
         kill_criteria=record.kill_criteria,
         data_provenance=data_provenance,
         market_regime=market_regime,
+        maximum_favourable_profit=getattr(closed_trade, "maximum_favourable_profit", 0.0),
+        maximum_adverse_profit=getattr(closed_trade, "maximum_adverse_profit", 0.0),
+        exited_on_profit_trail=bool(
+            getattr(closed_trade, "exited_on_profit_trail", False)
+        ),
+        total_fees=getattr(closed_trade, "total_fees", 0.0),
     )
