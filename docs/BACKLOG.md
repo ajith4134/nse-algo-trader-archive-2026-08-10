@@ -2608,11 +2608,19 @@ PASS + REAL end-to-end subscription call verified (Rule F).
   `_SubscriptionTransportTelemetry` counter in `claude_code_subscription_provider.py`; surface shows
   `warm W · cold C` from the ACTUAL serving pool. Rule-F: 3 real serves counted + in-process
   `_build_feature_surfaces()` rendered `transport='warm 1 · cold 0'`. +3 hermetic tests.
-- 🟡 PARTIAL — confirm `total_cost_usd` from the Agent SDK ResultMessage is telemetry, not subscription
-  billing. Evidence gathered 2026-08-02: `rateLimitTier=default_claude_max_5x`; SDK `RateLimitInfo` exposes
-  `utilization`/`resets_at`/`overage_status` (usage-window governor, not a $ balance), so `total_cost_usd`
-  reads as equivalent-API-cost telemetry. Remaining: watch one full billing/usage cycle to confirm no
-  balance is drawn down; wire `RateLimitInfo.utilization`/`resets_at` onto the panel as a cap gauge.
+- 🟢 DONE 2026-08-02 — confirm `total_cost_usd` is telemetry, not billing. **CONFIRMED by official docs**
+  (`agent-sdk/cost-tracking`: "client-side estimates, not authoritative billing data… do not trigger
+  financial decisions") + practitioners measured it 2×–100× wrong. Subscription = rolling 5h+weekly USAGE
+  window, not dollars. Full deep-research (3 agents, all-grade-A Anthropic sources) saved to
+  `docs/research/subscription_billing_model_2026-08-02.md`. ToS: personal single-user SDK automation of your
+  OWN subscription is a SUPPORTED path (`claude setup-token`); the "use API key" rule targets multi-tenant
+  products — does not apply to this personal project.
+  - 🔴 FOLLOW-UP (a): mint a one-year token via `claude setup-token` → `CLAUDE_CODE_OAUTH_TOKEN` on the VPS
+    so the always-on subscription lane survives without interactive re-login. (Task #3.)
+  - 🔴 FOLLOW-UP (b): watch for the PAUSED Agent-SDK dollar-credit split returning (would cap our lane at
+    $100/mo Max-5x then stop unless overage on) — revisit lead-lane choice if it ships. (Task #4.)
+  - 🔴 FOLLOW-UP (c): surface `RateLimitInfo.utilization`/`resets_at` as a cap gauge on the LLM Gateway
+    panel — the real governor is window utilization, not cost. (Task #5.)
 - 🔴 OWED — **lint debt**: `dashboard/live_paper_trading_service.py` carries 23 PRE-EXISTING ruff
   violations (19 F841 unused-vars, 2 SIM118, 1 SIM105, 1 B905) present in committed HEAD, unrelated to B48.
   The gate checks changed regions so they never blocked; clean them (F841 may hide dead computations).
