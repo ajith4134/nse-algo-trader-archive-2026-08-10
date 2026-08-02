@@ -2593,12 +2593,23 @@ streaming, grounded in real state via read-only tools + idea-#5 memory) → idea
 trades (propose→confirm→risk-gate for any action); never expose secrets. Reuse existing dashboard_server/
 render_dashboard_html/feature-surface + add /chat stream. Build-time: dataviz skill for the panel.
 
-## B48 — Build order + slice 0.1 DONE (LLM gateway subscription lane) — 🟢 + 🔴 owed
+## B48 — Build order + slice 0.1 DONE (LLM gateway subscription lane) — 🟢 warm client DONE + 🔴 owed
 `docs/MASTER_BUILD_ORDER.md` created (reuse-first, combines existing 289-module bot + 9 ideas + 3 gaps).
 Auto-plugin-routing hook added (UserPromptSubmit → frontend-design/dataviz/etc self-invoke). SLICE 0.1 ✅:
 `llm_strategy/claude_code_subscription_provider.py` built + wired first in the pool + 8 tests + quality-gate
-PASS + REAL end-to-end subscription call verified (Rule F). Owed: warm-persistent SDK client (speed opt);
-Ollama+cloud lane + cap→fallback integration test; confirm costUSD is telemetry not billing.
+PASS + REAL end-to-end subscription call verified (Rule F).
+- 🟢 DONE 2026-08-02 — **warm-persistent SDK client + cap→fallback test**:
+  `llm_strategy/warm_claude_subscription_session.py` (ClaudeSDKClient on an anyio BlockingPortal, per-call
+  session isolation, reconnect, self-disable). Provider warm-first + cold fallback. REAL Rule-F: cold
+  6.39s → warm 2.03s (×3.2). 7 hermetic tests incl. cap→fail-over through the real swappable pool.
+  Dashboard `transport` metric surfaced + eye-verified. Design `docs/research/b48_warm_persistent_
+  subscription_client_2026-08-02.md`.
+- 🔴 OWED — **live transport telemetry**: the LLM Gateway panel shows the *configured* transport
+  (warm/cold from env), not a per-call live flag, because `_strategic_llm` builds a fresh pool each render.
+  Wire a shared warm-session singleton + served-call counter into the ACTUAL serving pool so the panel
+  reports real warm/cold ratio + served-call count. (Task created.)
+- 🔴 OWED — confirm `costUSD` from the Agent SDK ResultMessage is telemetry, not subscription billing
+  (spec §8 assumption); verify against one billing cycle.
 - 🔴 OWED (WebSearch reset): fresh deep-research on INSTITUTIONAL-GRADE code standards (user's new #1 rule);
   anchor exists = docs/research/155 (SOTA depth bar).
 

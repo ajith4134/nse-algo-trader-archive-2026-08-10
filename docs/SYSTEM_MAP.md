@@ -13,10 +13,10 @@ moves file-to-file inside it" without grepping the tree.
 - **Generated from the real code** (AST import graph), not memory — so it is
   true to what is actually on the server. Last regenerated: **2026-07-27** (nodes + edges reconciled
   against the §0 extractor — every feature package has a node, every material data-flow edge drawn).
-- **290 Python modules across 25 feature packages** (`src/nse_algo_trader/`; +1 top-level `__init__`): broker_credentials(3),
+- **291 Python modules across 25 feature packages** (`src/nse_algo_trader/`; +1 top-level `__init__`): broker_credentials(3),
   broker_sessions(9), universe_registry(6), market_data(33), indicators(13), strategy_engine(10),
   risk_management(6), broker_oms(8), paper_trading(57), session_management(3), dashboard(12),
-  memory_reflection(7), participant_positioning(5), llm_strategy(16), conscience(15), sentience(10), epistemics(3), predictive_core(13), society(3), news_sentiment(22), axiology(3), will(3), capital_allocation(9), intrinsic_motivation(6), autopoiesis(14).
+  memory_reflection(7), participant_positioning(5), llm_strategy(17), conscience(15), sentience(10), epistemics(3), predictive_core(13), society(3), news_sentiment(22), axiology(3), will(3), capital_allocation(9), intrinsic_motivation(6), autopoiesis(14).
 
 > **Build-order slice 0.0 (idea #10 Kite-decouple, 2026-08-02):** moved the ONLY Kite leak outside the
 > broker seam — `dashboard_server._build_authenticated_kite_client`'s `from kiteconnect import KiteConnect`
@@ -473,6 +473,24 @@ queued, calibration-gated next slice (research/96).
 
 ## §4 · MAINTENANCE LEDGER
 
+- **2026-08-02 (B48 — warm-persistent subscription client; ~3× faster LLM lane + cap→fallback verified)**
+  — the subscription lane cold-spawned a fresh `claude` subprocess per call (~4–9 s). New engine
+  `llm_strategy/warm_claude_subscription_session.py` (291 modules; llm_strategy 16→17) keeps ONE
+  `ClaudeSDKClient` alive on an `anyio` `BlockingPortal` background loop, with per-call `session_id`
+  isolation (no context bleed), reconnect-on-transport-death, start-failure self-disable, and `atexit`
+  teardown. `ClaudeCodeSubscriptionProvider` now tries warm first and falls back to the cold one-shot path
+  on `WarmSessionUnavailable` (start/transport death) — a usage CAP still propagates as
+  `LlmRateLimitError` so the pool fails the lane over. Design `docs/research/b48_warm_persistent_
+  subscription_client_2026-08-02.md`. **Verified REAL (Rule F):** live subscription cold #1=6.39s vs
+  warm-best=2.03s → ×3.2, all served by `claude-code-subscription·claude-haiku-4-5`
+  (`scripts/probe_warm_subscription_latency.py`). **Hermetic (Rule J):** 7 tests — connect-once,
+  session-per-call isolation, reconnect-once, permanent-death→fallback, connect-failure→disable, +
+  cap→fail-over through the REAL `SwappableMultiProviderLlmClient`. Dashboard (Rule N): `transport`
+  metric (`warm-persistent`) surfaced on the LLM Gateway panel, eye-verified. No new graph node/edge
+  (internal to llm_strategy). Gate: ruff+mypy clean, suite green. **Queued (Rule K, BACKLOG):** live
+  warm/cold transport telemetry from the ACTUAL serving provider (panel shows the *configured* transport
+  today, not a per-call live flag — needs a shared warm-session singleton + counter wired to the serving
+  pool).
 - **2026-08-02 (B49 fix — LLM Gateway PROMINENT panel; the subscription lane made visible)** — the
   earlier B49 slice surfaced the subscription-led cost ladder only as one row buried deep in the
   Feature-coverage table — the user reported "nothing changed" because the change sat below the fold.

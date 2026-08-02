@@ -103,11 +103,25 @@ class ClaudeCodeSubscriptionProvider:
     `sdk_query` is injected (defaults to the real SDK) so tests exercise the parse/error mapping behind a
     DI seam without spending subscription usage (Rule J)."""
 
-    def __init__(self, model_name: str = DEFAULT_SUBSCRIPTION_MODEL, sdk_query: Any = None) -> None:
+    def __init__(
+        self,
+        model_name: str = DEFAULT_SUBSCRIPTION_MODEL,
+        sdk_query: Any = None,
+        warm_session: Any = None,
+    ) -> None:
         self.provider_name = "claude-code-subscription"
         self.model_name = model_name
         self._sdk_query = sdk_query  # None → resolve the real SDK lazily (import only when actually used)
         self._ClaudeAgentOptions: Any = None
+        # Warm-persistent transport (B48): keeps one `claude` subprocess alive across calls so only the
+        # first call pays cold start. Injected for tests; else built lazily from the real SDK. The cold
+        # one-shot path stays the fallback, so a warm-start failure DEGRADES (never halts) the lane.
+        self._warm_session = warm_session
+        self._warm_disabled = os.environ.get(
+            "CLAUDE_SUBSCRIPTION_WARM_DISABLED", ""
+        ).strip().lower() in {"1", "true", "yes"}
+        self._warm_build_failed = False
+        self.last_transport = "cold"  # 'warm' | 'cold' — surfaced on the LLM Gateway dashboard panel
 
     def _resolve_query(self):
         if self._sdk_query is not None:
@@ -132,15 +146,61 @@ class ClaudeCodeSubscriptionProvider:
             system_prompt=(request.system_instruction
                            + "\nReply with ONLY a single JSON object matching the required schema. No prose."),
         )
-        prompt = (f"{request.user_prompt}\n\nRequired JSON schema:\n{json.dumps(request.response_json_schema)}")
+        prompt = self._build_prompt(request)
         messages: list[Any] = []
         async for msg in query(prompt=prompt, options=opts):
             messages.append(msg)
         return _extract_text_and_model(messages)
 
+    def _get_warm_session(self) -> Any:
+        """The warm session, or None to force the cold path. Warm only when driving the REAL SDK
+        (`sdk_query is None`) — the injected-test path is one-shot by design. A build failure disables warm
+        for the process (cold-path thereafter), never crashes."""
+        if self._warm_disabled or self._warm_build_failed:
+            return None
+        if self._warm_session is not None:
+            return self._warm_session
+        if self._sdk_query is not None:
+            return None  # injected fake query → no warm subprocess to keep alive
+        try:
+            from nse_algo_trader.llm_strategy.warm_claude_subscription_session import (
+                WarmClaudeSubscriptionSession,
+            )
+
+            self._warm_session = WarmClaudeSubscriptionSession(self.model_name)
+            return self._warm_session
+        except Exception:  # noqa: BLE001 — no warm engine available → degrade to cold, never halt
+            self._warm_build_failed = True
+            return None
+
+    def _invoke(self, request: StrategyLlmRequest) -> tuple[str, str]:
+        """Pick transport: warm-persistent first, cold one-shot as the fallback. Raises raw vendor errors
+        (mapped by the caller). A `WarmSessionUnavailable` (start/transport death) silently drops to cold —
+        a usage cap does NOT, so it can fail the whole lane over to the next provider."""
+        from nse_algo_trader.llm_strategy.warm_claude_subscription_session import (
+            WarmSessionUnavailable,
+        )
+
+        warm = self._get_warm_session()
+        if warm is not None:
+            try:
+                prompt = self._build_prompt(request)
+                text, model = warm.run_structured(
+                    request.system_instruction, prompt, self.model_name, _extract_text_and_model
+                )
+                self.last_transport = "warm"
+                return text, model
+            except WarmSessionUnavailable:
+                pass  # warm cannot serve → fall through to cold on the same subscription
+        self.last_transport = "cold"
+        return anyio.run(self._run, request)
+
+    def _build_prompt(self, request: StrategyLlmRequest) -> str:
+        return f"{request.user_prompt}\n\nRequired JSON schema:\n{json.dumps(request.response_json_schema)}"
+
     def generate_structured(self, request: StrategyLlmRequest) -> StrategyLlmResponse:
         try:
-            text, model = anyio.run(self._run, request)
+            text, model = self._invoke(request)
         except (LlmProviderUnavailableError, LlmRateLimitError, LlmResponseFormatError):
             raise
         except Exception as exc:  # noqa: BLE001 — translate ANY vendor error into a pool-failover signal

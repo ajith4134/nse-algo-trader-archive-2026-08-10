@@ -1633,9 +1633,14 @@ class LivePaperTradingService:
             lead_model = getattr(lead, "model_name", "") or ""
             lead_label = f"{lead.provider_name}" + (f" · {lead_model}" if lead_model else "")
             leads_with_subscription = lead.provider_name == "claude-code-subscription"
+            warm_on = _os.environ.get(
+                "CLAUDE_SUBSCRIPTION_WARM_DISABLED", ""
+            ).strip().lower() not in {"1", "true", "yes"}
+            transport_label = "warm-persistent" if (leads_with_subscription and warm_on) else "cold one-shot"
             ladder_note = (
-                "Flat-cost Claude Max/Pro subscription leads (Haiku); auto-fails-over local→free-cloud→"
-                "paid on cap. " if leads_with_subscription else
+                "Flat-cost Claude Max/Pro subscription leads (Haiku), warm-persistent client "
+                "(~3× faster than cold start); auto-fails-over local→free-cloud→paid on cap. "
+                if leads_with_subscription else
                 "Cost-ladder pool (local→free-cloud→paid). "
             )
             names = ", ".join(p.provider_name for p in pool[:6]) + (
@@ -1648,6 +1653,7 @@ class LivePaperTradingService:
                     status="active",
                     metrics=(("providers", str(configured)),
                              ("lead lane", lead_label),
+                             ("transport", transport_label),
                              ("pool", names),
                              ("served by", reflection.served_by),
                              ("findings", str(len(reflection.findings))),
@@ -1661,6 +1667,7 @@ class LivePaperTradingService:
                 status="gathering",
                 metrics=(("providers", str(configured)),
                          ("lead lane", lead_label),
+                         ("transport", transport_label),
                          ("pool", names)),
                 note=ladder_note + "Swap-on-limit pool ready; reflection runs on a daily cadence. "
                      "Advisory (read-only); gate consumption queued.",

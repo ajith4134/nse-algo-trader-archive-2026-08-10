@@ -817,7 +817,7 @@ function renderLive(snap){
     document.getElementById('llmLadder').innerHTML=pool.map((p,i)=>
       `<span class="lane${i===0?' lead':''}"><span class="rank">${i+1}</span>${p}</span>`+
       (i<pool.length-1?'<span class="sep">›</span>':'')).join('');
-    const lk=[['providers',mget('providers')||'—'],['served by',mget('served by')||'idle'],['findings',mget('findings')||'0'],['status',llm.status]];
+    const lk=[['providers',mget('providers')||'—'],['transport',mget('transport')||'—'],['served by',mget('served by')||'idle'],['status',llm.status]];
     document.getElementById('llmkpis').innerHTML=lk.map(([k,v])=>
       `<div class="minikpi"><div class="lab">${k}</div><div class="v">${v}</div></div>`).join('');
     document.getElementById('llmnote').textContent=llm.note||'';

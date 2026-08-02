@@ -11,14 +11,20 @@ from nse_algo_trader.llm_strategy.llm_provider_registry import (
 
 
 def build_free_tier_provider_pool(env, **kwargs):
-    """Hermetic wrapper (Rule J): suppress the LOCAL rung unless a test opts into it.
+    """Hermetic wrapper (Rule J): suppress the LOCAL rung AND the Claude subscription rung unless a
+    test opts into them.
 
     The real builder probes `localhost:11434` for an on-box Ollama server, so without this seam
     every assertion below would depend on whether the developer's machine happens to be serving a
     model — a test that passes on one box and fails on another. Local-rung behaviour is asserted
     explicitly in the dedicated tests at the bottom of this file.
+
+    The subscription rung (`claude-code-subscription`) is prepended FIRST in production (B48, so the
+    flat-cost lane leads). These tests bind the FREE-TIER ordering specifically, so we disable the
+    subscription lane here; its own placement is covered in the subscription/gateway tests.
     """
     kwargs.setdefault("local_provider_factory", lambda env: None)
+    kwargs.setdefault("subscription_provider_factory", lambda env: None)
     return _build_pool_under_test(env, **kwargs)
 
 # The keyless anonymous last-resort tier always joins the pool (even with no keys), pinned
@@ -114,7 +120,8 @@ def _local(_env):
 
 def test_local_rung_leads_when_the_market_is_CLOSED():
     pool = _build_pool_under_test(
-        {"GROQ_API_KEY": "g"}, market_is_open=False, local_provider_factory=_local
+        {"GROQ_API_KEY": "g"}, market_is_open=False, local_provider_factory=_local,
+        subscription_provider_factory=lambda env: None,
     )
     assert [p.provider_name for p in pool][0] == "ollama-local", "off-market must try local first"
 
@@ -136,7 +143,8 @@ def test_local_rung_yields_to_free_cloud_while_the_market_is_OPEN():
 def test_absent_local_server_simply_omits_the_rung():
     """An unreachable on-box server is a NORMAL state, not an outage: the pool must be unaffected."""
     pool = _build_pool_under_test(
-        {"GROQ_API_KEY": "g"}, market_is_open=False, local_provider_factory=lambda env: None
+        {"GROQ_API_KEY": "g"}, market_is_open=False, local_provider_factory=lambda env: None,
+        subscription_provider_factory=lambda env: None,
     )
     assert "ollama-local" not in [p.provider_name for p in pool]
     assert [p.provider_name for p in pool] == ["groq"] + KEYLESS_TAIL
@@ -148,6 +156,7 @@ def test_local_rung_never_outranks_free_cloud_by_accident_when_clock_unspecified
 
     monkeypatch.setattr(registry, "_local_rung_leads", lambda _: True)
     pool = registry.build_free_tier_provider_pool(
-        {"GROQ_API_KEY": "g"}, local_provider_factory=_local
+        {"GROQ_API_KEY": "g"}, local_provider_factory=_local,
+        subscription_provider_factory=lambda env: None,
     )
     assert [p.provider_name for p in pool][0] == "ollama-local"
