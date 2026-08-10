@@ -8,7 +8,7 @@ than duplicates, so jobs can be re-run safely.
 
 import math
 import sqlite3
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from enum import Enum
 from pathlib import Path
 
@@ -26,6 +26,26 @@ DEFAULT_MARKET_DATA_DB_FILE_PATH = Path(
     "~/.nse_algo_trader/market_data.sqlite3"
 ).expanduser()
 
+#: L0 bitemporal truth (research/167): how long after its OPEN a bar CLOSES — i.e. the earliest moment the
+#: bar became actionable ("availability time"). A 5-min bar stamped 09:15 is only knowable at 09:20.
+_BAR_INTERVAL_DURATION: dict[BarInterval, timedelta] = {
+    BarInterval.SECOND_1: timedelta(seconds=1),
+    BarInterval.MINUTE_1: timedelta(minutes=1),
+    BarInterval.MINUTE_3: timedelta(minutes=3),
+    BarInterval.MINUTE_5: timedelta(minutes=5),
+    BarInterval.MINUTE_10: timedelta(minutes=10),
+    BarInterval.MINUTE_15: timedelta(minutes=15),
+    BarInterval.MINUTE_30: timedelta(minutes=30),
+    BarInterval.MINUTE_60: timedelta(minutes=60),
+    BarInterval.DAY_1: timedelta(days=1),
+}
+
+
+def bar_availability_time(bar_open_timestamp: datetime, bar_interval: BarInterval) -> datetime:
+    """The earliest moment a completed bar could be acted on = its CLOSE (open + one interval). This is the
+    honest availability time that keeps a backtest from reading a bar before it existed (research/167)."""
+    return bar_open_timestamp + _BAR_INTERVAL_DURATION.get(bar_interval, timedelta(0))
+
 
 class DealDisclosureKind(str, Enum):
     BULK_DEAL = "bulk"
@@ -40,6 +60,7 @@ _TABLE_CREATION_STATEMENTS = [
         open_price REAL NOT NULL, high_price REAL NOT NULL,
         low_price REAL NOT NULL, close_price REAL NOT NULL,
         volume INTEGER NOT NULL, open_interest INTEGER,
+        availability_time TEXT,
         PRIMARY KEY (instrument_token, bar_interval, bar_timestamp))""",
     """CREATE TABLE IF NOT EXISTS cash_bhavcopy_delivery (
         trade_date TEXT NOT NULL, symbol TEXT NOT NULL, series TEXT NOT NULL,
@@ -92,20 +113,56 @@ class MarketDataSqliteStore:
         for table_creation_statement in _TABLE_CREATION_STATEMENTS:
             self._connection.execute(table_creation_statement)
         self._connection.commit()
+        self._migrate_price_bars_availability_time()
+
+    def _migrate_price_bars_availability_time(self) -> None:
+        """L0 bitemporal upgrade (research/167): a store created before availability_time existed gets the
+        column added + every existing bar backfilled to its close time (open + interval). Idempotent — the
+        column add is guarded by a schema check and the backfill only touches NULLs."""
+        columns = {
+            row[1] for row in self._connection.execute("PRAGMA table_info(price_bars)")
+        }
+        if "availability_time" not in columns:  # pre-migration DB (column added to CREATE for new DBs)
+            self._connection.execute("ALTER TABLE price_bars ADD COLUMN availability_time TEXT")
+            self._connection.commit()
+        null_rows = self._connection.execute(
+            "SELECT rowid, bar_timestamp, bar_interval FROM price_bars WHERE availability_time IS NULL"
+        ).fetchall()
+        if not null_rows:
+            return
+        updates = [
+            (
+                bar_availability_time(
+                    datetime.fromisoformat(bar_timestamp), BarInterval(bar_interval)
+                ).isoformat(),
+                rowid,
+            )
+            for rowid, bar_timestamp, bar_interval in null_rows
+        ]
+        self._connection.executemany(
+            "UPDATE price_bars SET availability_time=? WHERE rowid=?", updates
+        )
+        self._connection.commit()
 
     def close(self) -> None:
         self._connection.close()
 
     # -- price bars ---------------------------------------------------------
 
-    def save_price_bars(self, price_bars: list[PriceBar]) -> None:
+    def save_price_bars(
+        self, price_bars: list[PriceBar], availability_time: datetime | None = None
+    ) -> None:
+        """Persist bars with their availability_time (research/167). Default = each bar's CLOSE time (the
+        honest earliest actionable moment); a live feed may pass an explicit LATER receipt time (never
+        earlier — that would manufacture look-ahead)."""
         self._connection.executemany(
-            "INSERT OR REPLACE INTO price_bars VALUES (?,?,?,?,?,?,?,?,?)",
+            "INSERT OR REPLACE INTO price_bars VALUES (?,?,?,?,?,?,?,?,?,?)",
             [
                 (
                     bar.instrument_token, bar.interval.value,
                     bar.timestamp.isoformat(), bar.open_price, bar.high_price,
                     bar.low_price, bar.close_price, bar.volume, bar.open_interest,
+                    (availability_time or bar_availability_time(bar.timestamp, bar.interval)).isoformat(),
                 )
                 for bar in price_bars
             ],
@@ -118,7 +175,11 @@ class MarketDataSqliteStore:
         bar_interval: BarInterval,
         from_timestamp: datetime | None = None,
         to_timestamp: datetime | None = None,
+        as_of: datetime | None = None,
     ) -> list[PriceBar]:
+        """Load stored bars. `as_of` (L0 bitemporal, research/167) returns ONLY bars that had already become
+        available (closed) by that instant — the structural look-ahead guard for replay/backtest: a replay
+        at clock T never sees a bar that closes after T. `as_of=None` is the live/real-time behaviour."""
         query = (
             "SELECT instrument_token, bar_interval, bar_timestamp, open_price,"
             " high_price, low_price, close_price, volume, open_interest"
@@ -131,6 +192,9 @@ class MarketDataSqliteStore:
         if to_timestamp is not None:
             query += " AND bar_timestamp <= ?"
             query_parameters.append(to_timestamp.isoformat())
+        if as_of is not None:
+            query += " AND availability_time <= ?"
+            query_parameters.append(as_of.isoformat())
         query += " ORDER BY bar_timestamp"
         return [
             PriceBar(

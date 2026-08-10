@@ -204,3 +204,32 @@ seeded with no signal is not re-checked for a later breakout — most ORB
 breakouts are early, but this is a known gap); options/credit-spread OPEN
 path (ladders priced, entry rule pending); replay-when-closed in the
 service (idles when market shut for now).
+
+**OPEN POSITIONS regrouped by SEGMENT (2026-08-03, Rule L).** The three open-positions tables now
+split by trading segment — `cash`→**Cash Intraday**, `index_option`→**Option Index**,
+`stock_option`→**Option Stocks** — instead of by §9 confidence. Each open row carries a new **Table**
+column badge preserving its confidence class (conf-WIN / conf-LOSS probe / uncertain) so a deliberate
+loss-probe is never misread as a real losing position; an "Other / unclassified" table catches any
+position with an unknown segment (Rule K). Validated segment badge palette (`.tag.seg-cash/-idx/-stk`).
+Data flow unchanged upstream: `open_positions[]` in the published snapshot already carry `.segment` +
+`.assigned_table`; the change is purely in `render_dashboard_html`'s client-side grouping. Closed-trades
+table keeps its confidence tags. Rule-F verified on 8 live cash positions.
+
+**LLM Gateway — Haiku-4-5 token consumption KPI (2026-08-03).** The
+`strategic_llm_analyst` surface now carries a `tokens` metric and the panel a
+`TOKENS (HAIKU-4-5)` KPI. Data flow:
+`ClaudeCodeSubscriptionProvider.generate_structured` → `_invoke` (warm/cold)
+→ `_extract_text_and_model(messages)` folds each serve's REAL SDK token
+`usage` into the process-wide `_TOKEN_LEDGER`
+(`_SubscriptionTokenLedger`, keyed by canonical model:
+input/output/cache-read/cache-write + serve/call count + cache-hit serves) →
+`subscription_token_ledger()` → `_strategic_llm` builds the label
+`"<total> tok · <calls> call · in .. · out .. · cache-read .. (<hits> hit, <pct>%) · cache-write .."`
+→ `render_dashboard_html` KPI row. Recorded ONCE per serve (largest of the
+Assistant/Result `usage` dicts → no double-count); flat int fields harvested
+directly so the nested `server_tool_use` dict + `service_tier` string are
+ignored. Same-process as the serving pool (the dashboard server runs
+`LivePaperTradingService` in-thread), so counts are live, exactly like the
+warm/cold transport telemetry. Rule-F verified on a real serve
+(`21,085 tok · 1 call · cache-read 18.5k, 1 hit 100%`); shows
+`0 (idle · 0 calls)` truthfully until the first real serve of the process.

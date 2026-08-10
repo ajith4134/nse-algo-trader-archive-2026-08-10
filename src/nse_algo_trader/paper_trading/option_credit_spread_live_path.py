@@ -153,6 +153,9 @@ class OpenDirectionalOptionPosition:
     #: B23: excursion + ratcheting profit lock (a bought option profits as the premium RISES).
     excursion: PositionProfitExcursion = dc_field(default_factory=PositionProfitExcursion)
     profit_trail: ProfitTrailState = dc_field(default_factory=ProfitTrailState)
+    #: research/171: ITM/ATM/OTM — the moneyness of THIS strike, so the ladder coexists per underlying
+    #: (the position store is keyed by underlying|moneyness) and each moneyness earns its own edge verdict.
+    moneyness: str = "ATM"
 
     def unrealized_pnl(self, price_by_token: dict) -> float | None:
         ltp = price_by_token.get(self.option.instrument_token)
@@ -468,6 +471,13 @@ def try_open_option_position_for_underlying(
     if not state.power_budget_permits_order(now):
         state.record_option_entry_outcome(underlying_symbol, "gate_power_budget", "", now)
         return False  # Trunk VII power budget: daily action-throughput budget spent
+    if not state.cost_gate_permits_credit_spread(
+        spread_segment, short_px, hedge_px, signal.short_leg.instrument.lot_size, lots,
+    ):
+        state.record_option_entry_outcome(
+            underlying_symbol, "gate_cost_below_breakeven", f"credit={net_credit:.2f}", now
+        )
+        return False  # REDESIGN L1 cost gate: net credit below both-leg round-trip breakeven
 
     # Open atomically (hedge BUY first) on the sim broker with real prices.
     for leg in (signal.short_leg, signal.hedge_leg):
@@ -541,6 +551,37 @@ def manage_open_credit_spreads(state, live_universe_feed, now: datetime) -> int:
     return closed
 
 
+def select_directional_strike(candidates, spot_price, want_right, moneyness, ladder_steps=1):
+    """Pick ONE strike off the ladder by moneyness (research/171). ATM = nearest to spot; ITM =
+    `ladder_steps` toward the money, OTM = away — direction depends on the right (CE: ITM below spot / OTM
+    above; PE: ITM above / OTM below). Clamps to the available strikes; None if no candidates."""
+    from nse_algo_trader.strategy_engine import OptionMoneyness
+
+    if not candidates:
+        return None
+    ordered = sorted(candidates, key=lambda o: o.strike_price)
+    atm_index = min(range(len(ordered)), key=lambda i: abs(ordered[i].strike_price - spot_price))
+    if moneyness is OptionMoneyness.AT_THE_MONEY:
+        return ordered[atm_index]
+    toward_money = -1 if want_right == "CE" else +1  # CE ITM = lower strike; PE ITM = higher strike
+    step = toward_money if moneyness is OptionMoneyness.IN_THE_MONEY else -toward_money
+    index = max(0, min(len(ordered) - 1, atm_index + step * max(1, ladder_steps)))
+    return ordered[index]
+
+
+def directional_moneyness_for_conviction(adx_value):
+    """Moneyness by trend conviction (reuses the 27/30 ADX bands, no new thresholds): a stronger trend
+    justifies the cheaper, more-leveraged OTM; a weaker trend takes the delta-safer ITM; the middle takes
+    ATM. Spreads directional buys across ITM/ATM/OTM organically by each underlying's own trend strength."""
+    from nse_algo_trader.strategy_engine import OptionMoneyness
+
+    if adx_value >= 30.0:
+        return OptionMoneyness.OUT_OF_THE_MONEY
+    if adx_value >= 27.0:
+        return OptionMoneyness.AT_THE_MONEY
+    return OptionMoneyness.IN_THE_MONEY
+
+
 def _try_open_directional_option(
     state, underlying_symbol, spot_instrument, spot_bars, underlying_options,
     price_by_token, adx_value, now, risk_budget: RiskBudgetConfig,
@@ -572,128 +613,114 @@ def _try_open_directional_option(
     if not candidates:
         state.record_option_entry_outcome(underlying_symbol, "directional_no_candidates", "", now)
         return False
-    atm = min(candidates, key=lambda o: abs(o.strike_price - spot_price))
-    premium = price_by_token.get(atm.instrument_token)
-    if premium is None or premium <= 0:
-        state.record_option_entry_outcome(underlying_symbol, "directional_premium_missing", "", now)
-        return False
+    from nse_algo_trader.strategy_engine import OptionMoneyness
 
-    # B7: risk-size the long option instead of hard-coding 1 lot. For a bought option the max loss
-    # IS the premium paid, so the whole premium outlay per lot is the risk AND the margin.
-    premium_outlay_per_lot = premium * atm.lot_size
+    # research/171: trade the FULL moneyness ladder per breakout — ITM + ATM + OTM, both CE (up) and PE
+    # (down), across index AND stock options. Each rung is a separate gated PAPER position keyed by
+    # (underlying|moneyness) so all three coexist; validation decides which moneyness ever earns capital.
+    opened_any = False
+    for moneyness in (
+        OptionMoneyness.IN_THE_MONEY, OptionMoneyness.AT_THE_MONEY, OptionMoneyness.OUT_OF_THE_MONEY,
+    ):
+        chosen = select_directional_strike(candidates, spot_price, want_right, moneyness)
+        if chosen is None:
+            continue
+        if _open_one_directional_strike(
+            state, underlying_symbol, chosen, signal, spot_price, adx_value, now, risk_budget,
+            price_by_token, moneyness.value,
+        ):
+            opened_any = True
+    if not opened_any:
+        state.record_option_entry_outcome(underlying_symbol, "directional_no_strike_opened", "", now)
+    return opened_any
+
+
+def _open_one_directional_strike(
+    state, underlying_symbol, chosen_option, signal, spot_price, adx_value, now, risk_budget,
+    price_by_token, moneyness_label,
+) -> bool:
+    """Open ONE directional long option at `chosen_option` through every gate (research/171). Keyed by
+    (underlying|moneyness) so the ITM/ATM/OTM ladder coexists per underlying. A per-rung gate failure
+    returns False (that rung is skipped); the other rungs still try. Returns True iff this rung opened.
+
+    Max loss on a bought option IS the premium paid, so the premium outlay per lot is both the risk and the
+    margin for sizing."""
+    premium = price_by_token.get(chosen_option.instrument_token)
+    if premium is None or premium <= 0:
+        return False
+    premium_outlay_per_lot = premium * chosen_option.lot_size
     risk_approved_option_lots = size_defined_risk_spread_lots(
         worst_case_structural_loss_per_lot=premium_outlay_per_lot,
         estimated_margin_per_lot=premium_outlay_per_lot,
         config=risk_budget,
     )
     if risk_approved_option_lots < 1:
-        state.record_option_entry_outcome(
-            underlying_symbol, "directional_risk_zero_lots", f"premium={premium:.1f}", now
-        )
-        return False  # the risk budget cannot afford even one lot of this option
-
-    # Build the §9 record + antibody veto check BEFORE placing any order, so a
-    # vetoed mechanism never sends a real order (Layer 10 slice 3).
+        return False
     prediction_record = build_directional_option_prediction_record(
-        atm, signal.direction.value, adx_value, now.date(),
+        chosen_option, signal.direction.value, adx_value, now.date(),
         OpeningRangeBreakoutConfig().target_risk_reward_ratio,
     )
     prediction_record = state.apply_recalibration(prediction_record)
     if state.entry_decision_for_mechanism(prediction_record.mechanism_name) == "veto":
-        state.record_option_entry_outcome(
-            underlying_symbol, "directional_mechanism_vetoed", prediction_record.mechanism_name, now
-        )
         return False
-    # B16: graded opponent-ledger lever, not a block.
-    # B7: same composed, round-half-up discrete-lot sizing as the credit-spread site above.
-    is_index_option = atm.kind is InstrumentKind.INDEX_OPTION
-    positioning_multiplier = state.positioning_size_down(  # B16
-        entry_is_bullish=signal.direction is SignalDirection.LONG,
-        instrument_kind="index_option" if is_index_option else "stock_option",
-    )
-    debate_multiplier = state.debate_risk_size_multiplier(prediction_record.mechanism_name)
-    index_level_multiplier = state.index_level_size_multiplier(underlying_symbol, spot_price)
-    vitality_multiplier = state.organism_vitality_multiplier()
-    workspace_multiplier = state.counted_workspace_caution_multiplier()
+    is_index_option = chosen_option.kind is InstrumentKind.INDEX_OPTION
     composed_multiplier = compose_size_down_multipliers(
-        positioning_multiplier, debate_multiplier, index_level_multiplier,
-        vitality_multiplier, workspace_multiplier,
+        state.positioning_size_down(
+            entry_is_bullish=signal.direction is SignalDirection.LONG,
+            instrument_kind="index_option" if is_index_option else "stock_option",
+        ),
+        state.debate_risk_size_multiplier(prediction_record.mechanism_name),
+        state.index_level_size_multiplier(underlying_symbol, spot_price),
+        state.organism_vitality_multiplier(),
+        state.counted_workspace_caution_multiplier(),
     )
-    directional_size_down_decision = size_down_discrete_lots(
+    size_down_decision = size_down_discrete_lots(
         base_lots=risk_approved_option_lots, composed_multiplier=composed_multiplier,
     )
-    directional_detail = (
-        f"base_lots={risk_approved_option_lots} composed={composed_multiplier:.3f} "
-        f"[positioning={positioning_multiplier:.2f} debate={debate_multiplier:.2f} "
-        f"index_level={index_level_multiplier:.2f} vitality={vitality_multiplier:.2f} "
-        f"workspace={workspace_multiplier:.2f}]"
-    )
-    if not directional_size_down_decision.permits_order:
-        state.record_option_size_down_stand_aside(
-            underlying_symbol, directional_size_down_decision.stood_aside_reason
-        )
-        state.record_option_entry_outcome(
-            underlying_symbol, "sized_down_to_zero", directional_detail, now
-        )
+    if not size_down_decision.permits_order:
         return False
-    gated_option_lots = directional_size_down_decision.granted_lots
-    directional_segment = "nse_index_options" if is_index_option else "nse_stock_options"
-    if not state.constitution_permits_order(directional_segment, is_option=True):
-        state.record_option_entry_outcome(underlying_symbol, "gate_constitution", "", now)
-        return False  # Trunk VII.6 constitutional Referee: order violates the constitution
-    if not state.oversight_permits_autonomous_order(
-        prediction_record.win_probability, is_option=True
-    ):
-        state.record_option_entry_outcome(
-            underlying_symbol, "gate_oversight", f"wp={prediction_record.win_probability:.2f}", now
-        )
-        return False  # Trunk VII scalable oversight: beyond autonomous competence, escalated
+    gated_option_lots = size_down_decision.granted_lots
+    segment = "nse_index_options" if is_index_option else "nse_stock_options"
+    if not state.constitution_permits_order(segment, is_option=True):
+        return False
+    if not state.oversight_permits_autonomous_order(prediction_record.win_probability, is_option=True):
+        return False
     if not state.convergence_limiter_permits_order():
-        state.record_option_entry_outcome(underlying_symbol, "gate_convergence", "", now)
-        return False  # Trunk VII instrumental-convergence limiter: sprawl / off-switch dominance
-    if not state.homeostat_permits_order():
-        state.record_option_entry_outcome(underlying_symbol, "gate_homeostat", "", now)
-        return False  # Trunk X: a VITAL organ has acutely failed
-    if not state.power_budget_permits_order(now):
-        state.record_option_entry_outcome(underlying_symbol, "gate_power_budget", "", now)
-        return False  # Trunk VII power budget: daily action-throughput budget spent
-
-    state.simulated_broker.update_market_price(atm.instrument_token, premium)
-    from nse_algo_trader.broker_oms import OrderIntent, OrderSide
-
-    # B7: order the GATED lot count. Previously this was hard-coded to a single lot's worth of
-    # shares, so `gated_option_lots` acted only as a veto and never actually sized the position.
-    fill = state.simulated_broker.place_order(
-        OrderIntent(
-            atm,
-            OrderSide.BUY,
-            gated_option_lots * atm.lot_size,
-            "directional_option_orb_v1",
-        )
-    )
-    from nse_algo_trader.broker_oms import OrderLifecycleState
-
-    if fill.state is OrderLifecycleState.REJECTED:
-        state.record_option_entry_outcome(underlying_symbol, "directional_fill_rejected", "", now)
         return False
+    if not state.homeostat_permits_order():
+        return False
+    if not state.power_budget_permits_order(now):
+        return False
+    state.simulated_broker.update_market_price(chosen_option.instrument_token, premium)
+    from nse_algo_trader.broker_oms import OrderIntent, OrderLifecycleState, OrderSide
+
+    fill = state.simulated_broker.place_order(
+        OrderIntent(chosen_option, OrderSide.BUY, gated_option_lots * chosen_option.lot_size,
+                    "directional_option_orb_v1")
+    )
+    if fill.state is OrderLifecycleState.REJECTED:
+        return False
+    position_key = f"{underlying_symbol}|{moneyness_label}"
     state.record_option_arm_trade_opened(
-        option_arm_trade_id(underlying_symbol, now), OPTION_ARM_DIRECTIONAL,
+        option_arm_trade_id(position_key, now), OPTION_ARM_DIRECTIONAL,
         underlying_symbol, "opening_range_breakout", now,
     )
-    state.open_directional_options[underlying_symbol] = OpenDirectionalOptionPosition(
+    state.open_directional_options[position_key] = OpenDirectionalOptionPosition(
         underlying_symbol=underlying_symbol,
-        option=atm,
+        option=chosen_option,
         breakout_direction=signal.direction.value,
         lots=gated_option_lots,
-        lot_size=atm.lot_size,
+        lot_size=chosen_option.lot_size,
         entry_premium=premium,
         opened_at=now,
         strategy_tag="directional_option_orb_v1",
         assigned_table=prediction_record.assigned_table.value,
         prediction_record=prediction_record,
+        moneyness=moneyness_label,
     )
     state.record_option_entry_outcome(
-        underlying_symbol, "opened_directional", f"{gated_option_lots}lot {signal.direction.value}", now
+        underlying_symbol, "opened_directional",
+        f"{gated_option_lots}lot {signal.direction.value} {moneyness_label}", now,
     )
     return True
 
@@ -775,6 +802,7 @@ def _record_option_experiment(
             # A credit spread is SOLD to open (credit received) and a bought option is BOUGHT to
             # open — the STT leg differs, so the direction must be passed, not assumed.
             opened_short=prediction_record.direction is not SignalDirection.LONG,
+            trade_date=opened_at.date(),  # point-in-time option STT (0.10% pre-Apr-2026)
         ).total_cost,
     )
     state.closed_experiment_events.append(
@@ -798,6 +826,7 @@ def _close_directional(
             segment=("nse_index_options" if pos.option.kind is InstrumentKind.INDEX_OPTION
                      else "nse_stock_options"),
             opened_short=False,  # a bought option is BOUGHT to open
+            trade_date=pos.opened_at.date(),  # point-in-time option STT
         ).total_cost,
         now,
     )
@@ -806,7 +835,7 @@ def _close_directional(
         pos.entry_premium, exit_premium, realized, outcome, pos.opened_at, now,
         excursion=pos.excursion, on_trail=exited_on_profit_trail,
     )
-    del state.open_directional_options[pos.underlying_symbol]
+    del state.open_directional_options[f"{pos.underlying_symbol}|{pos.moneyness}"]
 
 
 def square_off_all_directional_options(state, live_universe_feed, now) -> None:
@@ -940,6 +969,7 @@ def _close_spread(
                      if spread.short_leg.kind is InstrumentKind.INDEX_OPTION
                      else "nse_stock_options"),
             opened_short=True,   # a credit spread is SOLD to open
+            trade_date=spread.opened_at.date(),  # point-in-time option STT
         ).total_cost,
         now,
     )

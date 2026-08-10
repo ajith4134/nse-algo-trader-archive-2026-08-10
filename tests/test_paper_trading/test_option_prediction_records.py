@@ -56,3 +56,32 @@ class TestCreditSpreadConfidenceRisesAsAdxFalls:
         # trend is good for a long option, bad for a premium-selling spread
         assert directional.win_probability > 0.5
         assert spread.win_probability < 0.5
+
+
+class TestSegmentScopedMechanismIdentity:
+    """research/165: index vs stock options must carry DISTINCT mechanism names so the antibody grades
+    them on their OWN track record (index options no longer inherit a stock/replay no-edge veto)."""
+
+    STK = Instrument(
+        instrument_token=8, trading_symbol="RELIANCE26JUL3000CE",
+        exchange_segment=ExchangeSegment.NSE_FO, kind=InstrumentKind.STOCK_OPTION,
+        lot_size=250, tick_size=0.05, underlying_symbol="RELIANCE", strike_price=3000.0,
+        option_right=OptionRight.CALL, expiry_date=date(2026, 7, 30),
+    )
+
+    def test_index_option_mechanism_is_tagged_index(self):
+        d = build_directional_option_prediction_record(OPT, "long", 40.0, TODAY, 2.0)
+        c = build_credit_spread_prediction_record(OPT, "bull_put", 12.0, TODAY)
+        assert d.mechanism_name.endswith("[index]")
+        assert c.mechanism_name.endswith("[index]")
+
+    def test_stock_option_mechanism_is_tagged_stock(self):
+        d = build_directional_option_prediction_record(self.STK, "long", 40.0, TODAY, 2.0)
+        c = build_credit_spread_prediction_record(self.STK, "bull_put", 12.0, TODAY)
+        assert d.mechanism_name.endswith("[stock]")
+        assert c.mechanism_name.endswith("[stock]")
+
+    def test_index_and_stock_are_distinct_identities(self):
+        idx = build_credit_spread_prediction_record(OPT, "bull_put", 12.0, TODAY)
+        stk = build_credit_spread_prediction_record(self.STK, "bull_put", 12.0, TODAY)
+        assert idx.mechanism_name != stk.mechanism_name

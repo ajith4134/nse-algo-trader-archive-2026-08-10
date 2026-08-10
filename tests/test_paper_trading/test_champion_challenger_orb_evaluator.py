@@ -49,6 +49,70 @@ def _session(day: int, winning: bool):
     return (bars, _instr())
 
 
+def test_l2_honest_trial_count_accumulates_across_batches(tmp_path: Path):
+    """The core overfitting fix (research/166): the registry's trial N is CUMULATIVE across evaluations,
+    not reset to this batch each time — so the DSR deflates against every config ever tried."""
+    from nse_algo_trader.paper_trading.strategy_trial_registry import StrategyTrialRegistry
+
+    registry = StrategyTrialRegistry(db_file_path=tmp_path / "trials.sqlite3")
+    sessions = [_session(d, True) for d in range(1, 6)]
+    champion = OpeningRangeBreakoutConfig()
+    evaluate_champion_vs_challengers(
+        champion, [OpeningRangeBreakoutConfig(opening_range_minutes=600)], sessions,
+        trial_registry=registry,
+    )
+    n_after_first = registry.cumulative_trial_count("orb_cash")
+    assert n_after_first >= 2  # champion + challenger registered as trials
+    # A SECOND evaluation with a DIFFERENT challenger must GROW the honest N (cross-batch memory).
+    evaluate_champion_vs_challengers(
+        champion, [OpeningRangeBreakoutConfig(opening_range_minutes=300)], sessions,
+        trial_registry=registry,
+    )
+    assert registry.cumulative_trial_count("orb_cash") > n_after_first
+    # Re-running the SAME two configs does NOT inflate N (config-hash dedup).
+    before = registry.cumulative_trial_count("orb_cash")
+    evaluate_champion_vs_challengers(
+        champion, [OpeningRangeBreakoutConfig(opening_range_minutes=600)], sessions,
+        trial_registry=registry,
+    )
+    assert registry.cumulative_trial_count("orb_cash") == before
+
+
+def test_l2_holdout_is_excluded_from_the_tournament_selection():
+    """Leak prevention: with a custodian, the champion-challenger scoring must run ONLY on the research
+    window — the sealed holdout can never influence which config is selected."""
+    from datetime import datetime as _dt
+
+    from nse_algo_trader.paper_trading.holdout_custodian import HoldoutCustodian
+
+    research_days, holdout_days = [1, 2, 3], [9, 10]
+    sessions = [_session(d, True) for d in research_days + holdout_days]
+    dates = [_dt(2026, 7, d).date() for d in research_days + holdout_days]
+    custodian = HoldoutCustodian(observation_dates=dates, holdout_fraction=0.4)  # newest 2/5 → holdout
+    decision = evaluate_champion_vs_challengers(
+        OpeningRangeBreakoutConfig(),
+        [OpeningRangeBreakoutConfig(opening_range_minutes=600)], sessions,
+        holdout_custodian=custodian,
+    )
+    # Only the 3 research sessions could have been scored (never the 2 holdout sessions).
+    assert decision.champion_scorecard.sessions_traded <= len(research_days)
+
+
+def test_l2_minbtl_rejects_a_short_backtest_with_many_trials():
+    from nse_algo_trader.paper_trading.strategy_promotion_gate import (
+        StrategyPromotionOutcome,
+        evaluate_strategy_for_promotion,
+    )
+
+    returns = [0.01, -0.004] * 20  # 40 observations, > minimum_trades, real variance
+    decision = evaluate_strategy_for_promotion(
+        returns, number_of_strategy_trials=100_000, sharpe_std_across_trials=0.5,
+        observation_count=40,
+    )
+    assert decision.outcome is StrategyPromotionOutcome.REJECT_BELOW_MINIMUM_BACKTEST_LENGTH
+    assert decision.backtest_length_margin < 0  # short of the MinBTL requirement
+
+
 def test_scorecard_counts_trades_and_hit_rate():
     sessions = [_session(1, True), _session(2, True), _session(3, False)]
     card = score_orb_configuration(OpeningRangeBreakoutConfig(), sessions)

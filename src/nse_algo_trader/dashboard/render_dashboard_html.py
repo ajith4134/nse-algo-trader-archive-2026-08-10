@@ -168,6 +168,21 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
   @media (prefers-color-scheme:dark){.optbl-scroll .labtbl th{background:#1a1c23}}
   .segbadge{display:inline-block;font-size:.58rem;font-weight:700;padding:.1em .4em;border-radius:4px;background:var(--line2);color:var(--faint);letter-spacing:.03em;vertical-align:middle}
   .tag.win{background:var(--profitsoft);color:var(--profit)} .tag.loss{background:var(--losssoft);color:var(--loss)} .tag.unc{background:var(--warnsoft);color:var(--warnc)}
+  /* Segment categorical badges (validated palette: cash blue / index-opt magenta / stock-opt teal —
+     scripts/validate_palette.js PASS light+dark, distinct from the P&L green/red/amber). Each badge
+     always carries its segment text (the required relief for the dark magenta contrast WARN). */
+  .tag.seg-cash{background:color-mix(in srgb,#2a78d6 15%,transparent);color:#2a78d6}
+  .tag.seg-idx{background:color-mix(in srgb,#b5179e 15%,transparent);color:#b5179e}
+  .tag.seg-stk{background:color-mix(in srgb,#0d8f7f 17%,transparent);color:#0d8f7f}
+  /* Profit-engine categorical badges on option rows (validated Okabe-Ito ramp: theta blue / delta vermillion /
+     vega green / gamma pink / relvalue orange — scripts/validate_palette.js PASS, CVD in the labelled-relief
+     band). Each badge always carries its engine text (the required relief). Shows WHICH edge a trade is on. */
+  .tag.eng-theta{background:color-mix(in srgb,#0072B2 16%,transparent);color:#0072B2}
+  .tag.eng-delta{background:color-mix(in srgb,#D55E00 16%,transparent);color:#D55E00}
+  .tag.eng-vega{background:color-mix(in srgb,#009E73 18%,transparent);color:#007a59}
+  .tag.eng-gamma{background:color-mix(in srgb,#CC79A7 18%,transparent);color:#a6437e}
+  .tag.eng-relvalue{background:color-mix(in srgb,#E69F00 20%,transparent);color:#946600}
+  .tag.mini{font-size:.54rem;padding:.1em .4em}
   .wbar{height:7px;border-radius:4px;background:var(--line);overflow:hidden;min-width:70px}
   .wbar > i{display:block;height:100%;background:var(--profit);border-radius:4px}
   /* calibration bullet: actual as fill, predicted as a tick — the gap is seen, not color-coded */
@@ -233,6 +248,9 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
       <div><h1>NSE Algo Trader</h1><div class="sub" id="sub"></div></div>
     </div>
     <div style="margin-left:auto;display:flex;align-items:center;gap:.7rem">
+      <a id="walllink" class="maplink" href="#">📺 Operations Wall</a>
+      <a id="podlink" class="maplink" href="#">🤖 Bot Pod</a>
+      <a id="cataloguelink" class="maplink" href="#">📋 Feature Catalogue</a>
       <a id="maplink" class="maplink" href="#">🗺️ System Map</a>
       <span class="modebadge paper" id="modebadge"><span class="dot"></span><span id="modetext">PAPER</span></span>
     </div>
@@ -380,6 +398,9 @@ _DASHBOARD_HTML_TEMPLATE = r"""<title>NSE Algo Trader — Dashboard</title>
 const SNAPSHOT = /*__DASHBOARD_SNAPSHOT_JSON__*/;
 const LIVE_API_KEY = /*__LIVE_API_KEY__*/;
 document.getElementById("maplink").href = LIVE_API_KEY ? ("/map?key="+encodeURIComponent(LIVE_API_KEY)) : "/map";
+document.getElementById("cataloguelink").href = LIVE_API_KEY ? ("/catalogue?key="+encodeURIComponent(LIVE_API_KEY)) : "/catalogue";
+document.getElementById("podlink").href = LIVE_API_KEY ? ("/pod?key="+encodeURIComponent(LIVE_API_KEY)) : "/pod";
+document.getElementById("walllink").href = LIVE_API_KEY ? ("/wall?key="+encodeURIComponent(LIVE_API_KEY)) : "/wall";
 const rupee = n => "₹" + Math.round(n).toLocaleString("en-IN");
 const rupeeShort = n => { const a=Math.abs(n);
   if(a>=1e7) return "₹"+(n/1e7).toFixed(2)+"Cr"; if(a>=1e5) return "₹"+(n/1e5).toFixed(2)+"L";
@@ -433,7 +454,9 @@ renderCfg();
 // --- live data rendering (called on load + on each auto-refresh poll) ---
 const alertIcon={info:"i",warning:"!",critical:"!"};
 const alertOrder={critical:0,warning:1,info:2};
-const tagcls={confident_win:"win",confident_loss:"loss",uncertain:"unc"};
+const tagcls={confident_win:"win",confident_loss:"loss",uncertain:"unc",
+  engine_theta:"eng-theta",engine_delta:"eng-delta",engine_vega:"eng-vega",
+  engine_gamma:"eng-gamma",engine_relvalue:"eng-relvalue"};
 function renderLive(snap){
   document.getElementById("alerts").innerHTML=[...snap.alerts]
     .sort((a,b)=>alertOrder[a.level]-alertOrder[b.level]).map(a=>
@@ -581,7 +604,9 @@ function renderLive(snap){
   // B33: the §9 table each trade opened under, tagged so a confident_loss LEARNING PROBE is never
   // read as a real loss (its loss = a correct loss-prediction). Real P&L excludes these — see the
   // headline split below.
-  const tableLabel={confident_win:"conf-WIN",confident_loss:"conf-LOSS (probe)",uncertain:"uncertain"};
+  const tableLabel={confident_win:"conf-WIN",confident_loss:"conf-LOSS (probe)",uncertain:"uncertain",
+    engine_theta:"Θ theta",engine_delta:"Δ delta",engine_vega:"ν vega",
+    engine_gamma:"Γ gamma",engine_relvalue:"RV rel-val"};
   let crows="<tr><th>When</th><th>Segment</th><th>Symbol</th><th>Table</th><th>Side</th><th>Outcome</th><th>Realized P&L</th><th>Fees</th><th>Net</th><th>Source</th></tr>";
   if(!closed.length){ crows+=`<tr><td colspan="10" style="color:var(--faint)">no closed trades yet</td></tr>`; }
   closed.slice(0,60).forEach(c=>{
@@ -601,45 +626,56 @@ function renderLive(snap){
       `<td style="color:${provc};font-size:.72rem;font-weight:600">${prov}</td></tr>`;
   });
   document.getElementById("closedTbl").innerHTML=crows;
-  // Split the live open positions into the three §9 tables, each a broker-
-  // style positions grid (Symbol/Side/Qty/Entry/LTP/P&L/Stop/Target).
+  // Split the live open positions into the three SEGMENT tables (cash intraday · index options ·
+  // stock options — Rule L segment-equality), each a broker-style positions grid
+  // (Symbol/Side/Qty/Entry/LTP/P&L/Stop/Target). The §9 confidence table each position opened under
+  // (confident-WIN / confident-LOSS probe / uncertain) is preserved as a per-row badge so a deliberate
+  // confident-LOSS learning probe is never misread as a real losing position (Rule K).
   const tableMeta=[
-    ["confident_win","Confident WIN","win"],
-    ["confident_loss","Confident LOSS","loss"],
-    ["uncertain","Uncertain","unc"],
+    ["cash","Cash Intraday","seg-cash"],
+    ["index_option","Option Index","seg-idx"],
+    ["stock_option","Option Stocks","seg-stk"],
   ];
   // B23: Max+ / Max- are this trade's best and worst unrealised P&L since it opened (MFE/MAE);
   // Locked is the ratcheting profit trail (— until it arms).
-  const cols="<tr><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>LTP</th><th>Unreal P&L</th><th>Max+</th><th>Max-</th><th>Locked</th><th>Stop</th><th>Target</th></tr>";
+  const cols="<tr><th>Symbol</th><th>Table</th><th>Side</th><th>Qty</th><th>Entry</th><th>LTP</th><th>Unreal P&L</th><th>Max+</th><th>Max-</th><th>Locked</th><th>Stop</th><th>Target</th></tr>";
+  const renderOpenRow=o=>{
+    const up=o.unrealized_pnl; const upc=up==null?'':(up>=0?'var(--profit)':'var(--loss)');
+    const sd=o.direction==="long"?'<span style="color:var(--profit)">BUY</span>':
+             (o.direction==="short"?'<span style="color:var(--loss)">SELL</span>':'<span class="segbadge">SPREAD</span>');
+    const ct=o.assigned_table||'uncertain';
+    const confb=`<span class="tag mini ${tagcls[ct]||'unc'}">${tableLabel[ct]||ct}</span>`;
+    return `<tr><td class="tablename">${o.trading_symbol}</td><td>${confb}</td><td>${sd}</td><td>${o.quantity}</td>`+
+      `<td>${o.entry_price}</td><td>${o.last_price==null?'—':o.last_price}</td>`+
+      `<td style="color:${upc}">${up==null?'—':rupee(up)}</td>`+
+      `<td style="color:var(--profit)">${o.maximum_favourable_profit?rupee(o.maximum_favourable_profit):'—'}</td>`+
+      `<td style="color:var(--loss)">${o.maximum_adverse_profit?rupee(o.maximum_adverse_profit):'—'}</td>`+
+      `<td style="color:${o.profit_locked==null?'var(--faint)':'var(--profit)'}">${o.profit_locked==null?'—':rupee(o.profit_locked)}</td>`+
+      `<td>${o.stop_loss_price}</td><td>${o.target_price}</td></tr>`;
+  };
+  // Any position whose segment isn't one of the three known keys is surfaced in an "Other" table rather
+  // than silently dropped (Rule K).
+  const knownSeg=new Set(tableMeta.map(m=>m[0]));
+  const boardsToRender=tableMeta.slice();
+  const otherRows=ops.filter(o=>!knownSeg.has(o.segment));
+  if(otherRows.length) boardsToRender.push(["__other__","Other / unclassified","unc"]);
   let html="";
-  tableMeta.forEach(([key,label,cls])=>{
-    const rows=ops.filter(o=>o.assigned_table===key)
+  boardsToRender.forEach(([key,label,cls])=>{
+    const rows=(key==="__other__"?otherRows:ops.filter(o=>o.segment===key))
                   .sort((a,b)=>(b.unrealized_pnl||0)-(a.unrealized_pnl||0));
     const grp=rows.reduce((s,o)=>s+(o.unrealized_pnl||0),0);
     html+=`<div class="optbl-head"><span class="tag ${cls}">${label}</span>`+
       `<span class="optbl-n">${rows.length} open</span>`+
       `<span class="optbl-pnl" style="color:${grp>=0?'var(--profit)':'var(--loss)'}">${rows.length?rupee(grp):''}</span></div>`;
     let body=cols;
-    if(!rows.length){ body+=`<tr><td colspan="11" style="color:var(--faint)">— none —</td></tr>`; }
-    rows.forEach(o=>{
-      const up=o.unrealized_pnl; const upc=up==null?'':(up>=0?'var(--profit)':'var(--loss)');
-      const sd=o.direction==="long"?'<span style="color:var(--profit)">BUY</span>':
-               (o.direction==="short"?'<span style="color:var(--loss)">SELL</span>':'<span class="segbadge">SPREAD</span>');
-      const segb=o.segment&&o.segment!=="cash"?`<span class="segbadge">${o.segment==="index_option"?"IDX":"STK"}</span> `:"";
-      body+=`<tr><td class="tablename">${segb}${o.trading_symbol}</td><td>${sd}</td><td>${o.quantity}</td>`+
-        `<td>${o.entry_price}</td><td>${o.last_price==null?'—':o.last_price}</td>`+
-        `<td style="color:${upc}">${up==null?'—':rupee(up)}</td>`+
-        `<td style="color:var(--profit)">${o.maximum_favourable_profit?rupee(o.maximum_favourable_profit):'—'}</td>`+
-        `<td style="color:var(--loss)">${o.maximum_adverse_profit?rupee(o.maximum_adverse_profit):'—'}</td>`+
-        `<td style="color:${o.profit_locked==null?'var(--faint)':'var(--profit)'}">${o.profit_locked==null?'—':rupee(o.profit_locked)}</td>`+
-        `<td>${o.stop_loss_price}</td><td>${o.target_price}</td></tr>`;
-    });
+    if(!rows.length){ body+=`<tr><td colspan="12" style="color:var(--faint)">— none —</td></tr>`; }
+    rows.forEach(o=>{ body+=renderOpenRow(o); });
     // Scrollable container so ALL rows are reachable by scrolling (no "+N more").
     html+=`<div class="optbl-scroll"><table class="labtbl optbl">${body}</table></div>`;
   });
   if(!ops.length){ html=`<p style="color:var(--faint)">no open positions ${lu&&!lu.is_market_open?"(market closed)":"yet — seeding universe…"}</p>`; }
   document.getElementById("openTbl").innerHTML=html;
-  document.getElementById("opennote").innerHTML="Live paper positions on the real feed, grouped by §9 prediction table — simulated fills, virtual capital. Auto-flattened by Layer 8 at 15:15 IST.";
+  document.getElementById("opennote").innerHTML="Live paper positions on the real feed, grouped by SEGMENT — NSE cash intraday · index options · stock options (Rule L). The <b>Table</b> badge keeps each position's §9 confidence class (conf-WIN / conf-LOSS probe / uncertain). Simulated fills, virtual capital. Auto-flattened by Layer 8 at 15:15 IST.";
   document.getElementById("paperkpis").innerHTML=
     `<div class="minikpi"><div class="lab">Starting capital</div><div class="v">${rupeeShort(p.starting_virtual_cash)}</div></div>`+
     `<div class="minikpi"><div class="lab">Realized P&L</div><div class="v" style="color:${p.realized_pnl>=0?'var(--profit)':'var(--loss)'}">${rupee(p.realized_pnl)}</div></div>`+
@@ -817,7 +853,7 @@ function renderLive(snap){
     document.getElementById('llmLadder').innerHTML=pool.map((p,i)=>
       `<span class="lane${i===0?' lead':''}"><span class="rank">${i+1}</span>${p}</span>`+
       (i<pool.length-1?'<span class="sep">›</span>':'')).join('');
-    const lk=[['providers',mget('providers')||'—'],['transport',mget('transport')||'—'],['served by',mget('served by')||'idle'],['status',llm.status]];
+    const lk=[['providers',mget('providers')||'—'],['transport',mget('transport')||'—'],['tokens (haiku-4-5)',mget('tokens')||'0 (idle · 0 calls)'],['served by',mget('served by')||'idle'],['status',llm.status]];
     document.getElementById('llmkpis').innerHTML=lk.map(([k,v])=>
       `<div class="minikpi"><div class="lab">${k}</div><div class="v">${v}</div></div>`).join('');
     document.getElementById('llmnote').textContent=llm.note||'';

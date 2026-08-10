@@ -40,7 +40,19 @@ class DashboardFeatureSurface:
 # is here but has no built surface renders as "not yet surfaced" and fails the coverage
 # audit — the enforcement point behind Rule N. Add a row when a user-visible feature ships.
 FEATURE_SURFACE_MANIFEST: tuple[tuple[str, str], ...] = (
+    # The 3 segment AI bots + their 2 directional AI features (measured by segment_bot_surface_prober).
+    ("index_option_bot", "INDEX-OPTION AI bot (NIFTY/BANKNIFTY/… structures)"),
+    ("stock_option_bot", "STOCK-OPTION AI bot (single-name F&O structures)"),
+    ("cash_intraday_bot", "CASH-INTRADAY AI bot (cross-sectional long/short book)"),
+    ("directional_ai_bull", "Directional AI — BULL side (P↑ → option CE / cash LONG)"),
+    ("directional_ai_bear", "Directional AI — BEAR side (P↓ → option PE / cash SHORT)"),
+    ("option_book_risk", "Option Book Risk (net greeks · CVaR · live-sizing)"),
+    ("trade_evidence", "Trade Evidence (per-trade proof: engine · E[P&L] · P(profit) · defined-risk)"),
     ("multi_broker_sourcing", "Multi-broker data sourcing (failover + gap-fill)"),
+    ("pre_trade_cost_gate", "Pre-trade cost gate (L1 reality filter)"),
+    ("validation_engine", "Validation engine (DSR honest-N + MinBTL + holdout)"),
+    ("ops_floor_crash_safety", "Ops floor (idempotent orders + WAL + reconciliation)"),
+    ("strategy_family_promotion", "Strategy promotion ladder (per-family, validation-gated)"),
     ("replay_fidelity", "Replay fidelity tier (market-closed)"),
     ("replay_curriculum", "Deficit-driven replay curriculum (regime coverage)"),
     ("champion_challenger", "Champion-challenger strategy config (global + per-regime)"),

@@ -12,6 +12,7 @@ each request reads its latest published snapshot (open positions + §9
 tables). Config reads/writes are live per request.
 """
 
+import logging
 import secrets
 from datetime import datetime
 from pathlib import Path
@@ -28,6 +29,9 @@ from nse_algo_trader.dashboard.live_paper_trading_service import (
     LivePaperTradingService,
 )
 from nse_algo_trader.dashboard.render_dashboard_html import render_dashboard_html
+from nse_algo_trader.dashboard.render_feature_catalogue_html import (
+    render_feature_catalogue_html,
+)
 from nse_algo_trader.dashboard.render_system_map_html import (
     load_system_map_markdown,
     render_system_map_html,
@@ -115,6 +119,43 @@ def build_dashboard_app() -> FastAPI:
     threading.Thread(
         target=_warm_up_paper_service, name="paper-service-warmup", daemon=True
     ).start()
+
+    # Segment-bot pod tick: run one pod cycle on a cadence so the /pod board reflects the live pod
+    # (proposals → allocation → netting → arbitration → route). Daemon + guarded so it never blocks or
+    # crashes the server; bots gate to zero size until their competency earns (Rule Q), so this is cheap
+    # while gathering. The LIVE intraday feed is the open blocker — it runs on the real stored data today.
+    import time as _time
+
+    def _run_pod_tick_loop() -> None:
+        from datetime import datetime
+
+        from nse_algo_trader.portfolio_supervisor.pod_runner import PodRunner
+        from nse_algo_trader.session_management.intraday_square_off_schedule import (
+            IntradaySquareOffSchedule,
+        )
+        from nse_algo_trader.paper_trading.nse_market_clock import (
+            INDIA_MARKET_TIMEZONE,
+            NseMarketClock,
+        )
+
+        runner = PodRunner()
+        market_clock = NseMarketClock()
+        square_off_schedule = IntradaySquareOffSchedule()
+        while True:
+            try:
+                now_ist = datetime.now(INDIA_MARKET_TIMEZONE)
+                is_open = market_clock.is_market_open(now_ist)
+                # FORCE the mandatory intraday square-off whenever it is at/after the 15:15 pre-close window OR
+                # the market is simply CLOSED (after 15:30, weekends, holidays) — so NO paper position is ever
+                # carried past the session, and a slow cycle that misses the 15:15-15:30 window still flattens
+                # on the next tick. When forcing, do NOT open new positions (only close).
+                force = (not is_open) or square_off_schedule.should_force_square_off_now(now_ist, market_clock)
+                runner.run_cycle(now_epoch=_time.time(), force_square_off=force, allow_opens=is_open and not force)
+            except Exception:  # noqa: BLE001 — a pod-tick failure must never take down the dashboard
+                logging.getLogger(__name__).exception("segment-bot pod tick failed")  # surface, never crash
+            _time.sleep(300)  # 5-minute cadence
+
+    threading.Thread(target=_run_pod_tick_loop, name="segment-bot-pod-tick", daemon=True).start()
     app = FastAPI(title="NSE Algo Trader Dashboard")
 
     def _require_key(request: Request) -> None:
@@ -217,6 +258,25 @@ def build_dashboard_app() -> FastAPI:
         return render_system_map_html(
             load_system_map_markdown(), live_api_key=access_token
         )
+
+    @app.get("/catalogue", response_class=HTMLResponse)
+    def feature_catalogue_page(request: Request):
+        _require_key(request)
+        return render_feature_catalogue_html()
+
+    @app.get("/pod", response_class=HTMLResponse)
+    def segment_bot_pod_page(request: Request):
+        _require_key(request)
+        from nse_algo_trader.dashboard.pod_dashboard_service import pod_board_html
+
+        return pod_board_html()
+
+    @app.get("/wall", response_class=HTMLResponse)
+    def operations_wall_page(request: Request):
+        _require_key(request)
+        from nse_algo_trader.dashboard.render_operations_wall_html import render_operations_wall_html
+
+        return render_operations_wall_html(live_api_key=access_token)
 
     @app.get("/api/snapshot")
     def snapshot_json(request: Request):

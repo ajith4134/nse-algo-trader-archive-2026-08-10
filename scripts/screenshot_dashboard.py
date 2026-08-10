@@ -66,9 +66,11 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--port", type=int, default=8080)
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
     ap.add_argument("--expect", action="append", default=[], help="text a feature should surface; repeatable")
+    ap.add_argument("--path", default="/", help="dashboard path to shoot (e.g. /wall, /catalogue); default /")
     args = ap.parse_args(argv)
     base = args.url or f"http://localhost:{args.port}"
-    url = f"{base}/?key={_read_token()}"
+    sep = "&" if "?" in args.path else "?"
+    url = f"{base}{args.path}{sep}key={_read_token()}"
     return anyio.run(_capture, url, args.out, args.expect)
 
 

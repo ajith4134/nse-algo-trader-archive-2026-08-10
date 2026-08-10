@@ -155,6 +155,18 @@ data API as swappable, the same way execution treats brokers as swappable.
   dashboard; (6) log the accrual gap as the one permissible Rule-K blocker — activation deferred, function
   never. Closes Rule P's "small N" escape hatch.
 
+- **R — Status surfaces are MEASURED from real server/code state, never hand-authored.** `[JUDGMENT]`
+  Any feature-status / catalogue / coverage / progress surface — the Feature Catalogue dashboard, the
+  build-status wall, atlas coverage, `/map` — MUST be GENERATED from the actual server: the code's
+  AST/import graph, the wiring graph, live runtime probes, the feature-surface registry — never a
+  hand-typed status. Every row carries its real source file + a real measured signal
+  (`built`/`partial`/`not-built`/`blocked`/`orphan`) + a generation timestamp; a guessed or stale status
+  is a bug, not a row. Regenerate on every relevant change (pairs with Rule H map-truth from the AST and
+  Rule N dashboard visibility). A status that cannot be measured is shown as `UNKNOWN` /
+  `NOT-INSTRUMENTED` — never defaulted to healthy or done. The plan-side catalogue (what was ever
+  planned/discussed/idea/forgotten) may be authored, but its BUILD STATUS column is always machine-derived
+  and reconciled against the server, so nothing shows "done" that the code does not actually implement.
+
 ## Non-negotiables carried through every layer
 - **Intraday only.** Every position auto-squares-off before close. No exceptions per-segment, ever,
   unless a future phase explicitly revisits this.

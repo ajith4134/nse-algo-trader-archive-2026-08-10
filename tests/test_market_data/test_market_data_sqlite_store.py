@@ -43,6 +43,70 @@ def _sample_price_bar(minute: int, close_price: float) -> PriceBar:
     )
 
 
+class TestBitemporalAvailabilityTime:
+    """L0 (research/167): a bar is only readable AS-OF a moment once it has CLOSED — the structural
+    look-ahead guard. A 5-min bar stamped 09:15 becomes available at 09:20."""
+
+    def test_as_of_excludes_a_bar_that_has_not_closed_yet(self, sqlite_store):
+        sqlite_store.save_price_bars([_sample_price_bar(15, 100.5)])  # closes 09:20
+        before_close = datetime(2026, 7, 22, 9, 17, tzinfo=timezone.utc)
+        assert sqlite_store.load_price_bars(
+            408065, BarInterval.MINUTE_5, as_of=before_close
+        ) == []
+
+    def test_as_of_includes_a_bar_at_and_after_its_close(self, sqlite_store):
+        sqlite_store.save_price_bars([_sample_price_bar(15, 100.5)])  # closes 09:20
+        at_close = datetime(2026, 7, 22, 9, 20, tzinfo=timezone.utc)
+        later = datetime(2026, 7, 22, 9, 30, tzinfo=timezone.utc)
+        assert len(sqlite_store.load_price_bars(408065, BarInterval.MINUTE_5, as_of=at_close)) == 1
+        assert len(sqlite_store.load_price_bars(408065, BarInterval.MINUTE_5, as_of=later)) == 1
+
+    def test_no_as_of_returns_everything_live_behaviour(self, sqlite_store):
+        sqlite_store.save_price_bars([_sample_price_bar(15, 100.5), _sample_price_bar(20, 101.0)])
+        assert len(sqlite_store.load_price_bars(408065, BarInterval.MINUTE_5)) == 2
+
+    def test_migration_backfills_a_pre_availability_database(self, tmp_path: Path):
+        import sqlite3
+
+        db_path = tmp_path / "legacy.sqlite3"
+        legacy = sqlite3.connect(str(db_path))
+        legacy.execute(
+            "CREATE TABLE price_bars (instrument_token INTEGER NOT NULL, bar_interval TEXT NOT NULL,"
+            " bar_timestamp TEXT NOT NULL, open_price REAL NOT NULL, high_price REAL NOT NULL,"
+            " low_price REAL NOT NULL, close_price REAL NOT NULL, volume INTEGER NOT NULL,"
+            " open_interest INTEGER, PRIMARY KEY (instrument_token, bar_interval, bar_timestamp))"
+        )
+        legacy.execute(
+            "INSERT INTO price_bars VALUES (408065,'5m','2026-07-22T09:15:00+00:00',100,101,99,100.5,1000,NULL)"
+        )
+        legacy.commit()
+        legacy.close()
+        # Opening through the store runs the migration: column added + backfilled to the 09:20 close.
+        store = MarketDataSqliteStore(db_path)
+        try:
+            before = datetime(2026, 7, 22, 9, 17, tzinfo=timezone.utc)
+            at_close = datetime(2026, 7, 22, 9, 20, tzinfo=timezone.utc)
+            assert store.load_price_bars(408065, BarInterval.MINUTE_5, as_of=before) == []
+            assert len(store.load_price_bars(408065, BarInterval.MINUTE_5, as_of=at_close)) == 1
+            store2 = MarketDataSqliteStore(db_path)  # re-open: migration is idempotent, no double work
+            store2.close()
+        finally:
+            store.close()
+
+    def test_replay_source_respects_as_of(self, sqlite_store):
+        from nse_algo_trader.paper_trading.historical_bar_replay_source import (
+            HistoricalBarReplaySource,
+        )
+
+        sqlite_store.save_price_bars([_sample_price_bar(15, 100.5), _sample_price_bar(25, 101.0)])
+        horizon = datetime(2026, 7, 22, 9, 22, tzinfo=timezone.utc)  # after 09:15-bar close, before 09:25's
+        source = HistoricalBarReplaySource(
+            sqlite_store, [408065], BarInterval.MINUTE_5, as_of=horizon
+        )
+        bars = source.load_chronological_bars()
+        assert len(bars) == 1 and bars[0].close_price == 100.5  # the future bar is withheld
+
+
 class TestPriceBarPersistence:
     def test_bars_round_trip_in_timestamp_order(self, sqlite_store):
         sqlite_store.save_price_bars(

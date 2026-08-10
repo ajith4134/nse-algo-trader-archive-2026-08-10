@@ -172,16 +172,25 @@ def _per_trade_return_fractions_by_strategy(state) -> dict[str, list[float]]:
     """Realized per-trade return fractions for each live strategy, from the
     closed trades — the input series the Deflated-Sharpe/CPCV gate scores."""
     returns_by_strategy: dict[str, list[float]] = {
-        "ORB cash": [], "Directional options": [], "Credit spreads": []
+        "ORB cash": [], "Credit spreads": []
     }
     for trade in state.closed_trades:
         basis = trade.entry_price * trade.quantity
         if basis > 0:
-            returns_by_strategy["ORB cash"].append(trade.realized_pnl / basis)
+            cash_family = (
+                "Mean reversion cash"
+                if getattr(trade, "strategy_tag", "") == "intraday_mean_reversion_v1"
+                else "ORB cash"
+            )
+            returns_by_strategy.setdefault(cash_family, []).append(trade.realized_pnl / basis)
+    # research/171: directional option trades are split by MONEYNESS (Directional ITM/ATM/OTM), so each rung
+    # of the ladder earns its OWN Deflated-Sharpe edge verdict in the promotion pipeline — the validation
+    # gate decides which moneyness (if any) ever leaves paper.
     for position, realized in state.closed_directional_options:
         basis = position.entry_premium * position.lots * position.lot_size
         if basis > 0:
-            returns_by_strategy["Directional options"].append(realized / basis)
+            family = f"Directional {getattr(position, 'moneyness', 'ATM')}"
+            returns_by_strategy.setdefault(family, []).append(realized / basis)
     for spread, realized in state.closed_option_spreads:
         basis = abs(spread.entry_net_credit_per_unit * spread.lots * spread.lot_size)
         if basis > 0:
@@ -596,6 +605,7 @@ class LivePaperTradingService:
         # Layer 10 experience memory — opened lazily in the writer thread
         # (per-thread SQLite), fed the closed §9 experiments the loop emits.
         self._experience_memory = None
+        self._family_promotion_registry = None  # L4: per-family promotion ladder (lazy, research/170)
 
     @property
     def scoreboard(self) -> PredictionTableScoreboard:
@@ -1100,6 +1110,7 @@ class LivePaperTradingService:
             ("_drain_closed_experiments_into_memory", self._drain_closed_experiments_into_memory, False),
             ("_refresh_opponent_ledger", self._refresh_opponent_ledger, True),
             ("_maybe_reevaluate_champion_challenger", self._maybe_reevaluate_champion_challenger, True),
+            ("_update_family_promotion_ladder", self._update_family_promotion_ladder, False),
             ("_maybe_run_strategic_reflection", self._maybe_run_strategic_reflection, True),
             ("_maybe_run_thesis_debate_risk_check", self._maybe_run_thesis_debate_risk_check, True),
             ("_maybe_run_causal_cluster_analysis", self._maybe_run_causal_cluster_analysis, True),
@@ -1162,6 +1173,30 @@ class LivePaperTradingService:
                     flush=True,
                 )
         return failed
+
+    def _update_family_promotion_ladder(self) -> None:
+        """L4 (research/170): push each strategy family's live DSR+CPCV readiness into the promotion
+        ladder, so every family EARNS its stage independently on its OWN trades. Regime coverage is
+        proxied by a 2x-minimum trade count until the real drawdown+vol-spike coverage gate is wired
+        (BACKLOG). Never raises — it's a feature-plane stage, isolated by the caller."""
+        if self._family_promotion_registry is None:
+            from nse_algo_trader.paper_trading.strategy_family_promotion_registry import (
+                StrategyFamilyPromotionRegistry,
+            )
+
+            self._family_promotion_registry = StrategyFamilyPromotionRegistry()
+        registry = self._family_promotion_registry
+        for summary in _strategy_readiness_summaries(self._state):
+            registry.ensure_family(summary.strategy)
+            if summary.trade_count < _MIN_TRADES_FOR_PROMOTION_GATE:
+                continue
+            registry.record_evaluation(
+                family=summary.strategy,
+                edge_promoted=summary.promoted,
+                deflated_sharpe=summary.deflated_sharpe_ratio or 0.0,
+                trades_evaluated=summary.trade_count,
+                regime_coverage_met=summary.trade_count >= 2 * _MIN_TRADES_FOR_PROMOTION_GATE,
+            )
 
     def _run_feature_plane_forever(self) -> None:
         """The analytics thread. Deliberately NEVER checks market hours — "active even after market
@@ -1492,6 +1527,116 @@ class LivePaperTradingService:
             )
         _add(_multi_broker)
 
+        # 1b. REDESIGN L1 — the pre-trade COST GATE (reality filter): how many directional entries cleared
+        # round-trip breakeven, were resized, or were vetoed, + the slippage-calibration maturity.
+        def _cost_gate():
+            snap = self._state.cost_gate.snapshot()
+            agg = snap.get("_all", {"passed": 0, "resized": 0, "vetoed": 0})
+            decided = agg["passed"] + agg["resized"] + agg["vetoed"]
+            cash = snap.get("nse_cash_equity", {})
+            veto_rate = cash.get("veto_rate", 0.0)
+            slip = (
+                f"{cash.get('slippage_status', 'gathering')} "
+                f"{cash.get('slippage_have', 0)}/{cash.get('slippage_need', 30)}"
+            )
+            return DashboardFeatureSurface(
+                key="pre_trade_cost_gate",
+                title="Pre-trade cost gate (L1 reality filter)",
+                status="active" if decided > 0 else "gathering",
+                metrics=(("decided", str(decided)),
+                         ("passed", str(agg["passed"])),
+                         ("resized", str(agg["resized"])),
+                         ("vetoed", str(agg["vetoed"])),
+                         ("cash veto rate", f"{veto_rate * 100:.0f}%"),
+                         ("slippage calib", slip)),
+                note="Every directional entry must clear round-trip breakeven (statutory + slippage). "
+                     "Below-cost signals are vetoed or resized before capital. Rates verified vs NSE/FA/73061 "
+                     "+ Finance Act 2026 (docs/research/164).",
+            )
+        _add(_cost_gate)
+
+        # 1c. REDESIGN L2 — the validation engine: how many strategy configs have EVER been trialed
+        # (the honest cumulative N the DSR deflates against), how many were kept, and the cross-trial
+        # Sharpe dispersion. A high honest N is GOOD discipline (the bar to promote rises with every trial).
+        def _validation_engine():
+            from nse_algo_trader.paper_trading.strategy_trial_registry import (
+                StrategyTrialRegistry,
+            )
+
+            registry = StrategyTrialRegistry()
+            total = registry.cumulative_trial_count()
+            summary = registry.trial_summary()
+            return DashboardFeatureSurface(
+                key="validation_engine",
+                title="Validation engine (DSR honest-N + MinBTL + holdout)",
+                status="active" if total > 0 else "gathering",
+                metrics=(("cumulative trials (honest N)", str(total)),
+                         ("kept configs", str(int(summary.get("kept_count", 0)))),
+                         ("discarded", str(int(summary.get("discarded_count", 0)))),
+                         ("sharpe std across trials", f"{summary.get('sharpe_std', 0.0):.3f}")),
+                note="The Deflated-Sharpe gate now deflates against the HONEST cumulative count of every "
+                     "config ever trialed (not just the batch); MinBTL rejects a backtest too short for that "
+                     "trial count; a sealed holdout final-validates a promoted winner. research/166.",
+            )
+        _add(_validation_engine)
+
+        # 1d. REDESIGN L3 — the ops-floor crash-safety spine: idempotent order IDs + the order-intent WAL
+        # + broker-truth reconciliation. Populated by LIVE order placement (paper uses the simulated
+        # broker); shows 'armed' with a durable WAL until live trading writes to it.
+        def _ops_floor():
+            from nse_algo_trader.broker_oms.order_intent_write_ahead_log import (
+                OrderIntentWriteAheadLog,
+            )
+
+            summary = OrderIntentWriteAheadLog().summary()
+
+            def _n(key: str) -> int:
+                return int(summary.get(key, 0))
+
+            live_orders = _n("pending") + _n("placed") + _n("filled") + _n("rejected")
+            return DashboardFeatureSurface(
+                key="ops_floor_crash_safety",
+                title="Ops floor (idempotent orders + WAL + reconciliation)",
+                status="active" if live_orders > 0 else "gathering",
+                metrics=(("live orders logged", str(live_orders)),
+                         ("filled", str(_n("filled"))),
+                         ("pending/placed", f"{_n('pending')}/{_n('placed')}"),
+                         ("rejected", str(_n("rejected"))),
+                         ("write failures", str(_n("write_failure_count")))),
+                note="Every LIVE order is deduped by a deterministic client id + written to a durable WAL "
+                     "BEFORE the broker call, and reconciled against broker truth on restart — so a crash "
+                     "never double-places or loses an order. Paper uses the simulated broker (WAL idle). "
+                     "research/168.",
+            )
+        _add(_ops_floor)
+
+        # 1e. REDESIGN L4 — the per-family promotion ladder: which strategy families have EARNED which
+        # stage (research→paper→shadow→reduced-live→full-live) on their own validated edge.
+        def _family_promotion():
+            from nse_algo_trader.paper_trading.strategy_family_promotion_registry import (
+                StrategyFamilyPromotionRegistry,
+            )
+
+            snap = StrategyFamilyPromotionRegistry().snapshot()
+            fams = snap.get("families", [])
+            counts = snap.get("stage_counts", {})
+            live = snap.get("live_families", [])
+            detail = " · ".join(f"{f['family']}={f['stage']}" for f in fams[:6]) or "no families yet"
+            return DashboardFeatureSurface(
+                key="strategy_family_promotion",
+                title="Strategy promotion ladder (per-family, validation-gated)",
+                status="active" if fams else "gathering",
+                metrics=(("families", str(len(fams))),
+                         ("paper", str(int(counts.get("paper", 0)))),
+                         ("shadow", str(int(counts.get("shadow", 0)))),
+                         ("live", str(len(live))),
+                         ("ladder", detail)),
+                note="Each family climbs research→paper→shadow→reduced-live→full-live, advancing ONLY when the "
+                     "L2 honest-N DSR+CPCV promotes it on its OWN trades (+ human go-live for real capital); "
+                     "edge decay auto-demotes. Breadth without sprawl — validation is the filter. research/170.",
+            )
+        _add(_family_promotion)
+
         # 2. Replay fidelity tier (market-closed).
         def _replay_fidelity():
             hf = self._high_fidelity_replay
@@ -1634,6 +1779,7 @@ class LivePaperTradingService:
             lead_label = f"{lead.provider_name}" + (f" · {lead_model}" if lead_model else "")
             leads_with_subscription = lead.provider_name == "claude-code-subscription"
             from nse_algo_trader.llm_strategy.claude_code_subscription_provider import (
+                subscription_token_ledger,
                 subscription_transport_telemetry,
             )
 
@@ -1657,6 +1803,28 @@ class LivePaperTradingService:
             names = ", ".join(p.provider_name for p in pool[:6]) + (
                 "…" if configured > 6 else ""
             )
+            # Tokens consumed on the subscription lane THIS session (real SDK usage), for the lead model
+            # (Haiku-4-5) — falls back to the cross-model aggregate if the SDK labels differ.
+            ledger = subscription_token_ledger()
+            token_row = ledger.get(lead_model) or ledger["_all"]
+
+            def _compact_tokens(n: int) -> str:
+                return f"{n / 1000:.1f}k" if n >= 1000 else str(n)
+
+            if token_row["serves"] == 0:
+                tokens_label = "0 (idle · 0 calls)"
+            else:
+                serves = token_row["serves"]
+                hits = token_row.get("cache_hit_serves", 0)
+                hit_pct = round(100 * hits / serves) if serves else 0
+                tokens_label = (
+                    f"{token_row['total']:,} tok · {serves} call{'s' if serves != 1 else ''} · "
+                    f"in {_compact_tokens(token_row['input'])} · "
+                    f"out {_compact_tokens(token_row['output'])} · "
+                    f"cache-read {_compact_tokens(token_row['cache_read'])} "
+                    f"({hits} hit{'s' if hits != 1 else ''}, {hit_pct}%) · "
+                    f"cache-write {_compact_tokens(token_row['cache_creation'])}"
+                )
             if reflection is not None and reflection.generated:
                 return DashboardFeatureSurface(
                     key="strategic_llm_analyst",
@@ -1665,6 +1833,7 @@ class LivePaperTradingService:
                     metrics=(("providers", str(configured)),
                              ("lead lane", lead_label),
                              ("transport", transport_label),
+                             ("tokens", tokens_label),
                              ("pool", names),
                              ("served by", reflection.served_by),
                              ("findings", str(len(reflection.findings))),
@@ -1679,6 +1848,7 @@ class LivePaperTradingService:
                 metrics=(("providers", str(configured)),
                          ("lead lane", lead_label),
                          ("transport", transport_label),
+                         ("tokens", tokens_label),
                          ("pool", names)),
                 note=ladder_note + "Swap-on-limit pool ready; reflection runs on a daily cadence. "
                      "Advisory (read-only); gate consumption queued.",
@@ -5035,10 +5205,36 @@ class LivePaperTradingService:
                 else DEFAULT_ORB_CHALLENGER_GRID
             )
 
+            # L2 validation engine (research/166): a PERSISTENT trial registry gives the DSR the honest
+            # cumulative count of every config ever trialed (not just this batch), and a holdout custodian
+            # keeps a sealed most-recent window out of config selection + final-validates a winner on it.
+            from nse_algo_trader.paper_trading.holdout_custodian import HoldoutCustodian
+            from nse_algo_trader.paper_trading.strategy_trial_registry import (
+                StrategyTrialRegistry,
+            )
+
+            trial_registry = StrategyTrialRegistry()  # default SQLite path → accumulates across runs
+
             # GLOBAL champion (all sessions).
             global_sessions = [(bars, instrument) for bars, instrument, _ in labelled]
+            try:
+                session_dates = sorted(
+                    {bars[0].timestamp.date() for bars, _ in global_sessions if bars}
+                )
+                holdout_custodian = (
+                    HoldoutCustodian(session_dates) if len(session_dates) >= 5 else None
+                )
+            except Exception as holdout_error:  # noqa: BLE001 — malformed sessions → no holdout, not a crash
+                holdout_custodian = None
+                print(
+                    f"[champion-challenger] holdout custodian unavailable "
+                    f"({type(holdout_error).__name__}) — running without a sealed holdout",
+                    flush=True,
+                )
             global_decision = evaluate_champion_vs_challengers(
-                store.load_champion_or_default(), grid, global_sessions
+                store.load_champion_or_default(), grid, global_sessions,
+                trial_registry=trial_registry, holdout_custodian=holdout_custodian,
+                strategy_family="orb_cash_global",
             )
             if global_decision.champion_replaced:
                 store.save_champion(global_decision.winning_config)
@@ -5053,7 +5249,7 @@ class LivePaperTradingService:
                 for regime in regimes
             }
             for regime, decision in evaluate_per_regime_champions(
-                labelled, champion_by_regime, grid
+                labelled, champion_by_regime, grid, trial_registry=trial_registry
             ).items():
                 if decision.champion_replaced:
                     store.save_champion(decision.winning_config, market_regime=regime)

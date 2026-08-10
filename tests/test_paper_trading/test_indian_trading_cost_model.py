@@ -10,6 +10,8 @@ the three traps that are commonly got wrong:
 * STT lands on the SELL leg, which is the ENTRY for a short — not the exit.
 """
 
+from datetime import date
+
 import pytest
 
 from nse_algo_trader.paper_trading.indian_trading_cost_model import (
@@ -135,6 +137,72 @@ class TestSegmentSeparation:
         for rates in (NSE_OPTION_COST_RATES, NSE_CASH_INTRADAY_COST_RATES):
             assert "zerodha" in rates.source_note.lower()
             assert "2026" in rates.source_note
+
+
+class TestCashIntradaySegment:
+    """The cash-intraday rates + the Zerodha min(0.03%, Rs 20)/order brokerage, and the exchange-charge
+    correction to the primary-source 0.00307% (NSE/FA/73061)."""
+
+    def test_exchange_charge_matches_the_primary_nse_circular(self):
+        # NSE/FA/73061: Rs 307/crore each side = 0.00307% = 0.0000307 (corrected from a stale 0.0000297).
+        assert NSE_CASH_INTRADAY_COST_RATES.exchange_transaction_charge_rate == pytest.approx(0.0000307)
+
+    def test_a_large_intraday_order_caps_brokerage_at_the_flat_fee_per_leg(self):
+        # entry Rs 100 x 1000 = Rs 1,00,000 turnover; 0.03% = Rs 30 > Rs 20 cap -> Rs 20 per leg.
+        cost = estimate_round_trip_cost(
+            entry_price=100.0, exit_price=110.0, quantity=1000, segment="nse_cash_equity",
+        )
+        assert cost.brokerage == pytest.approx(40.0)  # two legs, each capped at Rs 20
+        assert cost.securities_transaction_tax == pytest.approx(0.00025 * 110_000)  # sell=exit (long)
+        assert cost.exchange_transaction_charge == pytest.approx(0.0000307 * 210_000, abs=1e-4)
+        assert cost.stamp_duty == pytest.approx(0.00003 * 100_000)  # buy=entry (long)
+        assert cost.total_cost == pytest.approx(85.56, abs=0.05)
+
+    def test_a_small_intraday_order_pays_the_percentage_not_the_flat_fee(self):
+        # entry Rs 50 x 100 = Rs 5,000; 0.03% = Rs 1.50 (< Rs 20) -> the percentage bites, not the cap.
+        # This is the bug the flat-Rs-20 model had: it overcharged small cash orders ~13x on brokerage.
+        cost = estimate_round_trip_cost(
+            entry_price=50.0, exit_price=51.0, quantity=100, segment="nse_cash_equity",
+        )
+        assert cost.brokerage == pytest.approx(0.0003 * 5_000 + 0.0003 * 5_100)  # 1.50 + 1.53
+        assert cost.brokerage < 40.0
+
+    def test_options_brokerage_stays_flat_regardless_of_size(self):
+        small = estimate_round_trip_cost(5.0, 6.0, 65, "nse_index_options")
+        large = estimate_round_trip_cost(5000.0, 6000.0, 65, "nse_index_options")
+        assert small.brokerage == pytest.approx(40.0)
+        assert large.brokerage == pytest.approx(40.0)
+
+
+class TestEffectiveDatedSchedule:
+    """Point-in-time rates: a pre-Apr-2026 option trade must use the 0.10% STT that was in force then,
+    not today's 0.15% — so a historical backtest isn't priced with a rate that didn't exist yet."""
+
+    def test_option_stt_is_010pct_before_the_apr_2026_hike(self):
+        pre = cost_rates_for_segment("nse_index_options", date(2026, 3, 31))
+        assert pre.securities_transaction_tax_rate_on_sell == pytest.approx(0.0010)
+
+    def test_option_stt_is_015pct_on_and_after_the_hike_date(self):
+        on_day = cost_rates_for_segment("nse_index_options", date(2026, 4, 1))
+        later = cost_rates_for_segment("nse_stock_options", date(2027, 1, 1))
+        assert on_day.securities_transaction_tax_rate_on_sell == pytest.approx(0.0015)
+        assert later.securities_transaction_tax_rate_on_sell == pytest.approx(0.0015)
+
+    def test_none_date_returns_the_current_latest_rates(self):
+        assert cost_rates_for_segment("nse_index_options") is NSE_OPTION_COST_RATES
+
+    def test_round_trip_stt_is_lower_for_a_pre_hike_option_trade(self):
+        pre = estimate_round_trip_cost(150.0, 170.0, 65, "nse_index_options",
+                                       trade_date=date(2026, 3, 15))
+        post = estimate_round_trip_cost(150.0, 170.0, 65, "nse_index_options",
+                                        trade_date=date(2026, 4, 15))
+        assert pre.securities_transaction_tax < post.securities_transaction_tax
+        assert pre.securities_transaction_tax == pytest.approx(0.0010 * 170.0 * 65)
+
+    def test_cash_rates_are_date_invariant(self):
+        old = cost_rates_for_segment("nse_cash_equity", date(2020, 1, 1))
+        new = cost_rates_for_segment("nse_cash_equity", date(2027, 1, 1))
+        assert old is new is NSE_CASH_INTRADAY_COST_RATES
 
 
 class TestRobustness:

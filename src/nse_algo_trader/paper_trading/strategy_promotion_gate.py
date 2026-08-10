@@ -26,12 +26,18 @@ class StrategyPromotionOutcome(str, Enum):
     PROMOTE_TO_LIVE_CANDIDATE = "promote_to_live_candidate"
     REJECT_INSUFFICIENT_TRADES = "reject_insufficient_trades"
     REJECT_DEFLATED_SHARPE_TOO_LOW = "reject_deflated_sharpe_too_low"
+    REJECT_BELOW_MINIMUM_BACKTEST_LENGTH = "reject_below_minimum_backtest_length"
 
 
 @dataclass(frozen=True)
 class StrategyPromotionConfig:
     minimum_trades: int = 30
     deflated_sharpe_confidence_threshold: float = 0.95
+    #: MinBTL target — the annualised Sharpe the backtest must be long enough to distinguish from the
+    #: expected max of `number_of_strategy_trials` noise trials (López de Prado). A backtest too short for
+    #: the trial count is REJECTED before the DSR is even trusted (a short backtest + many trials
+    #: manufactures a spurious winner).
+    minimum_backtest_length_target_annual_sharpe: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -42,6 +48,10 @@ class StrategyPromotionDecision:
     probabilistic_sharpe_ratio: float  # PSR vs 0
     deflated_sharpe_ratio: float  # PSR vs the multiple-testing benchmark
     promoted: bool
+    #: MinBTL diagnostics: how far the backtest length sits above (+) / below (-) the minimum required for
+    #: the honest trial count, in observations. 0.0 when the MinBTL check was not run (no observation_count).
+    backtest_length_margin: float = 0.0
+    number_of_strategy_trials: int = 0
 
 
 def compute_sharpe_ratio(per_trade_returns: list[float]) -> float:
@@ -135,7 +145,12 @@ def evaluate_strategy_for_promotion(
     number_of_strategy_trials: int,
     sharpe_std_across_trials: float,
     config: StrategyPromotionConfig = StrategyPromotionConfig(),
+    observation_count: int | None = None,
 ) -> StrategyPromotionDecision:
+    """Promotion gate. `number_of_strategy_trials` should be the HONEST cumulative count of every config
+    ever trialed (from the trial registry), not just this batch — the DSR benchmark is only valid at the
+    true N. `observation_count` (the backtest length, e.g. #sessions) enables the MinBTL gate: a backtest
+    too short for that trial count is rejected before the DSR is trusted."""
     trade_count = len(per_trade_returns)
     sharpe = compute_sharpe_ratio(per_trade_returns)
     psr = compute_probabilistic_sharpe_ratio(per_trade_returns)
@@ -143,8 +158,23 @@ def evaluate_strategy_for_promotion(
         per_trade_returns, sharpe_std_across_trials, number_of_strategy_trials
     )
 
+    backtest_length_margin = 0.0
+    minbtl_sufficient = True
+    if observation_count is not None and number_of_strategy_trials >= 2:
+        from nse_algo_trader.paper_trading.minimum_backtest_length import (
+            backtest_length_is_sufficient,
+        )
+
+        minbtl_sufficient, backtest_length_margin = backtest_length_is_sufficient(
+            observation_count,
+            number_of_strategy_trials,
+            config.minimum_backtest_length_target_annual_sharpe,
+        )
+
     if trade_count < config.minimum_trades:
         outcome = StrategyPromotionOutcome.REJECT_INSUFFICIENT_TRADES
+    elif not minbtl_sufficient:
+        outcome = StrategyPromotionOutcome.REJECT_BELOW_MINIMUM_BACKTEST_LENGTH
     elif dsr < config.deflated_sharpe_confidence_threshold:
         outcome = StrategyPromotionOutcome.REJECT_DEFLATED_SHARPE_TOO_LOW
     else:
@@ -157,4 +187,6 @@ def evaluate_strategy_for_promotion(
         probabilistic_sharpe_ratio=psr,
         deflated_sharpe_ratio=dsr,
         promoted=(outcome is StrategyPromotionOutcome.PROMOTE_TO_LIVE_CANDIDATE),
+        backtest_length_margin=backtest_length_margin,
+        number_of_strategy_trials=number_of_strategy_trials,
     )

@@ -64,6 +64,10 @@ from nse_algo_trader.risk_management import (
     RiskBudgetConfig,
     evaluate_opening_range_breakout_signal,
 )
+from nse_algo_trader.risk_management.pre_trade_cost_gate import (
+    CostGateVerdict,
+    PreTradeCostGate,
+)
 from nse_algo_trader.session_management import (
     IntradaySquareOffSchedule,
     OpenPositionLeg,
@@ -176,6 +180,9 @@ class ClosedPaperTrade:
     #: B33: the §9 table this trade opened under (confident_win | confident_loss | uncertain), so a
     #: confident_loss learning probe is never re-mixed into the bot's real P&L downstream.
     assigned_table: str = "uncertain"
+    #: research/170: the strategy family that opened this trade (e.g. opening_range_breakout_v1 /
+    #: intraday_mean_reversion_v1), so the promotion pipeline scores each family's edge INDEPENDENTLY.
+    strategy_tag: str = "opening_range_breakout_v1"
 
 
 @dataclass
@@ -197,6 +204,11 @@ class LiveUniversePaperState:
     # size-dependent market impact. Empty (default) → spread-only fills (no regression);
     # the service populates it from real stored bar volumes.
     average_daily_quantity_by_token: dict = field(default_factory=dict)
+    # REDESIGN L1 — the pre-trade COST GATE. Every directional entry must clear its modelled round-trip
+    # cost (statutory + slippage) or be resized/vetoed. Carries the slippage-calibration + decision tally
+    # state; surfaced on the dashboard. The real ADV above feeds its market-impact term.
+    cost_gate: PreTradeCostGate = field(default_factory=PreTradeCostGate)
+    cost_gate_vetoed_entry_count: int = 0
     open_positions: dict[int, OpenPaperPosition] = field(default_factory=dict)
     closed_trades: list[ClosedPaperTrade] = field(default_factory=list)
     # Closed §9 experiments awaiting Layer-10 recording: (graded, trade, kind)
@@ -600,6 +612,42 @@ class LiveUniversePaperState:
                 self.index_level_sized_down_count += 1
         return multiplier
 
+    def cost_gate_permits_order(self, signal, quantity: int) -> int:
+        """REDESIGN L1 reality filter: return the quantity the pre-trade COST GATE allows for this
+        directional cash signal — the risk-approved `quantity` if its expected edge (entry→target) clears
+        the modelled round-trip cost (statutory + slippage + real-ADV market impact), a SMALLER quantity if
+        only a downsized order clears, or 0 (VETO) if no size does. Feeds the gate the real ADV so the
+        impact term is size-accurate; unknown ADV → spread+statutory only (never invents impact)."""
+        adv = self.average_daily_quantity_by_token.get(signal.instrument.instrument_token)
+        decision = self.cost_gate.evaluate_directional(
+            segment="nse_cash_equity",
+            entry_price=signal.breakout_close_price,
+            target_price=signal.target_price,
+            opened_short=signal.direction is not SignalDirection.LONG,
+            risk_approved_quantity=int(quantity),
+            average_daily_quantity=float(adv) if adv else None,
+        )
+        if decision.verdict is CostGateVerdict.VETO:
+            self.cost_gate_vetoed_entry_count += 1
+            return 0
+        return decision.approved_quantity
+
+    def cost_gate_permits_credit_spread(
+        self, spread_segment: str, short_leg_premium: float, hedge_leg_premium: float,
+        lot_size: int, lots: int,
+    ) -> bool:
+        """REDESIGN L1 reality filter for options: True iff the net premium collected on a defined-risk
+        credit spread clears the round-trip cost of trading BOTH legs at their full premium (statutory +
+        option slippage). A thin credit that the market's cut would swallow is vetoed before capital."""
+        decision = self.cost_gate.evaluate_credit_spread(
+            segment=spread_segment, short_leg_premium=short_leg_premium,
+            hedge_leg_premium=hedge_leg_premium, lot_size=int(lot_size), lots=int(lots),
+        )
+        if decision.verdict is CostGateVerdict.VETO:
+            self.cost_gate_vetoed_entry_count += 1
+            return False
+        return True
+
     def constitution_permits_order(self, segment: str, is_option: bool) -> bool:
         """Trunk VII.6 CONSCIENCE: the constitutional Referee as a HARD pre-order gate. Builds the
         proposed action from the system's structural INVARIANTS (intraday-only, atomic multi-leg,
@@ -948,11 +996,16 @@ def _open_position_from_signal(
     entry_side = (
         OrderSide.BUY if signal.direction is SignalDirection.LONG else OrderSide.SELL
     )
+    # Generic entry reference so this open path serves BOTH families: ORB carries `breakout_close_price`,
+    # the intraday mean-reversion signal carries `entry_reference_price` (research/170).
+    entry_reference_price = getattr(signal, "breakout_close_price", None)
+    if entry_reference_price is None:
+        entry_reference_price = signal.entry_reference_price
     # Pay the spread on entry — the taker fills worse than the reference
     # (research/41: the live loop was frictionless). Buys fill above, sells
     # below; options pay a wider half-spread than cash.
     entry_fill_price = slipped_fill_price(
-        signal.instrument, entry_side, signal.breakout_close_price,
+        signal.instrument, entry_side, entry_reference_price,
         state.fill_slippage_config,
         order_quantity=quantity,
         average_daily_quantity=state.average_daily_quantity_by_token.get(
@@ -960,7 +1013,7 @@ def _open_position_from_signal(
         ),
     )
     state.simulated_broker.update_market_price(
-        signal.instrument.instrument_token, signal.breakout_close_price
+        signal.instrument.instrument_token, entry_reference_price
     )
     state.ledger.record_fill(
         signal.instrument.instrument_token,
@@ -1023,8 +1076,10 @@ def _close_position(
             quantity=position.quantity,
             segment="nse_cash_equity",
             opened_short=position.direction is not SignalDirection.LONG,
+            trade_date=position.opened_at.date(),  # point-in-time rates (live=today; replay=historical)
         ).total_cost,
         assigned_table=position.prediction_record.assigned_table.value,
+        strategy_tag=position.strategy_tag,
     )
     state.closed_trades.append(closed_trade)
     graded = grade_prediction(
@@ -1228,6 +1283,9 @@ def _open_watched_breakout(state, watch, direction, ltp, risk_budget, now) -> bo
         return False  # Trunk X: a VITAL organ has acutely failed
     if not state.power_budget_permits_order(now):
         return False  # Trunk VII power budget: daily action-throughput budget spent
+    clamped_quantity = state.cost_gate_permits_order(signal, clamped_quantity)
+    if clamped_quantity <= 0:
+        return False  # REDESIGN L1 cost gate: expected edge below round-trip breakeven
     _open_position_from_signal(
         state, signal, clamped_quantity, prediction_record, now
     )
@@ -1318,6 +1376,9 @@ def _seed_cash_instrument_from_orb(
         return False  # Trunk X: a VITAL organ has acutely failed
     if not state.power_budget_permits_order(signal.triggered_at):
         return False  # Trunk VII power budget: daily action-throughput budget spent
+    clamped_quantity = state.cost_gate_permits_order(signal, clamped_quantity)
+    if clamped_quantity <= 0:
+        return False  # REDESIGN L1 cost gate: expected edge below round-trip breakeven
     _open_position_from_signal(
         state, signal, clamped_quantity, prediction_record, signal.triggered_at
     )

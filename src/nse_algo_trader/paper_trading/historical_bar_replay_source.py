@@ -24,12 +24,16 @@ class HistoricalBarReplaySource:
         bar_interval: BarInterval,
         from_timestamp: datetime | None = None,
         to_timestamp: datetime | None = None,
+        as_of: datetime | None = None,
     ) -> None:
         self._market_data_store = market_data_store
         self._instrument_tokens = instrument_tokens
         self._bar_interval = bar_interval
         self._from_timestamp = from_timestamp
         self._to_timestamp = to_timestamp
+        # L0 bitemporal (research/167): when set, only bars that had CLOSED (become available) by this
+        # instant are replayed — a structural guard against feeding a backtest a bar from the future.
+        self._as_of = as_of
 
     def load_chronological_bars(self) -> list[PriceBar]:
         """All requested bars across instruments, merged into one
@@ -43,6 +47,7 @@ class HistoricalBarReplaySource:
                     self._bar_interval,
                     self._from_timestamp,
                     self._to_timestamp,
+                    as_of=self._as_of,
                 )
             )
         merged_bars.sort(key=lambda bar: (bar.timestamp, bar.instrument_token))

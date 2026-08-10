@@ -13,6 +13,11 @@ from nse_algo_trader.strategy_engine.option_moneyness_classifier import (
     classify_option_moneyness,
     infer_strike_ladder_step,
 )
+from nse_algo_trader.strategy_engine.intraday_mean_reversion_strategy import (
+    IntradayMeanReversionConfig,
+    MeanReversionSignal,
+    detect_intraday_mean_reversion,
+)
 from nse_algo_trader.strategy_engine.opening_range_breakout_strategy import (
     OpeningRangeBreakoutConfig,
     detect_opening_range_breakout,
@@ -44,6 +49,9 @@ __all__ = [
     "CreditSpreadBias",
     "CreditSpreadSelectionConfig",
     "CreditSpreadSignal",
+    "IntradayMeanReversionConfig",
+    "MeanReversionSignal",
+    "detect_intraday_mean_reversion",
     "MarketRegime",
     "OpeningRangeBreakoutConfig",
     "OpeningRangeBreakoutSignal",

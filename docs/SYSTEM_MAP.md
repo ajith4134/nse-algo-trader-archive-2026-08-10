@@ -13,11 +13,184 @@ moves file-to-file inside it" without grepping the tree.
 - **Generated from the real code** (AST import graph), not memory — so it is
   true to what is actually on the server. Last regenerated: **2026-07-27** (nodes + edges reconciled
   against the §0 extractor — every feature package has a node, every material data-flow edge drawn).
-- **291 Python modules across 25 feature packages** (`src/nse_algo_trader/`; +1 top-level `__init__`): broker_credentials(3),
-  broker_sessions(9), universe_registry(6), market_data(33), indicators(13), strategy_engine(10),
-  risk_management(6), broker_oms(8), paper_trading(57), session_management(3), dashboard(12),
-  memory_reflection(7), participant_positioning(5), llm_strategy(17), conscience(15), sentience(10), epistemics(3), predictive_core(13), society(3), news_sentiment(22), axiology(3), will(3), capital_allocation(9), intrinsic_motivation(6), autopoiesis(14).
+- **353 Python modules across 28 feature packages** (`src/nse_algo_trader/`; +1 top-level `__init__`): broker_credentials(3),
+  broker_sessions(9), universe_registry(6), market_data(35), indicators(13), strategy_engine(11),
+  risk_management(7), broker_oms(12), paper_trading(61), session_management(3), dashboard(19),
+  memory_reflection(7), participant_positioning(5), llm_strategy(17), conscience(15), sentience(10), epistemics(3), predictive_core(13), society(3), news_sentiment(22), axiology(3), will(3), capital_allocation(9), intrinsic_motivation(6), autopoiesis(14), segment_bots(24), portfolio_supervisor(10), option_alpha(9).
 
+> **Feature Catalogue dashboard (Rule R, 2026-08-03):** new project-wide catalogue at `/catalogue` —
+> the whole picture (built / partial / planned / discussed / idea / forgotten-skip / blocked), 708 feature
+> rows + 197 atlas branches, mined from SYSTEM_MAP+MASTER_PROGRESS+BACKLOG+ideas+218 research docs (5
+> read-only inventory agents). NEW rule **R (server-truth)**: the plan is authored
+> (`dashboard/feature_catalogue_authored.json`) but every BUILD-STATUS is MEASURED, not hand-typed —
+> `dashboard/feature_catalogue_status_prober.py` scans the live 303-module set on disk and reconciles each
+> row (built/partial/`unverified`/blocked/planned/not-built) with a generation timestamp;
+> `dashboard/render_feature_catalogue_html.py` renders three views (Catalogue · measured Status-Wall ·
+> AI-Atlas) in the crypto Feature-Catalogue design. Wired: `/catalogue` route in `dashboard_server` +
+> nav link on the main dashboard. Live-verified (HTTP 200, 235 built code-backed, 84/197 atlas, 266
+> forgotten) + screenshot-confirmed all 3 views + dark. Spec: `docs/research/feature_catalogue_dashboard_spec_2026-08-03.md`.
+>
+> **3-segment-bot redesign — slice 1 (INDEX-OPT vol-regime engine, 2026-08-03):** new `segment_bots/`
+> package (26th). Shared seam `segment_bot_protocol.py` (`SegmentBot` Protocol · `TradeProposal` · structures
+> · `BotCompetency`) that all 3 bots + the supervisor bind to (bots PROPOSE only — crypto §03b). First deep
+> engine `index_option_bot/volatility_regime_engine.py`: GJR-GARCH(1,1,1) skew-t + HAR-RV conditional-vol
+> forecast (`arch`) fused with a `statsmodels` Markov-switching **filtered (point-in-time) regime** posterior;
+> carried fitted state via `VolatilityRegimeStore` (+ metrics ledger); Rule-Q maturity ladder (EWMA fallback
+> below 250 obs, honest `gathering`); output `VolatilityRegimeState` (regime · forecast σ · VRP) drives the
+> premium-harvest decision. 7 tests (fit · simplex-invariant · blend-bounds · maturity-gate · adversarial ·
+> persist). Rule-F: earned path verified on 2,145 real NSE 5m bars (regime=calm, VRP+, harvest=True); daily
+> earned-path awaits ≥250 trading days (29 stored → accrual blocker, Rule K). Consumer = the assembled
+> INDEX-OPT bot (slice 5, queued). Spec: `docs/research/index_option_bot_engine_spec_2026-08-03.md`.
+>
+> **Option bots now TRADE on their earned directional edge (2026-08-04):** diagnosed why index/stock option
+> bots stood aside while cash traded — `iv_rank` is None across the universe (needs ~60 sessions of ATM-IV
+> history; store has ~6–36), so the vol-edge selector branches never fire. Fix: both structure selectors gain
+> an EARNED-TREND branch — when the arbiter returns a directional verdict (already gated by 0.55 confidence +
+> 0.10 margin) at gathering/mid IV, the bot expresses it as a DEFINED-RISK directional debit spread (CE for
+> LONG, PE for SHORT via new `_put_debit_spread`), flagged `directionally_earned` so the policy trades it on
+> the arbiter's gate, NOT the vol-conviction floor (directional buying needs no vol edge). `StructureDecision`
+> gained `directionally_earned`; selectors/policies thread `trend_conviction` (from the brain verdict).
+> Rule-Q cold-start extended to both option `_size_lots` (1-lot paper floor when unearned, was `return 0`).
+> `DirectionalSideBrain` gained a per-cycle training budget (`max_new_trains_per_cycle=4` + `begin_cycle()`)
+> so a full-universe pass never blocks the pod tick — cold-start spreads over cycles, earned models persist.
+> `pod_paper_lifecycle` order-id dedup fixed (keyed by bot|underlying|side, not epoch — was duplicating
+> positions every cycle). **Live-verified (market open):** NIFTY/TRENT/CANBK propose directional debit
+> spreads; stock_option_bot tile ACTIVE (9 proposed · 2 accepted), 2 option positions OPEN alongside cash.
+> +7 selector/policy/brain/lifecycle tests. Index bot earns incrementally under the budget. Rationale strings
+> corrected (Rule O honesty). OPEN (Rule K): precise option-leg mid P&L in the lifecycle (directional
+> underlying-proxy today); IV-rank history to unlock the premium-selling paths.
+>
+>  **Option-alpha slice 3 (Structure Payoff Optimizer — the bot invents its own trades, 2026-08-04):** `terminal_distribution_model.py` Monte-Carlo-samples the underlying's expiry price under a regime-mixture, fat-tailed (Student-t, ν from stress) model with drift from the arbiter conviction. `structure_payoff_optimizer.py` enumerates REAL-STRIKE candidate structures from the live chain per profit-engine (Θ condors/strangles, Δ debit spreads, ν/Γ long convexity), prices each over the distribution (entry cashflow from live premiums + terminal intrinsic per sample) → E[P&L], CVaR, P(profit), max-loss, and returns the max-EV DEFINED-RISK one; `build_plan_from_optimized_structure` maps it to an `OptionStructurePlan` (real strikes + moneyness). Contract LOT SIZE now comes from the LIVE Kite instrument dump (`live_lot_size` on the chain; the hardcoded map was stale — NIFTY is 65 not 75), so the payoff economics use the real lot. Wired into BOTH bots' `_build_proposal` (`_synthesize_structure`) — swaps the template for the synthesized structure, provenance carries E[P&L]/CVaR/P(profit). Live-verified: NIFTYNXT50 condor S74500CE/B74900CE/S73900PE/B73500PE E[P&L]+42,314 P(profit)99%, BANKNIFTY +11,317, MIDCPNIFTY +9,026 on real strikes. Scorer damps long-vega on EXPIRY DAY so Γ/Θ take 0-DTE (NIFTY expiry → gamma). 16 tests. Design: `docs/research/option_alpha_slice3_structure_payoff_optimizer.md`.
+>
+> **LIVE option-chain feed — index bots trade TODAY's real chain (2026-08-04):** the #1 user blocker fixed.
+> New `market_data/live_option_chain_source.py` — `KiteLiveOptionChainSource` (through the `broker_sessions`
+> seam, never imports kiteconnect) assembles the real chain: resolve the underlying's NFO (NSE) / BFO (BSE)
+> option instruments, center a ±20 strike window on the live index spot (Kite ltp), batch-`quote` the CE/PE
+> legs (LTP+OI+vol), return the canonical schema; cached ~45s per underlying. `MultiBrokerLiveOptionChainSource`
+> tries providers in order (Kite now; Upstox/Angel/Breeze/Groww creds present → queued providers, Rule K).
+> Wired into `MarketStoreOptionAdapter` (new `live_chain_source`): `option_chain`/`nearest_expiry` prefer the
+> LIVE chain, fall back to the stored bhavcopy if no session (Rule J). `PodRunner` passes it to BOTH the index
+> AND stock adapters (`_spec_for` handles a single-stock F&O underlying: name=symbol, NFO, spot=`NSE:<symbol>`).
+> **Live-verified (market open):** NIFTY chain now = today's 2026-08-04 expiry @ spot 24,484 ATM 24500 (was
+> stale 2026-06-15 @ 23,853); SENSEX via BFO @ 78,367; stock chains live too (RELIANCE @ 1,292, INFY, TRENT,
+> SBIN); both bots propose structures on the real today-expiry strikes; live positions open (index
+> NIFTYNXT50/FINNIFTY, stock HDFCAMC/TRENT/CANBK). 3 hermetic wiring tests. Scope: 5 NSE indices +
+> SENSEX/BANKEX + all ~210 F&O stocks (user-authorized beyond phase-1). OPEN (Rule K): other-broker providers
+> (Upstox/Angel/Breeze/Groww) + live strike resolution in the router (paper legs still use stored spot) + live
+> ATM-IV. Design: `docs/research/live_option_chain_feed.md`.
+>
+> **Option-alpha slice 2 (Opportunity Scorer) + live marks (2026-08-04):** new
+> `option_alpha/option_opportunity_scorer.py` — scores all 5 profit engines (Θ/Δ/ν/Γ/RV) per name from the
+> feature vector, argmax-selects the winner (abstains below a floor), ranks the universe cross-sectionally, and
+> DISPATCHES the structure via `selector.select_for_engine(engine, …)` — replacing the first-match branch
+> priority. RV is a CROSS-SECTIONAL skew/term percentile (only the most-dislocated names score); ν rewards
+> cheap-vol-in-calm OR stress (own the tail). `OpportunityScoreLedger` persists per-cycle scores for the
+> slice-5 learner. Wired into BOTH the index AND stock bots (each with its own OpportunityScoreLedger; stock adds the event-gate pre_event feature). Real-data: NIFTYNXT50→Θ→condor, NIFTY→ν→long
+> strangle, FINNIFTY→RV→condor. ALSO: the pod lifecycle now MARKS open positions each cycle at the LIVE
+> intraday underlying price (`pod_runner._price_of` → latest 5m `price_bars` bar) → the dashboard Option
+> tables show a moving LTP + unrealised P&L (directional exact; neutral-structure per-leg P&L = slice 4).
+> 9 scorer + lifecycle-mark tests. Specs: `docs/research/option_alpha_slice2_opportunity_scorer.md`.
+> OPEN (Rule K, TOP): the option CHAIN is a STALE stored bhavcopy (2026-06-15) — the bot cannot trade today's
+> live index/stock CE-PE until a LIVE option-chain feed is wired (user priority: index options first).
+>
+> **Option-alpha slice 1 (VRP richness) + pod trades visible in segment tables (2026-08-04):** new
+> `option_alpha/` package (28th) — see the OPTALPHA node. Both option bots refactored to a TWO-PASS propose
+> (gather all names' regime/surface → cross-sectional `assess_universe` → build per name) so the vol-richness
+> engine ranks the whole universe's VRP; both selectors gate rich→sell-premium / cheap→buy-vol on the
+> richness signal (iv_rank legacy fallback). Real-data: NIFTYNXT50→iron_condor, FINNIFTY→short_strangle,
+> TRENT→iron_condor — the Θ premium-harvest engine now fires in flat markets. ALSO fixed the user-visible
+> gap: `dashboard_read_model._with_pod_option_positions` surfaces the pod's OPEN option positions into the
+> main dashboard's Option-Index / Option-Stocks tables + open-counts (the pod trades in a separate process
+> from the live-paper service that fills those boards, so they read "0 open" before). Live-verified: Option
+> Index 2 open (NIFTYNXT50, FINNIFTY), Option Stocks 5 open (IOC, KOTAKBANK, TRENT, BHEL, KALYANKJIL);
+> screenshot-confirmed. 6 engine tests. Design: `docs/research/option_alpha_slice1_vol_richness_engine.md`.
+>
+> **Pod real-clock + intraday square-off (2026-08-04):** the pod-tick loop passed a synthetic epoch
+> (0,1,2…), so the lifecycle's age-based intraday square-off never fired (positions would carry overnight —
+> a rule violation). Fixed in `dashboard_server` `_run_pod_tick_loop`: real `time.time()` epoch drives
+> position ageing, and `IntradaySquareOffSchedule.should_force_square_off_now(now_ist, NseMarketClock())`
+> forces `run_cycle(force_square_off=True)` in the 15:15–15:30 IST window (composes existing session-mgmt
+> machinery). Pod-tick failures now log (Rule O.3) instead of silent `pass`. Verified: 11:23 IST → force
+> False (correct, pre-window); dashboard healthy after restart.
+>
+> **Deep intraday underlying feed — option bots woken (slice 2b, 2026-08-04):** the index/stock bots stood
+> aside because their `price_series` used only the DAILY F&O-derived underlying price (~36 points) — below the
+> regime engine's 250-obs and the directional brain's 400-sample bars. New
+> `market_data/underlying_intraday_price_source.py` (`UnderlyingIntradayPriceSource`) serves the DEEP 5m
+> series already stored in `price_bars` (460–2,166 bars/underlying, live through today) by resolving the
+> underlying to its real `instrument_token` via a CACHED `instrument_token_map.json` (Kite-decoupled: reads
+> stored data only, never imports kiteconnect; `refresh_underlying_token_map` rebuilds the cache through the
+> broker seam, run by `scripts/refresh_instrument_token_map.py`). `MarketStoreOptionAdapter.price_series`
+> now prefers this deep series, falling back to the daily one. **Real-data-verified (market open):** NIFTY
+> depth 36→519; the volatility-regime engine now earns (`calm`, was `gathering`) and the BULL/BEAR brain earns
+> (NIFTY → LONG, "BULL wins P=0.58, margin 0.22"). The bots still abstain on NIFTY today because IV-rank is
+> MID (a directional read needs a cheap/rich-IV structure — a correct data-driven stand-aside, selector
+> rationale fixed to say so, not a deadlock); they will structure directional CE/PE on a vol edge. 4 source
+> tests. Design: `docs/research/pod_paper_lifecycle_engine.md` (slice 2b). OPEN (Rule K): first pod cycle
+> trains all brains (~18s each) — amortized as they persist; full-universe train cadence to profile.
+>
+> **Pod paper lifecycle engine — cold-start unblocked (slice 2a, 2026-08-04):** the segment-bot pod was in a
+> cold-start deadlock (bots gated `propose` on earned competency + nothing ever closed their trades back →
+> competency could never accrue). Fixed WITHOUT a new data source (adapters already serve real full-universe
+> data): (1) Rule-Q cold-start — all 3 bots propose from birth at a paper floor (dropped the unearned
+> `return []`); `PortfolioSupervisor` grants an unearned bot a `_WARMUP_WEIGHT` (1/6) instead of 0.0; LIVE
+> weight still gated at the execution seam. (2) New `portfolio_supervisor/pod_paper_lifecycle.py`
+> (`PodPaperLifecycleEngine` + `PodOpenPositionStore`): carries open positions as persisted state, marks them
+> at real adapter prices each cycle, exits on stop / target / mandatory intraday square-off, and on close
+> feeds a `ClosedTrade` back to the owning bot → competency accrues + head trains. Wired into
+> `PodRunner.run_cycle` (`_price_of` = cash bhavcopy last-price → option-underlying spot). Supervisor gained
+> `proposals_by_bot`/`accepted_by_bot`; pod publishes `by_bot`/`closed_this_cycle`/`open_positions`.
+> **Live-verified (market open):** pod went 0 → 482 proposals, 3 accepted, 3 open positions tracked;
+> cash_intraday_bot tile is LIVE ("482 proposed · 3 accepted"); competency accrual confirmed end-to-end
+> (closed_trades increments on square-off). 7 lifecycle + 2 supervisor tests. Index/stock still stand aside
+> (only 36 price bars → no vol/trend edge — the data-depth gate slice 2b addresses). Design:
+> `docs/research/pod_paper_lifecycle_engine.md`.
+>
+> **Per-bot heartbeat (2026-08-04):** `PortfolioSupervisor` now returns `proposals_by_bot` +
+> `accepted_by_bot` (base bot name, per-instrument suffix stripped via `_count_by_bot`); `pod_runner._persist`
+> publishes a `by_bot` block in `last_cycle.json` (per bot: segment · proposals · accepted · closed_trades ·
+> competency · is_earned). `segment_bot_surface_prober` reads it → each bot tile shows its OWN "this cycle:
+> N proposed · M accepted" pulse + goes `active` the cycle it proposes, instead of the shared pod pulse.
+> 2 supervisor tests; live-verified (by_bot in last_cycle.json + snapshot; wall screenshot shows the row).
+> Closes the wall's Rule-K per-bot-heartbeat item. Still 0/cycle until real data adapters (next slice).
+>
+> **Operations Wall + bot/directional surfaces (2026-08-04):** every feature now visible "like a TV wall".
+> New `dashboard/segment_bot_surface_prober.py` MEASURES the 3 segment bots + 2 directional AI features
+> (BULL P↑ / BEAR P↓) from the real code (pod_runner + bot-module AST imports) + persisted stores (closed
+> trades → Rule-Q maturity, per-underlying engines earned) + pod `last_cycle.json` heartbeat — never
+> hand-typed (Rule R); unmeasurable = `NOT-INSTRUMENTED`, never green. Injected always-on in
+> `dashboard_read_model.build_dashboard_snapshot` (overrides the live service's placeholder rows), so the
+> bots show with or without live auth. 5 new manifest keys in `dashboard_feature_surface`. New
+> `dashboard/render_operations_wall_html.py` → route `/wall`: a manifest-driven live tile wall (status light
+> + icon + word, never colour-alone per dataviz) with the 5 as a pinned hero row + all 74 operational
+> features; any FUTURE feature auto-appears (a not-yet-surfaced tile fails the Rule-N audit). Nav link on `/`;
+> `scripts/screenshot_dashboard.py` gained `--path`. Live-verified: `/wall` + `/` HTTP 200, `/api/snapshot`
+> carries all 5 bot surfaces, screenshot shows 79/79 surfaced (16 live · 59 gathering · pod pulse 74s).
+> 9 prober/merge tests + coverage audit green; ruff+mypy clean. Design:
+> `docs/research/operations_wall_and_bot_surfaces.md`. OPEN (Rule K): per-bot live heartbeat awaits the pod
+> publishing a per-bot breakdown (pod-level totals only today).
+>
+> **Directional verdict → 3 bots (slices 2–4, 2026-08-04):** new shared `segment_bots/directional_ai/
+> directional_side_brain.py` (`DirectionalSideBrain`) — the consumer that ended the slice-1 orphan. It owns
+> a per-underlying persisted `BullBearDirectionalEngine`, trains lazily on the bot's own price history
+> (triple-barrier samples), and serves an arbitrated `DirectionalVerdict` (BULL/BEAR → arbiter →
+> LONG/SHORT/NEUTRAL). Wired into all three bots, REPLACING the passive `adapter.trend_side` NEUTRAL stub
+> as the primary directional source (stub survives only as an optional injected live-trend override):
+> INDEX-OPT + STOCK-OPT feed `verdict.side` into their structure selectors (wakes the dormant CE/PE /
+> call-vs-put branches); CASH uses it as a per-name **confirmation gate** that vetoes a cross-sectional
+> long/short pick only when the name's own earned time-series brain firmly opposes it (Rule Q: neutral/
+> gathering = book unchanged). 5 brain tests + all 3 bot suites green (20 passed); ruff+mypy clean.
+> Design: `docs/research/directional_verdict_wiring.md`. OPEN (Rule K): dashboard surfaces for the 3 bots +
+> their directional brains (next), OHLC-bars upgrade, retrain-cadence hook, full-universe perf profile.
+>
+> **Feature Catalogue AST resolver (Rule R/G hardening, 2026-08-03):** replaced the note-text heuristic with
+> `dashboard/feature_catalogue_ast_resolver.py` — the real `ast` import graph + BFS reachability from the
+> runnable entry points. Now measures code presence (built 296), **wiring vs orphan** (73 orphans no entry
+> point reaches — Rule G), atlas reconciled UP to **85/197** (code wins over stale 🔴 prose), unverified
+> 50→30, and **live auto-discovery** of 75 undocumented modules (real code in no authored row → auto-surfaced,
+> so the board never falls behind the code). New tiles ORPHANS · UNDOCUMENTED. Spec:
+> `docs/research/feature_catalogue_ast_resolver_2026-08-03.md`.
+>
 > **Build-order slice 0.0 (idea #10 Kite-decouple, 2026-08-02):** moved the ONLY Kite leak outside the
 > broker seam — `dashboard_server._build_authenticated_kite_client`'s `from kiteconnect import KiteConnect`
 > — into `broker_sessions/authenticated_kite_client_builder.py` (`build_authenticated_kite_client_if_valid`,
@@ -145,6 +318,20 @@ flowchart TD
     AUTOPOIESIS(["autopoiesis<br/>Trunk X AUTOPOIESIS / SELF-PRODUCTION · **COMPONENT-LIFECYCLE HOMEOSTAT (research/168-172, Rule-P engine): the organism maintaining ITSELF.** MAPE-K loop (level-triggered, k8s-controller style) over an explicit MEMBERSHIP registry (40 components / 37 maintenance edges; self vs EXOGENOUS boundary) → PCA T²+SPE/Q + EWMA health index → right-censored Weibull-AFT RUL (lifelines) w/ Wiener first-passage cold-start → hierarchical Gamma-Poisson partial pooling (class priors make day-1 estimates principled) → CBM Bellman value-iteration control-limit policy {monitor·repair·replace·quarantine} → OTP-style supervision tree (restart intensity MaxR/MaxT) + pybreaker CLOSED/OPEN/HALF_OPEN + tenacity jittered retries under a repair BUDGET, referee/off-switch pre-checked. Operational-closure audit (Chemical Organization Theory: closed ∧ self-maintaining, networkx SCC/condensation) — real finding: `win_probability_model` [VITAL] is maintained by NOTHING (load_or_train can never retrain it) + `session.angel_one` has no expiry check. Append-only SQLite state survives restart. **WIRED (2026-07-27): vitality-gate size lever + hard veto at ALL 4 entry sites · 5-min MAPE-K service cadence · `component_lifecycle_homeostat` dashboard surface LIVE (vitality 0.500, 36 components, advisory dry-run repair)**"])
     NEWS(["news_sentiment<br/>Trunk II SENSES · sentiment/news: S1 tier-1 RSS → staleness reject → dedup store; S2 index S/R extraction (→ news_levels) BUILT; S4a+S4b acquisition LADDER BUILT (fast curl_cffi static → Chromium render fallback; store-dedup = NEW-per-poll live delta); S4c NSE corporate-announcement FILINGS BUILT (curl_cffi session, IST→UTC, tier EXCHANGE_FILING); S3 per-source RELIABILITY BUILT (tier-seeded beta-reputation + freshness + Stouffer → board filings 91% > news 67% > stale 50%); **S7 news-ENTRY-GATE BUILT (PRIMARY): per-symbol news-event risk sizes-down/defers entries (both cash-ORB sites, advisory until earned); sense 🟢**; NSE symbol↔name GAZETTEER (F&O-bounded) resolves headlines → S7 covers headlines (17→31 symbols); STOCK-S/R LEVEL extraction (analyst targets/support/resistance per F&O stock → news_levels); SENTIMENT (finance-VADER → DIRECTIONAL S7 gate); INDEX-LEVEL option gate (S2 index news_levels → both option entry sites) — index levels decision-wired; S5 TELEGRAM social-tier ingestion (advisory-until-proven, S3-floored); FinBERT sentiment (ProsusAI/finbert, PRIMARY behind the scorer seam, finance-VADER fallback — more accurate on real headlines); S4d vision/proxy + signal-earning-harnesses QUEUED"])
 
+    SEGBOTS(["segment_bots<br/>3 SEGMENT-SPECIALIST BOTS + supervisor (redesign 2026-08-03, Rule-P). Shared `SegmentBot` seam (propose-only, crypto §03b). **`directional_ai/` (2 AI features per bot, crypto §03b BULL/BEAR):** BULL model (calibrated P(up)→CALL/BUY) + BEAR model (P(down)→PUT/SELL), each LightGBM + isotonic + walk-forward + SHAP + ADWIN drift on FULL un-filtered sample w/ **counterfactual triple-barrier labels**; `DirectionalArbiter` (both-confident→FLAT, margin-gated) → the side that DECIDES the trade; Rule-Q gathering→neutral. Real-data verified on 2,093 NIFTY triple-barrier samples. QUEUED: wire trend_side into the 3 bots + directional TV dashboard board. **INDEX-OPT slice 1 — volatility-regime engine:** GJR-GARCH(1,1,1) skew-t + HAR-RV conditional vol (arch) fused with statsmodels Markov-switching FILTERED (point-in-time) regime posterior → VolatilityRegimeState (regime · σ · VRP) → premium-harvest decision; carried fitted state + Rule-Q ladder. **Slice 2 — IV-surface engine:** per-contract BSM IV (vollib) + raw-SVI smile fit per expiry (scipy, no-arb, liquid band) → ATM IV · 25Δ risk-reversal · term-structure · IV-rank vs carried rolling history (`ImpliedVolRankStore`). **Slice 3 — structure selector + deterministic policy:** regime+surface → `OptionStructurePlan` (stress-gate stand-aside · sell-premium iron-condor/strangle · rich-skew put-credit-spread · buy-cheap-vol · 0DTE iron-fly) → sized `TradeProposal` (transparent expectancy/tail, Rule-Q size gate, forced P1 fallback that generates the slice-4 training set). All real-data verified (slice 1+2+3 E2E on real NIFTY → iron_condor proposal). **Slice 4 — learned head:** `win_probability_head.py` — 13-feature LightGBM under leakage-free walk-forward + isotonic calibration + SHAP + river ADWIN drift + joblib persistence + Rule-Q ladder (deterministic passthrough until ≥200 labelled trials); hermetic AUC 0.81, SHAP recovers signal (⛔ real-trial accrual = open blocker). **Slice 5 — assembled bot:** `IndexOptionBot(SegmentBot)` composes all 4 engines via a DI `IndexOptionDataAdapter` seam + `BotTrackRecordStore` (competency ladder + labelled-trial accrual); propose→refine(head)→learn loop; real-data E2E on real NIFTY → iron_condor 3-lot proposal (P(win) 0.6). ⛔ DECISION consumer = the portfolio SUPERVISOR (built, slice 6). **STOCK-OPTION bot (built):** reuses regime/IV-surface/head engines (own stores, choice-B) + single-name brains — `option_flow_signals` (PCR + PCR-shift-z + unusual vol/OI, in-house) · `event_calendar_gate` (earnings vol-crush proximity) fed by **`nse_event_calendar_source`** (real NSE `/api/event-calendar` scraper — curl_cffi session, persisted cache; fetched 733 real events, ADROITINFO T-1 → PRE_EVENT) · single-name selector (event/flow-gated); real-data verified on real INFY F&O (PCR-OI 0.60 → iron_condor). **CASH-INTRADAY bot (built):** cross-sectional GBDT (Qlib analog) — `cross_sectional_features` (9 Alpha-style factors × rank+z across the universe) → `cross_sectional_alpha_model` (LightGBM regressor, walk-forward rank-IC, factor-composite fallback until earned, drift) → cost-aware long/short book (top/bottom decile); real-data verified on the FULL 2,416-name EQ cash universe (`CashBhavcopyUniverseAdapter` over `cash_bhavcopy_delivery`, Rule L). ALL 3 BOTS + SUPERVISOR built. QUEUED: live-loop wiring · dashboard boards · event-scraper · §8b upgrades"])
+
+    SUPERVISOR(["portfolio_supervisor<br/>PORTFOLIO SUPERVISOR (redesign slice 6, Rule-P) — the pod frame above the segment bots. Collects every bot's `TradeProposal` → drops expired → price-reconciliation guard (choice-B) → competency-weights each edge → **capital allocation on the existing CVXPY `CapitalAllocationOptimizer`** → **net-exposure netting** per underlying (crypto §03b #1: don't trade against yourself) → **arbiter** (accept/resize/veto — the ONE place a trade is chosen) → ONE hard portfolio-CVaR stop + **§8b cross-bot crowding monitor** (net-directional-bias + exposure-Herfindahl + same-name pile-ups → gross-risk shrink before the correlated drawdown; CROWDING tile on /pod) that override every bot. **§8b dispersion overlay** (`dispersion_overlay`: backs out NIFTY implied correlation from real index-vs-constituent ATM IVs → sell/buy index-vol-vs-constituents; computed each PodRunner cycle + DISPERSION tile on /pod; real-data ρ 0.20). Emits `ArbitratedOrder`s → **`PodOrderRouter`** resolves each to a concrete `Instrument` (cash / option-leg via an `InstrumentResolver` seam) → `OrderIntent` → broker (paper/live). 9 tests; real bot + allocator + SimulatedBrokerClient placement verified. **Production wiring (built):** `market_store_data_adapters` (real F&O-bhavcopy/ATM-IV/cash cross-section adapters + `MarketStoreInstrumentResolver`) + **`PodRunner`** (assemble pod on production adapters → run cycle → route orders → persist `last_cycle.json`) run every 5 min by a dashboard **pod-tick thread**; `/pod` board reads the real cycle. Verified end-to-end on real data (earned → real NIFTYNXT50 proposal → supervisor → router). ⛔ LIVE intraday feed (5m/live chain) + allocator experience-earning = open blockers"])
+
+    OPTALPHA(["option_alpha<br/>SHARED OPTION-ALPHA ENGINES (clean-sheet selection redesign 2026-08-04, Rule-P) that both option bots bind to. **Slice 1 — `vol_risk_premium_richness_engine`:** the cross-sectional 'is premium rich or cheap?' signal that replaces the perpetually-None IV-rank. Per cycle, per name: VRP = ATM_IV − forecast_RV (from the regime engine) → a Bayesian-shrinkage percentile over TWO axes — TIME-SERIES (name's own rolling VRP history, carried state `VrpHistoryStore`) + CROSS-SECTION (ranked vs the whole universe this cycle) — blended by history-length shrinkage `w=n/(n+k)` (thin name leans on the cross-section). Output `VolRichnessState(richness∈[0,1])` → both selectors' rich→SELL-premium / cheap→BUY-vol gates, waking the Θ/premium-harvest engine (iron condor · strangle · credit spread) in FLAT markets. Real-data verified: NIFTYNXT50→iron_condor, FINNIFTY→short_strangle, TRENT→iron_condor. QUEUED (redesign slices 2-5): opportunity scorer · terminal-distribution structure optimizer · liquidity filter + per-leg P&L · book optimizer. Spec: `docs/ideas/option_bots_profit_taxonomy_and_redesign.md`"])
+
+    MD -->|"daily/5m index bars → log returns + realized variance"| SEGBOTS
+    SEGBOTS -->|"per-name VRP + realized vol (cross-sectional pass)"| OPTALPHA
+    OPTALPHA -->|"VolRichnessState → rich/cheap structure gate"| SEGBOTS
+    SEGBOTS -->|"TradeProposal (propose-only)"| SUPERVISOR
+    CAPALLOC -->|"CVXPY capital allocation across sleeves (reused)"| SUPERVISOR
+    SUPERVISOR -->|"ArbitratedOrder → PodOrderRouter → OrderIntent"| OMS
+    SUPERVISOR -->|"ArbitratedOrder (paper/live via router)"| PT
+    SUPERVISOR -->|"pod board: bots · competency · alloc · netting · CVaR (/pod, Rule N)"| DASH
     AUTOPOIESIS -->|"organism vitality lever (size-DOWN ≤1.0) + hard veto on an ACUTE VITAL failure"| PT
     PT -->|"real vital signs: thread liveness · store mtime/integrity · token expiry · psutil host"| AUTOPOIESIS
     AUTOPOIESIS -->|"health · closure violations · RUL · repair plan · throttle"| DASH
@@ -472,6 +659,238 @@ queued, calibration-gated next slice (research/96).
 ---
 
 ## §4 · MAINTENANCE LEDGER
+
+- **2026-08-04 (Option trade-quality FLOOR + per-trade EVIDENCE card — "proof, not blind" selection)** —
+  operator asked whether option trades are picked blind or with real proof of a profit goal. Two changes so
+  the answer is provably the latter. **(A) Trade-quality floor** (`structure_payoff_optimizer._evaluate`): a
+  synthesized structure must clear TWO relative floors (no magic ₹) — a MEANINGFUL premium (|net entry
+  cashflow| ≥ `min_premium_fraction`·spot·lot, default 5 bps of notional) AND a NON-TRIVIAL positive edge
+  (`E[P&L] > 0` and ≥ `min_return_on_risk`·max_loss, default 3% return-on-risk). Kills the near-worthless
+  ₹0.05-leg / ₹3-EV condors on near-expiry chains. **Abstain-not-fake:** both option bots' `_synthesize_structure`
+  now return `None` (stand aside) when a live chain is present but NO floor-passing structure exists — with an
+  ENGINE-FALLBACK (`OpportunityScore.tradeable_engines()` tries next-best scored engine first) — so a
+  proof-less template trade is never emitted (was the silent fallback). Every emitted proposal now carries its
+  optimizer provenance (engine · E[P&L] · P(profit) · defined-risk max_loss). **De-hardcoded:** the optimizer's
+  per-structure risk cap now scales with ACCOUNT capital (`risk_account_notional` threaded index/stock bot ←
+  `pod_runner` ← trading_control_config), not a fixed ₹1M. **(B) Evidence on the dashboard:** the Option-table
+  row's TABLE badge now shows the profit ENGINE (Θ/Δ/ν/Γ/RV — validated Okabe-Ito categorical badges,
+  `render_dashboard_html`); a new `trade_evidence` feature surface (`segment_bot_surface_prober._trade_evidence_surface`
+  + manifest key) renders one proof row per open option structure (engine · E[P&L] · P(profit) · risk), read
+  from each trade's persisted provenance. No new module. Real-data verified: on the live NIFTY-family chain the
+  ₹3 condor is now rejected, FINNIFTY abstains (5→4 names), the 4 emitted trades all carry economics; a real
+  background pod cycle (525 proposed/46 accepted/43 open) renders 43 evidence rows + engine badges. Negative
+  modeled max-loss (stale after-hours premiums) shown honestly as "none (modeled)". 72 tests green; ruff+mypy
+  clean; map fidelity OK (353 modules). Design: `docs/research/trade_quality_floor_and_evidence.md`.
+
+- **2026-08-03 (L4 — mean-reversion PLUMBING for the live cash arm; safe, no behaviour change)** — prep so the
+  mean-reversion family can trade + enter the promotion ladder: (1) `_open_position_from_signal` generalised
+  to a shared entry reference (`getattr breakout_close_price ?? entry_reference_price`) so BOTH ORB and the
+  mean-reversion signal reuse the same open/fill/ledger path; (2) `ClosedPaperTrade.strategy_tag` added +
+  copied from the position at close, so closed trades carry their family; (3) the service cash grouping
+  splits by strategy_tag → `Mean reversion cash` vs `ORB cash`, each earning its own DSR verdict. Inert until
+  the detector arm is wired (named consumer, BACKLOG). No new module. Verified: 58 loop/open/promotion tests
+  green (no regression); ruff+mypy clean. **NEXT (Rule K):** wire the range-bound `detect_intraday_mean_reversion`
+  arm into `_seed_cash_instrument_from_orb` (after ORB=None + low ADX) through the gate gauntlet + a
+  mean-reversion prediction record, then real-data verify it trades + enters the ladder.
+
+- **2026-08-03 (Directional option arm — FULL moneyness ladder ITM+ATM+OTM × CE/PE, index+stock)** — operator
+  ask: trade the whole strike ladder in paper, not just ATM. `option_credit_spread_live_path`: new pure
+  `select_directional_strike` (ATM=nearest; CE ITM below/OTM above spot; PE inverse; clamped) +
+  `directional_moneyness_for_conviction`. `_try_open_directional_option` now LOOPS ITM→ATM→OTM per breakout;
+  extracted `_open_one_directional_strike` (all gates preserved) opens each as a separate PAPER position keyed
+  by `underlying|moneyness` (new `moneyness` field; close `del` uses the composite key so square-off holds).
+  No new module (301). **Verified:** +11 selector tests (CE/PE sign-correctness + clamp + conviction) + 16
+  directional manage/close tests green (no regression); ruff+mypy clean; deployed clean. **OPEN (Rule F,
+  market-gated):** the live ladder fires only on a TRENDING-index breakout — currently range-bound (→ credit
+  spreads), so live ITM/ATM/OTM opens await a directional-breakout moment. research/171. Promotion ladder now
+  SPLIT per moneyness family (`Directional ITM/ATM/OTM` in `_per_trade_return_fractions_by_strategy`, each
+  earning its own DSR verdict; +38 tests green; surfaces once directional trades close this session).
+
+- **2026-08-03 (REDESIGN L4 slice 1 — multi-strategy promotion-pipeline spine)** — operator directive: take
+  ALL families to a proven edge, each earning promotion independently. NEW
+  `paper_trading/strategy_family_promotion_registry.py` (`StrategyFamilyPromotionRegistry`): per-family SQLite
+  state machine RESEARCH→PAPER→SHADOW→REDUCED_LIVE→FULL_LIVE(+HALTED); advancement EARNED only when the L2
+  gate PROMOTEs that family on its own trades + regime coverage (+ human go-live for live stages); edge decay
+  auto-DEMOTES a live family to shadow (whole-family antibody); `may_trade_paper/live` gate action per family.
+  300 modules, paper_trading 60→61. +10 tests (earned advance, decay demote, live gating, halt, persistence);
+  ruff+mypy clean. Design research/170. **NEXT (BACKLOG):** intraday mean-reversion family (opus agent,
+  building) + wire the registry into the service eval + per-family closed-trade feed + dashboard promotion
+  board + real-data verify.
+
+- **2026-08-03 (REDESIGN L4 slice 3 — promotion ladder WIRED into the service, decision-grade)** — the
+  `StrategyFamilyPromotionRegistry` is now fed by a new `_update_family_promotion_ladder` feature-plane stage:
+  each family's live DSR+CPCV readiness (`_strategy_readiness_summaries`) → `record_evaluation`, so families
+  EARN their stage on real trades (regime coverage proxied by 2×-min trades pending the real drawdown+vol
+  gate). Dashboard surface `strategy_family_promotion` (Rule N). **Verified REAL (Rule F):** live board shows
+  3 families (Credit spreads / Directional options / ORB cash) at PAPER, 0 shadow/live — correctly gated (no
+  earned edge yet). Deployed via the new `scripts/deploy_and_verify.sh` (self-eval fix). No new module (301).
+  **OPEN (BACKLOG):** wire mean-reversion as a live loop arm (so it accrues trades + enters the ladder) +
+  the loop-side `may_trade_live` consumption at entry + real regime-coverage gate.
+
+- **2026-08-03 (REDESIGN L4 slice 2 — intraday mean-reversion family built + exported)** — opus agent:
+  NEW `strategy_engine/intraday_mean_reversion_strategy.py` (`detect_intraday_mean_reversion` +
+  `IntradayMeanReversionConfig` + `MeanReversionSignal`) — fades an N-σ stretch from the session VWAP/SMA
+  back to the mean, ONLY in a range-bound (low-ADX) regime (the inverse of ORB); reuses the repo's own
+  VWAP/indicator + numpy (no new dep, all OSS signal-libs rejected on shape); self-calibrating percentile
+  mode; correct LONG/SHORT sign conventions (stop away from mean, target toward it). Exported in
+  `strategy_engine/__init__`. 301 modules, strategy_engine 10→11. +18 tests; ruff+mypy clean; verified
+  hermetic (Rule J). **OPEN (BACKLOG, Rule K):** wire as a live loop arm (regime-gated, cost/risk/promotion-
+  gated) + per-trade family tagging + registry→service-eval feed + dashboard board + real-data pass.
+
+- **2026-08-03 (REDESIGN L3 — ops floor: crash-safety trio built + integrated)** — read-first found the
+  rate limiter, kill switch (corrigibility), and risk gate already exist; the gap was crash-safety. Built
+  via 3 PARALLEL opus agents (all OSS rejected on mechanical facts — eventsourcing/mlflow-shape,
+  idempotency-key libs absent/toy, ib_insync archived, deepdiff has no position semantics): NEW
+  `broker_oms/idempotent_order_identity.py` (deterministic blake2b client-order-id + ≤20-char Kite tag;
+  golden-digest anti-`hash()` proof), `broker_oms/order_intent_write_ahead_log.py` (SQLite WAL, monotonic
+  PENDING→PLACED→{FILLED|REJECTED}, never-raise-on-write, crash-restart persistence),
+  `broker_oms/broker_state_reconciler.py` (signed-qty position diff vs broker truth → matched/orphan-local/
+  unknown-broker/qty-mismatch + conservative corrective actions, ALERT_HUMAN never silent). **Integrated
+  (mine, Rule G):** NEW `broker_oms/crash_safe_order_placer.py` binds them onto the broker seam — idempotency
+  probe → WAL record BEFORE the broker call → place → mark; `reconcile_against_broker` on restart; a drop-in
+  `BrokerClient`. Exported in `broker_oms/__init__`. Dashboard surface `ops_floor_crash_safety` (Rule N).
+  299 modules, broker_oms 8→12. **Verified HERMETIC (Rule J):** +8 placer tests (double-place suppressed,
+  durable across a simulated restart, broker-failure recorded+reraised, reconciliation) + 63 module tests →
+  98 broker_oms green; ruff+mypy clean. **OPEN BLOCKER (Rule K, live-gated):** the placer wraps the LIVE
+  broker only (paper uses SimulatedBrokerClient) — wiring it into the live execution path + the real-data
+  pass (live Kite acks + a real restart reconciliation) needs a live session; logged, engines ship complete.
+  Design research/168.
+
+- **2026-08-03 (REDESIGN L0 — bitemporal availability-time on the bar store; structural look-ahead guard)** —
+  `market_data/market_data_sqlite_store.py::price_bars` was event-time only, letting a backtest read a bar
+  before it had closed (silent look-ahead — the point-in-time hole L1's effective-dated costs + L2's holdout
+  didn't cover). Read-first: universe point-in-time already existed (`point_in_time_universe_resolver` +
+  `corporate_action_adjustment`); the bar store was the gap. Added an `availability_time` column (= bar
+  CLOSE = open + interval, via new `bar_availability_time`), recorded on `save_price_bars`, queryable via a
+  new `load_price_bars(..., as_of=)` predicate (only bars available by the clock), + a self-upgrading
+  migration (`_migrate_price_bars_availability_time`: ALTER + Python backfill, idempotent). **Wired (Rule G)**
+  into `historical_bar_replay_source` (as_of=replay horizon → replay is look-ahead-free); live/feature-plane
+  reads keep `as_of=None` (already real-time). No new module (295). **Verified REAL (Rule F):** migration
+  self-ran on the live 452k-row/275MB store during a `systemctl` restart — availability_time backfilled with
+  0 NULLs (09:15→09:20), and an as-of query EXCLUDED a real 5m bar at open+4min, INCLUDED it at open+5min
+  (close). +5 store tests (as-of boundary, no-as-of live behaviour, pre-availability-DB migration, replay
+  as-of) → market_data suite 139 green; ruff+mypy clean. Design research/167. **OPEN (BACKLOG):** thread
+  as_of=decision-clock through the remaining replay-time `load_price_bars` reads in the feature plane (live
+  reads are already real-time; the replay source — the main look-ahead surface — is done).
+
+- **2026-08-03 (REDESIGN L2 / 0.3 — validation engine completed: honest-N trial registry + holdout + MinBTL,
+  wired into the DSR promotion gate)** — read-first found CPCV + Deflated-Sharpe + PSR + promotion gate
+  already existed; the overfitting hole was `champion_challenger_orb_evaluator:94`
+  `number_of_trials = len(all_scorecards)` (this batch only → optimistic DSR). Built via 3 PARALLEL opus
+  coding agents (user-approved fan-out; all OSS rejected on mechanical facts — mlfinlab license-gated,
+  optuna/mlflow wrong-shape, sklearn splitters don't enforce a seal): NEW
+  `paper_trading/strategy_trial_registry.py` (persistent SQLite honest cumulative-N + cross-trial Sharpe
+  std, config-hash dedup), `paper_trading/holdout_custodian.py` (one-shot sealed holdout, refuses access
+  until logged unseal), `paper_trading/minimum_backtest_length.py` (López de Prado MinBTL gate + CSCV PBO;
+  reuses the in-repo expected-max-Sharpe benchmark). 295 modules, paper_trading 57→60. **Integrated (mine,
+  Rule G):** promotion gate gained a MinBTL check + `REJECT_BELOW_MINIMUM_BACKTEST_LENGTH`; the evaluator
+  registers every config trial, deflates the DSR against the HONEST cumulative N, runs the tournament ONLY
+  on the research window, and final-validates a winner on the sealed holdout; wired at BOTH live consumers
+  (global + per-regime, each its own `orb_cash_<regime>` honest-N) in `live_paper_trading_service`. Dashboard
+  surface `validation_engine` (Rule N). +75 module tests (agents) + 3 integration tests (cross-batch honest-N,
+  holdout exclusion, MinBTL reject) + fixed 1 test broken by the new session-date introspection (malformed
+  sessions → no-holdout, logged). Design: research/166. **OPEN:** real-data pass (daily champion-challenger
+  reeval populates the registry — market/cadence-gated) + full holdout final-validation of a real winner.
+
+- **2026-08-03 (REDESIGN L1 step 3 — effective-dated statutory schedule; L1 build complete)** — the cost
+  model was a single current snapshot, so a backtest on pre-Apr-2026 option data would silently use today's
+  0.15% STT (didn't exist then) instead of the 0.10% in force — a point-in-time cost leak. Added an
+  effective-dated schedule to `indian_trading_cost_model`: `NSE_OPTION_COST_RATES_PRE_2026_04_01` (STT
+  0.10%) + `_OPTION_RATE_SCHEDULE`/`_CASH_RATE_SCHEDULE` (newest-first `(effective_from, rates)`);
+  `cost_rates_for_segment(segment, on_date=None)` returns the version in force on the trade's date
+  (None=latest=live). `estimate_round_trip_cost` + `estimate_exercised_option_tax` take `trade_date`.
+  **Wired (Rule G)** at all 4 closed-trade cost sites (cash loop + 3 option paths) to pass the trade's OPEN
+  date — live trades resolve to today (no behaviour change post-hike), replayed trades get period-correct
+  rates. Only VERIFIED-with-a-primary-source transitions encoded (the Finance-Act-2026 options STT hike);
+  cash is a single current version (its rates were stable / the NSE exch rebalance was total-neutral). +5
+  tests (pre/post-hike STT, None=latest, cash date-invariant) → 79 cost+risk green; ruff+mypy clean. **L1
+  build items now COMPLETE** (rates hardened · cash+options cost gate live · index options unblocked ·
+  effective-dating); only the market-gated real-fill slippage accrual remains (Rule Q, prior active).
+
+- **2026-08-03 (B34 index-options blocker RESOLVED — segment-scoped mechanism identity)** — index options
+  approved at the risk gate but NEVER opened live. Systematic-debugging on the live feed (journald + a
+  memory probe) proved the real cause: the antibody (`entry_decision_for_mechanism` → `vetoed_mechanisms`)
+  correctly vetoed the option mechanisms for a proven no-edge/overconfident record (n=95–156), BUT the
+  `mechanism_name` was **segment-agnostic** (`option_prediction_records.py`), so 5 index underlyings
+  inherited a veto earned by 208 stock underlyings + replay and never got an independent trial. Fix
+  (research/165): append `[index]`/`[stock]` from `instrument.kind` → four independent option mechanism
+  identities, each earning its OWN antibody verdict, bounded by the risk + new L1 cost gates. **Verified
+  REAL (Rule F):** live snapshot now shows **2 open INDEX-option positions** (BANKNIFTY26AUG57800CE,
+  FINNIFTY26AUG26900CE) where it was 0 for weeks; Option Index segment table populated
+  (`logs/dashboard_index_options_panel.png`). +5 tests. **INFRA learning (memory):** the dashboard is a
+  **systemd service** (`nse-dashboard.service`, auto-restart) — deploy via `systemctl restart`, logs in
+  journald; `pkill`+`nohup` silently fails to bind. Prior B34 suspect (`index_level_size_multiplier`) was
+  REFUTED and corrected in BACKLOG.
+
+- **2026-08-03 (REDESIGN L1 step 2 — pre-trade COST GATE engine, wired live)** — the decision-grade half of
+  L1: NEW `risk_management/pre_trade_cost_gate.py` (`PreTradeCostGate` + `SlippageCalibrationState` +
+  `CostGateDecision`; 292 modules, risk_management 6→7). Every directional entry now must clear its modelled
+  round-trip cost — statutory (the hardened `indian_trading_cost_model`) + slippage (half-spread PRIOR that
+  ARMS to empirical per segment, Rule Q) + real-ADV `market_impact_fill_model` sqrt-impact — expressed in
+  **bps of entry notional** vs the signal's expected-edge bps (ORB: |target−entry|). Verdict PASS / RESIZE
+  (largest size whose lower impact clears) / VETO. Carries the slippage-calibration + a pass/resize/veto
+  tally. **Wired (Rule G)** into BOTH cash-ORB entry sites in `live_universe_paper_loop`
+  (`state.cost_gate_permits_order`, after the risk gate + all size-downs, before `_open_position_from_signal`)
+  — it resizes/vetoes REAL orders. Import cycle (paper_trading↔risk_management) broken with lazy imports.
+  Dashboard surface `pre_trade_cost_gate` (Rule N — manifest + feature-coverage panel). **Verified REAL
+  (Rule F):** live feed — surface `active`, 3 real cash breakouts decided (3 passed, 0 vetoed) this session,
+  slippage calib `gathering 0/30`; eye-verified `logs/dashboard_cost_gate.png`. Tests: +12 (pass/veto/resize,
+  invariants, calibration arming+shrinkage, tally) → risk suite 71 green; ruff+mypy clean.
+  **Step 2b (same day) — options credit-spread path now cost-gated too:** fixed a modelling flaw in
+  `evaluate_credit_spread` (charged cost on the thin NET credit; a spread trades BOTH legs at full premium,
+  so cost now = round-trip on each leg's own premium + option slippage, in rupees vs the net credit) and
+  wired `state.cost_gate_permits_credit_spread` into `option_credit_spread_live_path` after the power-budget
+  gate. +3 tests (fat-credit pass, thin-credit veto, both-leg cost) → 15 gate / 357 paper+risk green. Live
+  Rule-F for options is gated by the existing B34 blocker (index options don't fire live yet); hermetically
+  verified (Rule J). **OPEN (BACKLOG):** effective-dated schedule · real-fill slippage accrual (market-gated).
+
+- **2026-08-03 (REDESIGN L1 step 1 — cost model hardened to verified 2026 rates)** — the redesign's L1
+  "reality filter" begins by hardening the EXISTING `paper_trading/indian_trading_cost_model.py` (salvage,
+  not greenfield — a research pass found the model already exists + all OSS calculators carry stale rate
+  constants, so no vendor; `docs/research/164`). Fixes: (1) **confirmed live bug** — cash
+  `exchange_transaction_charge_rate` 0.0000297 → **0.0000307** (0.00307%), VERIFIED against the primary NSE
+  circular NSE/FA/73061 (eff 2026-03-01), closing the b28 doc's open circular blocker + correcting a ~3.4%
+  understatement on every cash trade's exchange line; (2) cash-intraday brokerage now the real Zerodha
+  **min(0.03%·turnover, Rs 20)/order** (was a flat Rs 20 that overcharged small cash orders up to ~13x) via
+  a new `brokerage_percent_of_order_turnover` field + `_round_trip_brokerage`/`_brokerage_for_one_order`;
+  options stay flat Rs 20 (confirmed). Options exch 0.03553% + STT 0.15% re-verified against the primary
+  circular. Consumers unchanged (`live_universe_paper_loop`, `option_credit_spread_live_path`). No new
+  module (291). Tests: +4 (cash brokerage cap / percentage / options-flat / exch-rate) → 20 green;
+  ruff+mypy clean. **NEXT L1 step (open, BACKLOG):** effective-dating the schedule + the pre-trade COST
+  GATE engine (breakeven bps incl. slippage → PASS/RESIZE/VETO vs expected edge, wired after
+  `pre_trade_risk_gate`) — the decision-grade piece that makes L1 an engine, not a post-hoc calc.
+
+- **2026-08-03 (Dashboard — OPEN POSITIONS regrouped by SEGMENT, Rule L)** — the three open-positions
+  tables were split by §9 confidence (confident-WIN / confident-LOSS / uncertain); the user asked for the
+  three trading SEGMENTS instead. `render_dashboard_html.py`: `tableMeta` now keys on
+  `o.segment` (`cash`→"Cash Intraday", `index_option`→"Option Index", `stock_option`→"Option Stocks");
+  each open row keeps its confidence class as a new `Table` badge column (conf-WIN / conf-LOSS probe /
+  uncertain — so a deliberate loss-probe is never misread as a real losing position, Rule K); an "Other /
+  unclassified" table catches any position whose segment isn't one of the three (no silent drop, Rule K).
+  New validated categorical palette for the segment badges (`.tag.seg-cash/-idx/-stk` = blue #2a78d6 /
+  magenta #b5179e / teal #0d8f7f — `scripts/validate_palette.js` PASS light+dark, distinct from the P&L
+  green/red/amber). CLOSED-trades table unchanged (keeps its confidence tags, per the user). Pure-render
+  change, no new module (291). **Verified REAL (Rule F):** live page with 8 real paper positions rendered
+  the CASH INTRADAY table (each row tagged CONF-WIN / CONF-LOSS (PROBE) / UNCERTAIN) + empty OPTION INDEX /
+  OPTION STOCKS tables ("— none —"); eye-verified `logs/dashboard_segment_tables_panel.png`.
+
+- **2026-08-03 (LLM Gateway — REAL Haiku-4-5 token consumption + call/cache-hit telemetry)** — the panel
+  showed warm/cold serve *counts* but not tokens spent. New thread-safe process-wide `_SubscriptionTokenLedger`
+  in `llm_strategy/claude_code_subscription_provider.py` (sibling of `_SubscriptionTransportTelemetry`),
+  keyed by canonical model, accumulating input/output/cache-read/cache-write tokens + serve (call) count +
+  cache-hit serves; exposed via `subscription_token_ledger()`. Fed from REAL SDK usage inside
+  `_extract_text_and_model` (the one seam every warm+cold serve walks) — records ONCE per serve (largest of
+  Assistant/Result `usage` → no double-count) and reads the canonical model from `ResultMessage.model_usage`.
+  New data-flow (no new import edge): subscription serve → `_TOKEN_LEDGER` → `_strategic_llm` surface → LLM
+  Gateway panel `tokens` KPI (`render_dashboard_html`). No new modules (291). **Real-data bug caught by the
+  Rule-F pass:** the first draft mis-parsed the flat `usage` dict (nested `server_tool_use` tripped a
+  per-model heuristic) and logged 0 tokens for 2 phantom serves — rewritten to harvest flat int fields and
+  dedupe per serve. **Verified REAL (Rule F):** live gateway serve recorded `21,085 tok · 1 call · in 10 ·
+  out 2.5k · cache-read 18.5k (1 hit, 100%)`, matching transport `warm 1 · cold 0`; eye-verified on the live
+  page (`logs/dashboard_haiku_tokens_kpis.png`). **Hermetic (Rule J):** +5 tests (real flat-usage shape,
+  server_tool_use/service_tier ignored, Assistant+Result not double-counted, call+cache-hit counting,
+  no-usage records nothing). Gate: ruff+mypy clean on changed files; 13 subscription-provider tests green.
+  Design: `docs/research/163`.
 
 - **2026-08-02 (B48 task #1 — LIVE warm/cold transport telemetry from the ACTUAL serving pool)** — the
   LLM Gateway panel showed the *configured* transport, not what really served, because `_strategic_llm`

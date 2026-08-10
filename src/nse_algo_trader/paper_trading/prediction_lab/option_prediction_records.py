@@ -31,6 +31,16 @@ from nse_algo_trader.paper_trading.prediction_lab.prediction_record import (
 from nse_algo_trader.strategy_engine import SignalDirection
 
 
+def _option_segment_label(option_instrument) -> str:
+    """'index' or 'stock' for an option instrument — appended to the mechanism name so INDEX and STOCK
+    options accrue INDEPENDENT antibody track records (research/165). Index options (5 liquid, tight-spread
+    underlyings) must not inherit a no-edge veto earned by 208 stock underlyings + replay; each segment
+    earns or loses its own verdict, bounded by the risk + L1 cost gates."""
+    from nse_algo_trader.universe_registry.instrument_types import InstrumentKind
+
+    return "index" if getattr(option_instrument, "kind", None) is InstrumentKind.INDEX_OPTION else "stock"
+
+
 def _table_outcome_exit(win_probability: float):
     if win_probability >= CONFIDENT_WIN_PROBABILITY:
         return PredictionLabeledTable.CONFIDENT_WIN, PredictedTradeOutcome.WIN, "target"
@@ -71,7 +81,10 @@ def build_directional_option_prediction_record(
         reasons=(
             NamedPredictionReason("adx", adx_value, adx_value - _ADX_PROBABILITY_CENTER),
         ),
-        mechanism_name="long ATM option riding the spot's ORB breakout (ADX-trending)",
+        mechanism_name=(
+            "long ATM option riding the spot's ORB breakout (ADX-trending) "
+            f"[{_option_segment_label(option_instrument)}]"
+        ),
         predicted_exit_cause=exit_cause,
         kill_criteria="exit if the spot re-enters its opening range for 2 bars",
         calendar_context="normal",
@@ -103,7 +116,10 @@ def build_credit_spread_prediction_record(
         reasons=(
             NamedPredictionReason("adx", adx_value, _ADX_PROBABILITY_CENTER - adx_value),
         ),
-        mechanism_name="defined-risk credit spread capturing premium in a range-bound regime",
+        mechanism_name=(
+            "defined-risk credit spread capturing premium in a range-bound regime "
+            f"[{_option_segment_label(short_leg_instrument)}]"
+        ),
         predicted_exit_cause=exit_cause,
         kill_criteria="exit if the short strike is breached (regime turned trending)",
         calendar_context="normal",

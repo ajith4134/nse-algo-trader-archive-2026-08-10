@@ -7,6 +7,7 @@ prediction scoreboard). The FastAPI layer just serves what this returns,
 so the read-model stays pure and testable against real engine state.
 """
 
+import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 
@@ -285,6 +286,11 @@ def build_dashboard_snapshot(
         if precomputed_prediction_tables is not None
         else prediction_scoreboard.confident_win_beats_confident_loss()
     )
+    # The 3 segment-bot pod trades open in the POD (a separate process from the live paper service that
+    # publishes these boards), so surface the pod's OPEN OPTION positions into the Index/Stock-Option tables +
+    # their open-counts — otherwise the user sees "0 open" though the bots are trading (Rule N visibility).
+    _pod_positions, _pod_boards = _with_pod_option_positions(
+        list(open_positions or []), list(segment_boards or []))
     alerts = [
         {"level": a.level.value, "category": a.category, "message": a.message}
         for a in generate_dashboard_alerts(
@@ -310,10 +316,10 @@ def build_dashboard_snapshot(
         paper_trading=paper_trading,
         prediction_tables=prediction_tables,
         confident_win_beats_confident_loss=confident_win_beats_confident_loss,
-        open_positions=list(open_positions or []),
+        open_positions=_pod_positions,
         live_universe_status=live_universe_status,
         exit_efficiency_rows=list(exit_efficiency_rows or []),
-        segment_boards=list(segment_boards or []),
+        segment_boards=_pod_boards,
         closed_trades=list(closed_trades or []),
         combined_realized_pnl=combined_realized_pnl,
         real_realized_pnl=real_realized_pnl,
@@ -331,10 +337,138 @@ def build_dashboard_snapshot(
         information_diet=information_diet,
         experiment_count_by_provenance=experiment_count_by_provenance,
         prequential_forecast_score=prequential_forecast_score,
-        feature_surfaces=feature_surfaces or [],
+        feature_surfaces=_with_segment_bot_surfaces(feature_surfaces or []),
         option_entry_reason_counts=option_entry_reason_counts or {},
         option_index_entry_outcomes=option_index_entry_outcomes or {},
     )
+
+
+def _with_segment_bot_surfaces(feature_surfaces: list[dict]) -> list[dict]:
+    """Append the 3 segment bots + 2 directional AI surfaces (measured from code + disk, Rule N/R).
+
+    These run in the pod, not the dashboard's live service, so they are probed here — always-on, with or
+    without live auth. Robust by construction: a probe failure never breaks the snapshot (Rule O).
+    """
+    try:
+        from nse_algo_trader.dashboard.segment_bot_surface_prober import probe_segment_bot_surfaces
+
+        # The live service only emits "not yet surfaced" placeholders for the bot keys (it doesn't hold the
+        # pod), so the prober is authoritative for those keys — it REPLACES the placeholder in place, keeping
+        # manifest order, and any bot key not already present (the no-live path) is appended.
+        probed = {s.key: s.to_json_dict() for s in probe_segment_bot_surfaces()}
+        merged = [probed.pop(str(s.get("key")), s) for s in feature_surfaces]
+        merged.extend(probed.values())
+        return merged
+    except Exception:  # noqa: BLE001 — surfacing must never take down the whole dashboard snapshot
+        import logging
+
+        logging.getLogger(__name__).exception("segment-bot surface probe failed")
+        return feature_surfaces
+
+
+_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def _expiry_label(iso: str) -> str:
+    """2026-08-06 → '06Aug' for a compact real-contract label."""
+    try:
+        y, m, d = str(iso)[:10].split("-")
+        return f"{int(d):02d}{_MONTHS[int(m) - 1]}"
+    except (ValueError, IndexError):
+        return ""
+
+
+def _pod_option_rows(r: dict, seg: str) -> list:
+    """Expand a pod option position into ONE ROW PER REAL LEG (strike · CE/PE · expiry · live premium).
+
+    So the Option-Index / Option-Stocks tables show the actual contracts the bot is trading (e.g.
+    'NIFTY 06Aug 24500CE  SELL  entry 34.5  LTP 28.0'), not just the underlying. A position with no synthesized
+    legs (a directional single leg / cash) falls back to one underlying row.
+    """
+    underlying = str(r.get("underlying", "?"))
+    legs = r.get("legs") or []
+    exp = _expiry_label(r.get("expiry", ""))
+    qty = int(r.get("quantity", 0))
+    # the "Table" badge on a pod option row carries no §9 confidence table (that concept is cash/live-only) —
+    # so repurpose it to show WHICH PROFIT ENGINE's edge this trade is on (Θ/Δ/ν/Γ/RV): the inline evidence.
+    raw_feats = r.get("features")
+    feats = raw_feats if isinstance(raw_feats, dict) else {}
+    engine_badge = f"engine_{feats.get('engine')}" if feats.get("engine") else "uncertain"
+    if not legs:
+        return [OpenPositionSummary(
+            trading_symbol=underlying, direction=str(r.get("side", "neutral")), quantity=qty,
+            entry_price=round(float(r.get("entry_price", 0.0)), 2),
+            stop_loss_price=round(float(r.get("stop_price", 0.0)), 2),
+            target_price=round(float(r.get("target_price", 0.0)), 2),
+            last_price=r.get("last_mark"), unrealized_pnl=r.get("unrealized_pnl"),
+            assigned_table=engine_badge, segment=seg,
+            maximum_favourable_profit=float(r.get("max_favourable", 0.0) or 0.0),
+            maximum_adverse_profit=float(r.get("max_adverse", 0.0) or 0.0))]
+    rows = []
+    for leg in legs:
+        strike = int(float(leg.get("strike", 0)))
+        right = str(leg.get("right", ""))
+        side = str(leg.get("side", ""))
+        entry = round(float(leg.get("entry_price", 0.0)), 2)
+        cur = leg.get("current_price")
+        # buy leg reads BUY, sell reads SELL in the table (renderer maps long→BUY / short→SELL)
+        rows.append(OpenPositionSummary(
+            trading_symbol=f"{underlying} {exp} {strike}{right}".strip(),
+            direction="long" if side == "buy" else "short",
+            quantity=qty,
+            entry_price=entry,
+            stop_loss_price=0.0,
+            target_price=0.0,
+            last_price=(round(float(cur), 2) if cur is not None else None),
+            unrealized_pnl=(round((entry - float(cur)) * (1 if side == "sell" else -1) * max(qty, 1), 2)
+                            if cur is not None else None),
+            assigned_table=engine_badge,  # profit-engine badge (Θ/Δ/ν/Γ/RV) — which edge this leg's trade is on
+            segment=seg))
+    return rows
+
+
+def _with_pod_option_positions(
+    open_positions: list, segment_boards: list[dict]
+) -> tuple[list, list[dict]]:
+    """Merge the segment-bot pod's OPEN option positions into the Index/Stock-Option tables + open-counts.
+
+    The pod (3 AI bots) trades in a different process from the live paper service that fills these boards, so
+    without this the Option-Index / Option-Stocks tables read "0 open" while the bots are actually trading.
+    Robust: a read failure never breaks the snapshot (Rule O).
+    """
+    try:
+        from pathlib import Path
+
+        store = Path.home() / ".nse_algo_trader" / "segment_bot_pod" / "lifecycle" / "pod_open_positions.json"
+        if not store.exists():
+            return open_positions, segment_boards
+        rows = json.loads(store.read_text())
+        option_rows = [r for r in rows if r.get("segment") in ("index_option", "stock_option")]
+        if not option_rows:
+            return open_positions, segment_boards
+
+        positions = list(open_positions)
+        counts: dict[str, int] = {}
+        for r in option_rows:
+            seg = r["segment"]
+            counts[seg] = counts.get(seg, 0) + 1
+            positions.extend(_pod_option_rows(r, seg))  # per-leg rows: real contracts (strike/CE-PE/expiry)
+
+        boards = [dict(b) for b in segment_boards]
+        seen = {b.get("segment") for b in boards}
+        for board in boards:
+            seg = board.get("segment")
+            if seg in counts:
+                board["open_count"] = int(board.get("open_count", 0)) + counts[seg]
+        for seg, n in counts.items():
+            if seg not in seen:
+                boards.append({"segment": seg, "open_count": n, "unrealized_pnl": 0.0, "realised_fees": 0.0})
+        return positions, boards
+    except Exception:  # noqa: BLE001 — surfacing must never take down the snapshot
+        import logging
+
+        logging.getLogger(__name__).exception("pod option-position surfacing failed")
+        return open_positions, segment_boards
 
 
 def _summarize_table(

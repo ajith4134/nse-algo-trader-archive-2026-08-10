@@ -40,14 +40,18 @@ def evaluate_per_regime_champions(
     challenger_configs: list[OpeningRangeBreakoutConfig],
     default_champion: OpeningRangeBreakoutConfig = OpeningRangeBreakoutConfig(),
     promotion_config: StrategyPromotionConfig = StrategyPromotionConfig(),
+    trial_registry=None,
 ) -> dict[str, ChampionChallengerDecision]:
     """Run the champion-challenger tournament independently within each market regime. The
     incumbent for a regime is `champion_by_regime[regime]` or `default_champion`. Returns a
-    decision per regime that has sessions."""
+    decision per regime that has sessions. Each regime accrues its OWN honest trial count in the shared
+    `trial_registry` (family `orb_cash_<regime>`) — regimes are independent selection problems, so their
+    DSR deflation must not be pooled (research/166)."""
     decisions: dict[str, ChampionChallengerDecision] = {}
     for market_regime, sessions in partition_sessions_by_regime(labelled_sessions).items():
         incumbent = champion_by_regime.get(market_regime, default_champion)
         decisions[market_regime] = evaluate_champion_vs_challengers(
-            incumbent, challenger_configs, sessions, promotion_config
+            incumbent, challenger_configs, sessions, promotion_config,
+            trial_registry=trial_registry, strategy_family=f"orb_cash_{market_regime}",
         )
     return decisions

@@ -90,6 +90,86 @@ def subscription_transport_telemetry() -> dict:
     return _TRANSPORT_TELEMETRY.snapshot()
 
 
+# Canonical token-field name → normalized ledger bucket. The Agent SDK reports usage in either snake_case
+# (`input_tokens`, seen in real ~/.claude jsonl) or camelCase (`inputTokens`), so we normalize both.
+_TOKEN_FIELD_ALIASES: dict[str, str] = {
+    "input_tokens": "input", "inputtokens": "input",
+    "output_tokens": "output", "outputtokens": "output",
+    "cache_read_input_tokens": "cache_read", "cachereadinputtokens": "cache_read",
+    "cache_creation_input_tokens": "cache_creation", "cachecreationinputtokens": "cache_creation",
+}
+_TOKEN_BUCKETS = ("input", "output", "cache_read", "cache_creation")
+
+
+class _SubscriptionTokenLedger:
+    """Thread-safe process-wide tally of tokens actually consumed on the subscription lane, split by
+    canonical model. Fed from the SDK `usage`/`modelUsage` metadata of every real serve (the same message
+    stream the text/model extractor already walks) so the LLM Gateway panel can show REAL Haiku-4-5 token
+    consumption for this session, not an estimate."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        # model → {input, output, cache_read, cache_creation, serves}. `total` is derived on snapshot.
+        self._by_model: dict[str, dict[str, int]] = {}
+
+    def record(self, model: str, tokens: dict[str, int]) -> None:
+        """Add one serve's per-bucket token counts under `model`. A serve with no usable usage still
+        increments `serves` so the panel distinguishes 'served, no usage reported' from 'never served'."""
+        key = model or DEFAULT_SUBSCRIPTION_MODEL
+        with self._lock:
+            row = self._by_model.setdefault(
+                key,
+                {"input": 0, "output": 0, "cache_read": 0, "cache_creation": 0,
+                 "serves": 0, "cache_hit_serves": 0},
+            )
+            for bucket in _TOKEN_BUCKETS:
+                row[bucket] += int(tokens.get(bucket, 0) or 0)
+            row["serves"] += 1
+            if int(tokens.get("cache_read", 0) or 0) > 0:  # a serve that read from the prompt cache = a hit
+                row["cache_hit_serves"] += 1
+
+    def snapshot(self) -> dict:
+        """`{model: {input,output,cache_read,cache_creation,total,serves}, "_all": {...aggregate...}}`."""
+        with self._lock:
+            out: dict[str, dict[str, int]] = {}
+            agg = {"input": 0, "output": 0, "cache_read": 0, "cache_creation": 0,
+                   "total": 0, "serves": 0, "cache_hit_serves": 0}
+            for model, row in self._by_model.items():
+                total = sum(row[b] for b in _TOKEN_BUCKETS)
+                out[model] = {**{b: row[b] for b in _TOKEN_BUCKETS}, "total": total,
+                              "serves": row["serves"], "cache_hit_serves": row["cache_hit_serves"]}
+                for b in _TOKEN_BUCKETS:
+                    agg[b] += row[b]
+                agg["total"] += total
+                agg["serves"] += row["serves"]
+                agg["cache_hit_serves"] += row["cache_hit_serves"]
+            out["_all"] = agg
+            return out
+
+
+_TOKEN_LEDGER = _SubscriptionTokenLedger()
+
+
+def subscription_token_ledger() -> dict:
+    """Live snapshot of tokens consumed on the subscription lane this process, keyed by canonical model
+    (plus an `_all` aggregate). Read by the dashboard's LLM Gateway surface so the panel shows REAL
+    Haiku-4-5 token consumption for the session."""
+    return _TOKEN_LEDGER.snapshot()
+
+
+def _usage_tokens_from_mapping(usage: dict) -> dict[str, int]:
+    """Pull normalized per-bucket token counts out of ONE flat usage mapping (int-valued token fields),
+    tolerating camelCase/snake_case and ignoring non-int / non-token entries."""
+    tokens: dict[str, int] = {}
+    for raw_key, value in usage.items():
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            continue
+        bucket = _TOKEN_FIELD_ALIASES.get(str(raw_key).replace("-", "_").lower())
+        if bucket is not None:
+            tokens[bucket] = tokens.get(bucket, 0) + int(value)
+    return tokens
+
+
 def _shared_warm_session_for(model_name: str) -> Any:
     """The process-shared `WarmClaudeSubscriptionSession` (built once, thread-safe). Keeps a single warm
     `claude` subprocess alive across every provider instance so telemetry + speed are consistent."""
@@ -106,9 +186,25 @@ def _shared_warm_session_for(model_name: str) -> Any:
 
 def _extract_text_and_model(messages: list[Any]) -> tuple[str, str]:
     """Pull the assistant text + the canonical model out of the SDK message stream, defensively
-    (message classes vary by SDK version, so read by attribute/blocks, not isinstance)."""
+    (message classes vary by SDK version, so read by attribute/blocks, not isinstance).
+
+    Side effect: folds each message's token usage into the process-wide `_TOKEN_LEDGER`, so the LLM
+    Gateway panel shows REAL Haiku-4-5 token consumption. This is the ONE place every serve's message
+    stream is walked — cold via `_run`, warm via the injected `extract` callback — so capturing here
+    covers 100% of real serves without threading a new return value through the warm-session seam.
+    Tokens are counted at extraction (before JSON parse) because they are spent regardless of parse
+    outcome. Nested per-model usage is attributed per key; a flat usage mapping is attributed to the
+    resolved canonical model AFTER the full stream is read (so `canonicalModel`, if present anywhere,
+    labels it correctly)."""
     text_parts: list[str] = []
-    model = DEFAULT_SUBSCRIPTION_MODEL
+    weak_model = DEFAULT_SUBSCRIPTION_MODEL  # AssistantMessage.model ("claude-haiku-4-5-20251001")
+    canonical_model = ""                     # ModelUsage.canonicalModel ("claude-haiku-4-5") — preferred key
+    # One serve emits several usage-bearing messages (AssistantMessage.usage AND ResultMessage.usage carry
+    # the SAME per-turn totals for a max_turns=1 call), so accumulating every one DOUBLE-COUNTS. We collect
+    # each message's per-turn flat token dict and record only the LARGEST (the aggregate) once per serve.
+    # We deliberately read the FLAT `usage` (reliably per-turn) for the counts and use `model_usage` only to
+    # resolve the canonical model label — a warm client's `model_usage` can report session-cumulative totals.
+    flat_candidates: list[dict[str, int]] = []
     for msg in messages:
         content = getattr(msg, "content", None)
         if isinstance(content, list):
@@ -118,12 +214,25 @@ def _extract_text_and_model(messages: list[Any]) -> tuple[str, str]:
                     text_parts.append(block_text)
         elif isinstance(content, str):
             text_parts.append(content)
-        # ResultMessage carries usage/model metadata
-        usage = getattr(msg, "usage", None) or getattr(msg, "modelUsage", None)
+        msg_model = getattr(msg, "model", None)
+        if isinstance(msg_model, str) and msg_model:
+            weak_model = msg_model
+        # ResultMessage.model_usage: dict[model_name → ModelUsage]; used ONLY for the canonical label here.
+        model_usage = getattr(msg, "model_usage", None)
+        if isinstance(model_usage, dict):
+            for name, mu in model_usage.items():
+                cm = mu.get("canonicalModel") if isinstance(mu, dict) else None
+                canonical_model = cm if isinstance(cm, str) and cm else (canonical_model or str(name))
+        # AssistantMessage.usage / ResultMessage.usage: flat int token fields alongside nested
+        # `server_tool_use` + string `service_tier` — `_usage_tokens_from_mapping` picks out only the ints.
+        usage = getattr(msg, "usage", None)
         if isinstance(usage, dict):
-            for v in usage.values():
-                if isinstance(v, dict) and isinstance(v.get("canonicalModel"), str):
-                    model = v["canonicalModel"]
+            toks = _usage_tokens_from_mapping(usage)
+            if toks:
+                flat_candidates.append(toks)
+    model = canonical_model or weak_model
+    if flat_candidates:
+        _TOKEN_LEDGER.record(model, max(flat_candidates, key=lambda t: sum(t.values())))
     return "\n".join(text_parts).strip(), model
 
 
