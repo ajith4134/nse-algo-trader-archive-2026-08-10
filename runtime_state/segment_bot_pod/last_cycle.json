@@ -1,0 +1,57 @@
+{
+ "dispersion": {
+  "action": "abstain",
+  "implied_correlation": 0.3217,
+  "index_iv": 0.1278,
+  "basket_iv": 0.2106,
+  "conviction": 0.0
+ },
+ "total_proposals": 0,
+ "accepted_orders": 0,
+ "by_bot": {
+  "index_option_bot": {
+   "segment": "index_option",
+   "proposals": 0,
+   "accepted": 0,
+   "closed_trades": 0,
+   "competency_level": 0,
+   "is_earned": false
+  },
+  "stock_option_bot": {
+   "segment": "stock_option",
+   "proposals": 0,
+   "accepted": 0,
+   "closed_trades": 140,
+   "competency_level": 3,
+   "is_earned": true
+  },
+  "cash_intraday_bot": {
+   "segment": "cash_intraday",
+   "proposals": 0,
+   "accepted": 0,
+   "closed_trades": 16,
+   "competency_level": 0,
+   "is_earned": false
+  }
+ },
+ "closed_this_cycle": 0,
+ "open_positions": 0,
+ "book_risk": {
+  "net_delta": 0.0,
+  "net_gamma": 0.0,
+  "net_vega": 0.0,
+  "net_theta": 0.0,
+  "expected_pnl": 0.0,
+  "portfolio_cvar": 0.0,
+  "n_structures": 0
+ },
+ "allocation_mode": "closed",
+ "solver_status": "closed",
+ "portfolio_cvar_fraction": 0.0,
+ "hard_stop_scale": 1.0,
+ "crowding_level": "\u2014",
+ "crowding_score": 0.0,
+ "price_divergence_alarms": [],
+ "orders_placed": 0,
+ "orders": []
+}

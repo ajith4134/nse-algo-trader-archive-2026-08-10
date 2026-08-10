@@ -1,0 +1,177 @@
+{
+ "latest": {
+  "underlying": "TECHM",
+  "regime_label": "calm",
+  "regime_index": 0,
+  "regime_probabilities": [
+   0.9939554292007009,
+   0.006044570799299162
+  ],
+  "garch_forecast_sigma": 0.02374306265407925,
+  "har_forecast_sigma": 0.015099865934422413,
+  "blended_forecast_sigma": 0.019120769511261806,
+  "realized_vol": 0.019120699931731745,
+  "variance_risk_premium": 0.2523632666735855,
+  "n_observations": 640,
+  "maturity": "earned",
+  "fitted_at_ist": "2026-08-05 15:30:56 IST"
+ },
+ "ledger": [
+  {
+   "fitted_at": "2026-08-04 14:59:07 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.0214560092741073,
+   "n_observations": 565
+  },
+  {
+   "fitted_at": "2026-08-04 15:03:42 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.0214560092741073,
+   "n_observations": 565
+  },
+  {
+   "fitted_at": "2026-08-04 15:09:27 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.020305401716209016,
+   "n_observations": 568
+  },
+  {
+   "fitted_at": "2026-08-04 15:11:29 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.020305401716209016,
+   "n_observations": 568
+  },
+  {
+   "fitted_at": "2026-08-04 15:17:15 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.020697083009554,
+   "n_observations": 569
+  },
+  {
+   "fitted_at": "2026-08-04 15:27:29 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.020697083009554,
+   "n_observations": 569
+  },
+  {
+   "fitted_at": "2026-08-04 15:34:31 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.020697083009554,
+   "n_observations": 569
+  },
+  {
+   "fitted_at": "2026-08-04 16:02:11 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.020697083009554,
+   "n_observations": 569
+  },
+  {
+   "fitted_at": "2026-08-05 09:32:34 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.020697083009554,
+   "n_observations": 569
+  },
+  {
+   "fitted_at": "2026-08-05 09:38:23 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.03227129731812817,
+   "n_observations": 573
+  },
+  {
+   "fitted_at": "2026-08-05 09:58:23 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.0315032711306745,
+   "n_observations": 574
+  },
+  {
+   "fitted_at": "2026-08-05 10:18:05 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.024996380878131875,
+   "n_observations": 578
+  },
+  {
+   "fitted_at": "2026-08-05 10:38:17 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.021478333470495187,
+   "n_observations": 586
+  },
+  {
+   "fitted_at": "2026-08-05 11:03:26 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.02238887796365131,
+   "n_observations": 587
+  },
+  {
+   "fitted_at": "2026-08-05 11:23:56 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.02398497103650408,
+   "n_observations": 592
+  },
+  {
+   "fitted_at": "2026-08-05 11:46:37 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.020630288618197233,
+   "n_observations": 596
+  },
+  {
+   "fitted_at": "2026-08-05 12:11:24 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.01965418280045158,
+   "n_observations": 602
+  },
+  {
+   "fitted_at": "2026-08-05 12:32:11 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.019342703109332136,
+   "n_observations": 607
+  },
+  {
+   "fitted_at": "2026-08-05 12:52:00 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.018707517495197185,
+   "n_observations": 611
+  },
+  {
+   "fitted_at": "2026-08-05 13:17:17 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.018089762333606887,
+   "n_observations": 618
+  },
+  {
+   "fitted_at": "2026-08-05 13:37:38 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.01816973661306586,
+   "n_observations": 621
+  },
+  {
+   "fitted_at": "2026-08-05 13:58:18 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.01811601540833216,
+   "n_observations": 625
+  },
+  {
+   "fitted_at": "2026-08-05 14:22:58 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.019053766122527235,
+   "n_observations": 631
+  },
+  {
+   "fitted_at": "2026-08-05 14:44:15 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.01917440180722026,
+   "n_observations": 635
+  },
+  {
+   "fitted_at": "2026-08-05 15:06:08 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.019208214161400887,
+   "n_observations": 636
+  },
+  {
+   "fitted_at": "2026-08-05 15:30:56 IST",
+   "regime_label": "calm",
+   "blended_forecast_sigma": 0.019120769511261806,
+   "n_observations": 640
+  }
+ ]
+}
