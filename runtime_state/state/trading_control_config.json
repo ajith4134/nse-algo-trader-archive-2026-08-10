@@ -1,0 +1,16 @@
+{
+  "trading_mode": "paper",
+  "account_virtual_capital": 10000000000,
+  "min_capital_per_trade": 40000,
+  "max_capital_per_trade": 100000,
+  "max_risk_per_trade_fraction": 0.02,
+  "segment_enabled": {
+    "nse_cash_equity": true,
+    "nse_index_options": true,
+    "nse_stock_options": true
+  },
+  "strategy_enabled": {
+    "opening_range_breakout": true,
+    "credit_spread": true
+  }
+}

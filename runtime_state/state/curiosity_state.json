@@ -1,0 +1,77 @@
+{
+  "cell_states": {
+    "opening_range_breakout_v1||indecisive": {
+      "q_learning_progress": 0.12819574228874503,
+      "consecutive_bored_windows": 0,
+      "samples_at_last_update": 527,
+      "last_recent_error_mean": 0.3780368000384631
+    },
+    "credit_spread_v1||indecisive": {
+      "q_learning_progress": 0.052950750059718235,
+      "consecutive_bored_windows": 0,
+      "samples_at_last_update": 80,
+      "last_recent_error_mean": 0.4736641752927794
+    },
+    "directional_option_orb_v1||indecisive": {
+      "q_learning_progress": 0.11425598495511483,
+      "consecutive_bored_windows": 0,
+      "samples_at_last_update": 134,
+      "last_recent_error_mean": 0.3633575669823836
+    },
+    "opening_range_breakout_v1||unknown": {
+      "q_learning_progress": 0.06169925752634398,
+      "consecutive_bored_windows": 0,
+      "samples_at_last_update": 1683,
+      "last_recent_error_mean": 0.2916579695867508
+    },
+    "opening_range_breakout_v1||trending": {
+      "q_learning_progress": 0.08401603590189624,
+      "consecutive_bored_windows": 0,
+      "samples_at_last_update": 219,
+      "last_recent_error_mean": 0.22821154639560867
+    },
+    "credit_spread_v1||trending": {
+      "q_learning_progress": 0.0,
+      "consecutive_bored_windows": 0,
+      "samples_at_last_update": 13,
+      "last_recent_error_mean": 0.4313778468533316
+    },
+    "opening_range_breakout_v1||range_bound": {
+      "q_learning_progress": 0.044460179916466905,
+      "consecutive_bored_windows": 0,
+      "samples_at_last_update": 658,
+      "last_recent_error_mean": 0.22921695702026954
+    },
+    "directional_option_orb_v1||range_bound": {
+      "q_learning_progress": 0.12664302677082787,
+      "consecutive_bored_windows": 0,
+      "samples_at_last_update": 41,
+      "last_recent_error_mean": 0.20662702989424672
+    },
+    "credit_spread_v1||range_bound": {
+      "q_learning_progress": 0.023560310850842633,
+      "consecutive_bored_windows": 0,
+      "samples_at_last_update": 24,
+      "last_recent_error_mean": 0.20530542968096577
+    },
+    "directional_option_orb_v1||unknown": {
+      "q_learning_progress": 0.14067766313510172,
+      "consecutive_bored_windows": 0,
+      "samples_at_last_update": 95,
+      "last_recent_error_mean": 0.4756475385811932
+    },
+    "credit_spread_v1||unknown": {
+      "q_learning_progress": 0.0,
+      "consecutive_bored_windows": 0,
+      "samples_at_last_update": 4,
+      "last_recent_error_mean": 0.2637133163641593
+    },
+    "directional_option_orb_v1||trending": {
+      "q_learning_progress": 0.06782618345864332,
+      "consecutive_bored_windows": 0,
+      "samples_at_last_update": 41,
+      "last_recent_error_mean": 0.2990336452971331
+    }
+  },
+  "total_trades_seen": 3481
+}

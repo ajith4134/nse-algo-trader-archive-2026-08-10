@@ -1,0 +1,168 @@
+{
+  ".env": {
+    "bytes": 6299,
+    "kind": "secret"
+  },
+  "arm_selection_posterior.sqlite3": {
+    "bytes": 241664,
+    "kind": "sqlite",
+    "tables": {
+      "arm_pending_trade": 921,
+      "arm_posterior_cell": 126
+    }
+  },
+  "autopoiesis_homeostat.sqlite3": {
+    "bytes": 14741504,
+    "kind": "sqlite",
+    "tables": {
+      "component_breaker_state": 0,
+      "component_lifetime_event": 21276,
+      "component_repair_action": 0,
+      "component_telemetry_sample": 69856,
+      "sqlite_sequence": 2
+    }
+  },
+  "breeze_session_token.json": {
+    "bytes": 81,
+    "kind": "secret"
+  },
+  "capital_allocation_state.json": {
+    "bytes": 5277,
+    "kind": "state"
+  },
+  "council_track_record.sqlite3": {
+    "bytes": 12288,
+    "kind": "sqlite",
+    "tables": {
+      "council_forecasts": 0,
+      "sqlite_sequence": 0
+    }
+  },
+  "curiosity_state.json": {
+    "bytes": 2734,
+    "kind": "state"
+  },
+  "dashboard_access_token.txt": {
+    "bytes": 22,
+    "kind": "secret"
+  },
+  "dashboard_server.log": {
+    "bytes": 0,
+    "kind": "state"
+  },
+  "debate_risk_observations.sqlite3": {
+    "bytes": 106496,
+    "kind": "sqlite",
+    "tables": {
+      "debate_risk_observations": 906,
+      "sqlite_sequence": 1
+    }
+  },
+  "experience_memory.sqlite3": {
+    "bytes": 2793472,
+    "kind": "sqlite",
+    "tables": {
+      "experience_nodes": 3481
+    }
+  },
+  "experience_memory.sqlite3.bak_pre_5b": {
+    "bytes": 249856,
+    "kind": "sqlite",
+    "tables": {
+      "experience_nodes": 293
+    }
+  },
+  "instrument_token_map.json": {
+    "bytes": 231158,
+    "kind": "state"
+  },
+  "kite_access_token.json": {
+    "bytes": 130,
+    "kind": "secret"
+  },
+  "kite_token_refresh.log": {
+    "bytes": 326,
+    "kind": "state"
+  },
+  "market_data.sqlite3": {
+    "bytes": 327606272,
+    "kind": "sqlite",
+    "tables": {
+      "atm_implied_volatility_daily": 1492,
+      "bulk_block_deals": 763,
+      "cash_bhavcopy_delivery": 16372,
+      "fo_ban_list_symbols": 1,
+      "fo_bhavcopy_contracts": 1436568,
+      "mwpl_position_limits": 1048,
+      "price_bars": 659990
+    }
+  },
+  "news.sqlite3": {
+    "bytes": 5586944,
+    "kind": "sqlite",
+    "tables": {
+      "news_items": 8599,
+      "news_levels": 397
+    }
+  },
+  "nse_equity_master.json": {
+    "bytes": 105021,
+    "kind": "state"
+  },
+  "nse_event_calendar.json": {
+    "bytes": 179509,
+    "kind": "state"
+  },
+  "nse_reports_ingestion.log": {
+    "bytes": 1154,
+    "kind": "state"
+  },
+  "order_intent_wal.sqlite3": {
+    "bytes": 16384,
+    "kind": "sqlite",
+    "tables": {
+      "order_intent_wal": 0
+    }
+  },
+  "replay_curriculum.sqlite3": {
+    "bytes": 12288,
+    "kind": "sqlite",
+    "tables": {
+      "replayed_session_regimes": 5
+    }
+  },
+  "safety_incidents.sqlite3": {
+    "bytes": 16384,
+    "kind": "sqlite",
+    "tables": {
+      "safety_incidents": 2,
+      "sqlite_sequence": 1
+    }
+  },
+  "strategy_family_promotion.sqlite3": {
+    "bytes": 12288,
+    "kind": "sqlite",
+    "tables": {
+      "family_promotion": 6
+    }
+  },
+  "strategy_trial_registry.sqlite3": {
+    "bytes": 16384,
+    "kind": "sqlite",
+    "tables": {
+      "strategy_trials": 20
+    }
+  },
+  "trading_control_config.json": {
+    "bytes": 388,
+    "kind": "state"
+  },
+  "win_probability_model.joblib": {
+    "bytes": 541690,
+    "kind": "state"
+  },
+  "world_model_counts.json": {
+    "bytes": 2140,
+    "kind": "state"
+  }
+}

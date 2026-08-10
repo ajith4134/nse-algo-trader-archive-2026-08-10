@@ -1,0 +1,35 @@
+NSE report ingestion for 2026-07-23:
+  cash_bhavcopy_delivery: 3247 rows
+  fo_bhavcopy_open_interest: 38572 rows
+  mwpl_position_limits: 210 rows
+  fo_ban_list: 0 symbols for 2026-07-24
+  bulk_deals: 145 rows
+  block_deals: 0 rows
+NSE report ingestion for 2026-07-23:
+  cash_bhavcopy_delivery: 3247 rows
+  fo_bhavcopy_open_interest: 38572 rows
+  mwpl_position_limits: 210 rows
+  fo_ban_list: 0 symbols for 2026-07-24
+  bulk_deals: 145 rows
+  block_deals: 0 rows
+NSE report ingestion for 2026-07-24:
+  cash_bhavcopy_delivery: 3259 rows
+  fo_bhavcopy_open_interest: 38800 rows
+  mwpl_position_limits: 210 rows
+  fo_ban_list: 0 symbols for 2026-07-27
+  bulk_deals: 221 rows
+  block_deals: 3 rows
+NSE report ingestion for 2026-07-27:
+  cash_bhavcopy_delivery: 3293 rows
+  fo_bhavcopy_open_interest: 38978 rows
+  mwpl_position_limits: 210 rows
+  fo_ban_list: 0 symbols for 2026-07-28
+  bulk_deals: 169 rows
+  block_deals: 0 rows
+NSE report ingestion for 2026-08-03:
+  cash_bhavcopy_delivery: 3312 rows
+  fo_bhavcopy_open_interest: 31503 rows
+  mwpl_position_limits: 208 rows
+  fo_ban_list: 0 symbols for 2026-08-04
+  bulk_deals: 95 rows
+  block_deals: 2 rows
